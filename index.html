@@ -619,17 +619,16 @@
 
 <!-- ═══════════════════════════ PLAN NAME MODAL ══════════════════════════ -->
 <!-- ═══════════════════════════ CONFIRM MODAL ═══════════════════════════ -->
-<div id="confirm-overlay"></div>
-<div id="confirm-modal">
-  <div class="drawer-handle"></div>
-  <div style="padding: 4px 24px 28px">
+<div id="confirm-overlay" onclick="closeConfirmModal()"></div>
+<div id="confirm-modal" onclick="event.stopPropagation()">
+  <div style="padding: 24px 24px 20px">
     <div id="confirm-icon" style="margin-bottom:14px;display:flex;justify-content:center"></div>
     <div id="confirm-title" style="font-family:'Syne',sans-serif;font-weight:800;font-size:20px;margin-bottom:8px;text-align:center"></div>
-    <div id="confirm-body" style="font-size:14px;color:var(--muted);line-height:1.6;text-align:center;margin-bottom:24px"></div>
+    <div id="confirm-body" style="font-size:14px;color:var(--muted);line-height:1.6;text-align:center;margin-bottom:20px"></div>
     <div id="confirm-warning" style="display:none;background:rgba(255,154,66,0.1);border:1px solid rgba(255,154,66,0.3);border-radius:12px;padding:12px 14px;font-size:12px;color:var(--orange);line-height:1.6;margin-bottom:20px;text-align:left"></div>
-    <div style="display:flex;gap:10px;margin-top:4px">
+    <div style="display:flex;gap:10px">
       <button onclick="closeConfirmModal()" style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:12px;color:var(--muted);font-family:'Figtree',sans-serif;font-weight:600;font-size:14px;padding:16px;cursor:pointer;min-height:52px">Cancel</button>
-      <button id="confirm-action-btn" style="flex:1;border:none;border-radius:12px;font-family:'Syne',sans-serif;font-weight:800;font-size:13px;padding:16px;cursor:pointer;transition:all 0.2s;min-height:52px"></button>
+      <button id="confirm-action-btn" style="flex:1;border:none;border-radius:12px;font-family:'Syne',sans-serif;font-weight:800;font-size:13px;padding:16px;cursor:pointer;min-height:52px"></button>
     </div>
   </div>
 </div>

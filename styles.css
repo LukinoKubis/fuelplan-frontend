@@ -1595,7 +1595,7 @@
   #confirm-overlay {
     position: fixed; inset: 0;
     background: rgba(0,0,0,0.65);
-    z-index: 610;
+    z-index: 9100;
     opacity: 0; pointer-events: none;
     transition: opacity 0.25s;
     backdrop-filter: blur(4px);
@@ -1604,15 +1604,14 @@
 
   #confirm-modal {
     position: fixed;
-    bottom: calc(60px + env(safe-area-inset-bottom));
-    left: 0; right: 0;
+    left: 12px; right: 12px;
+    bottom: calc(72px + env(safe-area-inset-bottom));
     background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 24px 24px 24px 24px;
-    z-index: 611;
-    transform: translateY(calc(100% + 60px + env(safe-area-inset-bottom)));
+    border-radius: 24px;
+    z-index: 9101;
+    transform: translateY(calc(100% + 80px + env(safe-area-inset-bottom)));
     transition: transform 0.35s cubic-bezier(.22,1,.36,1);
-    padding-bottom: 8px;
   }
   #confirm-modal.open { transform: translateY(0); }
   body.light #confirm-modal { background: var(--card); border-color: var(--border); }

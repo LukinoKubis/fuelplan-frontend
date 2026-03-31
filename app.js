@@ -1351,9 +1351,6 @@ function closeConfirmModal() {
   _confirmCallback = null;
 }
 
-// Close on overlay tap
-document.getElementById('confirm-overlay').addEventListener('click', closeConfirmModal);
-
 function openSettings_regenerate() {
   const remaining = planData ? (
     parseInt(document.getElementById('plans-remaining')?.textContent) || null
