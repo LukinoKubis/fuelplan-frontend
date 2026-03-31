@@ -423,8 +423,109 @@ async function fetchPlansRemaining(code) {
   }
 }
 
+let _loaderTimer = null;
+let _loaderStep = 0;
+
+const LOADER_STEPS = [
+  { headline: 'Building your plan', sub: 'Claude is reading your profile…', progress: 8 },
+  { headline: 'Crunching macros', sub: 'Calculating your daily targets…', progress: 28 },
+  { headline: 'Designing your meals', sub: 'Crafting 7 days of food you\'ll love…', progress: 52 },
+  { headline: 'Writing prep steps', sub: 'Planning your Sunday batch cook…', progress: 74 },
+  { headline: 'Building your haul', sub: 'Compiling the shopping list…', progress: 90 },
+  { headline: 'Almost ready', sub: 'Putting the finishing touches…', progress: 97 },
+];
+
 function showLoading(on) {
-  document.getElementById('loading-overlay').classList.toggle('active', on);
+  const overlay = document.getElementById('loading-overlay');
+
+  if (on) {
+    // Reset state
+    _loaderStep = 0;
+    clearInterval(_loaderTimer);
+
+    // Reset all steps to inactive
+    for (let i = 0; i < 4; i++) {
+      const el = document.getElementById('lstep-' + i);
+      if (el) { el.classList.remove('active', 'done'); }
+    }
+
+    // Reset progress bar and text
+    const prog = document.getElementById('loader-progress');
+    if (prog) { prog.style.transition = 'none'; prog.style.width = '0%'; }
+
+    overlay.classList.add('active');
+
+    // Start first phase after CSS animations settle
+    setTimeout(() => {
+      advanceLoader();
+      _loaderTimer = setInterval(advanceLoader, 4500);
+    }, 900);
+
+  } else {
+    clearInterval(_loaderTimer);
+    _loaderTimer = null;
+
+    // Complete progress bar before hiding
+    const prog = document.getElementById('loader-progress');
+    if (prog) {
+      prog.style.transition = 'width 0.4s ease-out';
+      prog.style.width = '100%';
+    }
+
+    setTimeout(() => {
+      overlay.classList.remove('active');
+      // Reset for next time
+      if (prog) { prog.style.transition = 'none'; prog.style.width = '0%'; }
+    }, 450);
+  }
+}
+
+function advanceLoader() {
+  const phases = LOADER_STEPS;
+  if (_loaderStep >= phases.length) return;
+
+  const phase = phases[_loaderStep];
+
+  // Update headline + subline
+  const hl = document.getElementById('loader-headline');
+  const sl = document.getElementById('loader-subline');
+  if (hl) {
+    hl.style.opacity = '0';
+    hl.style.transform = 'translateY(8px)';
+    setTimeout(() => {
+      hl.textContent = phase.headline;
+      hl.style.transition = 'opacity 0.4s, transform 0.4s';
+      hl.style.opacity = '1';
+      hl.style.transform = 'translateY(0)';
+    }, 200);
+  }
+  if (sl) {
+    sl.style.opacity = '0';
+    setTimeout(() => {
+      sl.textContent = phase.sub;
+      sl.style.transition = 'opacity 0.4s';
+      sl.style.opacity = '1';
+    }, 300);
+  }
+
+  // Update progress bar
+  const prog = document.getElementById('loader-progress');
+  if (prog) {
+    prog.style.transition = 'width 1.5s cubic-bezier(.4,0,.2,1)';
+    prog.style.width = phase.progress + '%';
+  }
+
+  // Update steps (steps 0-3 correspond to loader phases 1-4)
+  const stepIndex = _loaderStep - 1;
+  for (let i = 0; i < 4; i++) {
+    const el = document.getElementById('lstep-' + i);
+    if (!el) continue;
+    el.classList.remove('active', 'done');
+    if (i < stepIndex) el.classList.add('done');
+    else if (i === stepIndex) el.classList.add('active');
+  }
+
+  _loaderStep++;
 }
 
 function showError(msg) {

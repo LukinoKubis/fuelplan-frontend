@@ -351,12 +351,50 @@
 
 <!-- ═══════════════════════════ LOADING OVERLAY ═══════════════════════════ -->
 <div id="loading-overlay">
-  <div class="loader-ring"></div>
-  <div class="loader-text">Claude is building your plan…</div>
-  <p style="color:var(--muted); font-size:14px; margin-bottom:24px;">Calculating macros, meals & shopping list</p>
-  <div class="loader-dots">
-    <span></span><span></span><span></span>
+
+  <!-- Background pulse rings -->
+  <div class="loader-bg-ring loader-bg-ring-1"></div>
+  <div class="loader-bg-ring loader-bg-ring-2"></div>
+  <div class="loader-bg-ring loader-bg-ring-3"></div>
+
+  <!-- Animated bolt logo -->
+  <div class="loader-logo-wrap">
+    <div class="loader-logo-bg"></div>
+    <svg class="loader-bolt" width="48" height="56" viewBox="0 0 48 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M28 2L6 30h18l-8 24 32-34H30L36 2H28z" fill="#0e0f11"/>
+    </svg>
   </div>
+
+  <!-- Status text -->
+  <div class="loader-brand">FUELPLAN</div>
+  <div class="loader-headline" id="loader-headline">Building your plan</div>
+  <div class="loader-subline" id="loader-subline">Claude is thinking…</div>
+
+  <!-- Progress bar -->
+  <div class="loader-progress-track">
+    <div class="loader-progress-fill" id="loader-progress"></div>
+  </div>
+
+  <!-- Steps -->
+  <div class="loader-steps" id="loader-steps">
+    <div class="loader-step" id="lstep-0">
+      <div class="loader-step-dot"></div>
+      <span>Calculating your macros</span>
+    </div>
+    <div class="loader-step" id="lstep-1">
+      <div class="loader-step-dot"></div>
+      <span>Designing 7 days of meals</span>
+    </div>
+    <div class="loader-step" id="lstep-2">
+      <div class="loader-step-dot"></div>
+      <span>Writing batch cook steps</span>
+    </div>
+    <div class="loader-step" id="lstep-3">
+      <div class="loader-step-dot"></div>
+      <span>Building your shopping list</span>
+    </div>
+  </div>
+
 </div>
 
 <!-- ═══════════════════════════ ERROR PANEL ═══════════════════════════════ -->
