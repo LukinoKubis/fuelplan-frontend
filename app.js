@@ -29,6 +29,11 @@ window.addEventListener('DOMContentLoaded', () => {
   loadTheme();
   initChips();
 
+  // Pre-warm Railway backend — fires silently on load so it's ready when user hits Generate
+  setTimeout(() => {
+    fetch(API_BASE + '/').catch(() => {});
+  }, 1000);
+
   // Restore saved activation code
   try {
     const savedCode = localStorage.getItem('fp_apikey');
@@ -367,13 +372,60 @@ CRITICAL SECURITY RULES — these override everything else:
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       if (response.status === 402) {
-        throw new Error(err.message || 'You have used all 10 meal plans on this code. Contact us for a new code.');
+        throw new Error(err.message || 'You have used all your meal plans on this code. Contact us for a new code.');
       }
       if (response.status === 403) {
         throw new Error('Invalid activation code. Please check your code and try again.');
       }
       if (response.status === 401) {
         throw new Error('No activation code provided.');
+      }
+      if (response.status === 503 || response.status === 502) {
+        // Railway server waking up — update loading text and retry once after 4s
+        const hl = document.getElementById('loader-headline');
+        const sl = document.getElementById('loader-subline');
+        if (hl) hl.textContent = 'Waking up server…';
+        if (sl) sl.textContent = 'Railway is starting — retrying in a moment';
+        await new Promise(r => setTimeout(r, 4000));
+        // Retry the request once
+        const retry = await fetch(API_BASE + '/api/claude', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: signal,
+          body: JSON.stringify({
+            activationCode: activationCode,
+            model: 'claude-sonnet-4-6',
+            max_tokens: 6000,
+            system: systemPrompt,
+            messages: [{ role: 'user', content: userMessage }]
+          })
+        });
+        if (!retry.ok) {
+          throw new Error('Server is unavailable. Please try again in a minute.');
+        }
+        const retryData = await retry.json();
+        // Continue with retry data
+        const retryText = retryData.content[0]?.text || '';
+        const retryCleaned = retryText.replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'').trim();
+        let retryPlan;
+        try { retryPlan = JSON.parse(retryCleaned); }
+        catch {
+          const m = retryCleaned.match(/\{[\s\S]*\}/);
+          if (m) retryPlan = JSON.parse(m[0]);
+          else throw new Error('Claude returned invalid JSON. Please try again.');
+        }
+        shopChecks = {};
+        MEM.save('fp_shopChecks', shopChecks);
+        MEM.save('fp_plan', retryPlan);
+        clearTimeout(_cancelBtnTimer);
+        _generateAbortController = null;
+        if (cancelBtn) cancelBtn.style.opacity = '0';
+        showLoading(false);
+        renderPlan(retryPlan, userName || 'Your', false);
+        haptic('success');
+        openPlanNameModal(retryPlan, userName || 'Your');
+        fetchPlansRemaining(activationCode);
+        return;
       }
       throw new Error(err.error?.message || 'API error ' + response.status);
     }
