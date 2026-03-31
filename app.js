@@ -1337,7 +1337,11 @@ function showConfirmModal({ icon, title, body, warning, actionLabel, actionStyle
 
   btn.textContent = actionLabel || 'Confirm';
   btn.style.cssText = actionStyle || 'background:var(--red);color:#fff;';
-  btn.onclick = () => { closeConfirmModal(); _confirmCallback && _confirmCallback(); };
+  btn.onclick = () => {
+    const cb = _confirmCallback; // capture before closeConfirmModal nulls it
+    closeConfirmModal();
+    if (cb) cb();
+  };
 
   document.body.style.overflow = 'hidden';
   document.getElementById('confirm-overlay').classList.add('open');
