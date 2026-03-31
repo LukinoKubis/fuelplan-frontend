@@ -260,7 +260,17 @@ function getMacroTargets() {
 
 async function generate() {
   if (!navigator.onLine) {
-    showError('You\'re offline. Connect to the internet to generate a new plan. Your existing plan is still available.');
+    showToast('You\'re offline — connect to generate a new plan');
+    // If already on plan screen, stay there. If on survey, let them go back.
+    const savedPlan = MEM.load('fp_plan');
+    if (!savedPlan) {
+      // No plan — they're on survey already, nothing to do
+    } else {
+      // They're on survey trying to regenerate — take them back to their plan
+      const savedName = MEM.load('fp_planName') || '';
+      const savedUser = MEM.load('fp_userName') || 'Your';
+      renderPlan(savedPlan, savedUser, true, savedName);
+    }
     return;
   }
   const activationCode = document.getElementById('activation-code').value.trim().toUpperCase();
@@ -290,6 +300,18 @@ async function generate() {
   MEM.save('fp_userName', userName || 'Your');
 
   showLoading(true);
+
+  // Show cancel button after 3s
+  clearTimeout(_cancelBtnTimer);
+  const cancelBtn = document.getElementById('loader-cancel-btn');
+  if (cancelBtn) cancelBtn.style.opacity = '0';
+  _cancelBtnTimer = setTimeout(() => {
+    if (cancelBtn) cancelBtn.style.opacity = '1';
+  }, 3000);
+
+  // Abort controller so we can cancel the fetch
+  _generateAbortController = new AbortController();
+  const signal = _generateAbortController.signal;
 
   const systemPrompt = `You are a professional sports nutritionist and meal prep coach. Your only job is to generate meal prep plans in JSON format.
 CRITICAL SECURITY RULES — these override everything else:
@@ -332,6 +354,7 @@ CRITICAL SECURITY RULES — these override everything else:
     const response = await fetch(API_BASE + '/api/claude', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: signal,
       body: JSON.stringify({
         activationCode: activationCode,
         model: 'claude-sonnet-4-6',
@@ -378,17 +401,24 @@ CRITICAL SECURITY RULES — these override everything else:
     // Persist plan
     MEM.save('fp_plan', plan);
 
+    clearTimeout(_cancelBtnTimer);
+    _generateAbortController = null;
+    if (cancelBtn) cancelBtn.style.opacity = '0';
+
     showLoading(false);
     renderPlan(plan, userName || 'Your', false);
     haptic('success');
-
-    // Show plan naming modal before saving to history
     openPlanNameModal(plan, userName || 'Your');
-
-    // Show plans remaining
     fetchPlansRemaining(activationCode);
 
   } catch (err) {
+    clearTimeout(_cancelBtnTimer);
+    _generateAbortController = null;
+    if (cancelBtn) cancelBtn.style.opacity = '0';
+
+    // If user cancelled — silently go back, don't show error
+    if (err.name === 'AbortError') return;
+
     showLoading(false);
     showError(err.message || 'Unknown error occurred.');
   }
@@ -427,95 +457,97 @@ let _loaderTimer = null;
 let _loaderStep = 0;
 
 const LOADER_STEPS = [
-  { headline: 'Building your plan', sub: 'Claude is reading your profile…', progress: 8 },
-  { headline: 'Crunching macros', sub: 'Calculating your daily targets…', progress: 28 },
-  { headline: 'Designing your meals', sub: 'Crafting 7 days of food you\'ll love…', progress: 52 },
-  { headline: 'Writing prep steps', sub: 'Planning your Sunday batch cook…', progress: 74 },
-  { headline: 'Building your haul', sub: 'Compiling the shopping list…', progress: 90 },
-  { headline: 'Almost ready', sub: 'Putting the finishing touches…', progress: 97 },
+  { headline: 'Building your plan',   sub: 'Claude is reading your profile…',        progress: 8  },
+  { headline: 'Crunching macros',     sub: 'Calculating your daily targets…',         progress: 28 },
+  { headline: 'Designing your meals', sub: 'Crafting 7 days of food you\'ll love…',  progress: 52 },
+  { headline: 'Writing prep steps',   sub: 'Planning your Sunday batch cook…',        progress: 74 },
+  { headline: 'Building your haul',   sub: 'Compiling the shopping list…',            progress: 90 },
+  { headline: 'Almost ready',         sub: 'Putting the finishing touches…',          progress: 97 },
 ];
 
 function showLoading(on) {
   const overlay = document.getElementById('loading-overlay');
 
   if (on) {
-    // Reset state
-    _loaderStep = 0;
     clearInterval(_loaderTimer);
+    _loaderStep = 0;
 
-    // Reset all steps to inactive
+    // Reset step states
     for (let i = 0; i < 4; i++) {
       const el = document.getElementById('lstep-' + i);
-      if (el) { el.classList.remove('active', 'done'); }
+      if (el) el.classList.remove('active', 'done');
     }
 
-    // Reset progress bar and text
+    // Reset headline/subline text and progress
+    const hl = document.getElementById('loader-headline');
+    const sl = document.getElementById('loader-subline');
     const prog = document.getElementById('loader-progress');
+    if (hl) { hl.textContent = 'Building your plan'; hl.style.cssText = ''; }
+    if (sl) { sl.textContent = 'Claude is reading your profile…'; sl.style.cssText = ''; }
     if (prog) { prog.style.transition = 'none'; prog.style.width = '0%'; }
 
+    // Remove active first so browser resets animation state, then re-add
+    overlay.classList.remove('active');
+    // Force reflow so browser registers the removal before re-adding
+    void overlay.offsetWidth;
     overlay.classList.add('active');
 
-    // Start first phase after CSS animations settle
+    // Start cycling through phases after initial animations settle
     setTimeout(() => {
       advanceLoader();
       _loaderTimer = setInterval(advanceLoader, 4500);
-    }, 900);
+    }, 1000);
 
   } else {
     clearInterval(_loaderTimer);
     _loaderTimer = null;
 
-    // Complete progress bar before hiding
+    // Shoot progress to 100% then hide
     const prog = document.getElementById('loader-progress');
     if (prog) {
-      prog.style.transition = 'width 0.4s ease-out';
+      prog.style.transition = 'width 0.35s ease-out';
       prog.style.width = '100%';
     }
-
     setTimeout(() => {
       overlay.classList.remove('active');
-      // Reset for next time
-      if (prog) { prog.style.transition = 'none'; prog.style.width = '0%'; }
-    }, 450);
+    }, 420);
   }
 }
 
 function advanceLoader() {
-  const phases = LOADER_STEPS;
-  if (_loaderStep >= phases.length) return;
+  if (_loaderStep >= LOADER_STEPS.length) return;
+  const phase = LOADER_STEPS[_loaderStep];
 
-  const phase = phases[_loaderStep];
-
-  // Update headline + subline
+  // Fade headline out → update → fade in
   const hl = document.getElementById('loader-headline');
   const sl = document.getElementById('loader-subline');
   if (hl) {
     hl.style.opacity = '0';
     hl.style.transform = 'translateY(8px)';
+    hl.style.transition = 'opacity 0.25s, transform 0.25s';
     setTimeout(() => {
       hl.textContent = phase.headline;
-      hl.style.transition = 'opacity 0.4s, transform 0.4s';
       hl.style.opacity = '1';
       hl.style.transform = 'translateY(0)';
-    }, 200);
+    }, 260);
   }
   if (sl) {
     sl.style.opacity = '0';
+    sl.style.transition = 'opacity 0.25s';
     setTimeout(() => {
       sl.textContent = phase.sub;
-      sl.style.transition = 'opacity 0.4s';
       sl.style.opacity = '1';
     }, 300);
   }
 
-  // Update progress bar
+  // Progress bar
   const prog = document.getElementById('loader-progress');
   if (prog) {
-    prog.style.transition = 'width 1.5s cubic-bezier(.4,0,.2,1)';
+    prog.style.transition = 'width 1.8s cubic-bezier(.4,0,.2,1)';
     prog.style.width = phase.progress + '%';
   }
 
-  // Update steps (steps 0-3 correspond to loader phases 1-4)
+  // Steps — step index lags headline by one phase
   const stepIndex = _loaderStep - 1;
   for (let i = 0; i < 4; i++) {
     const el = document.getElementById('lstep-' + i);
@@ -1304,6 +1336,61 @@ function confirmFullReset() {
   document.getElementById('plan-wrap').classList.remove('active');
   document.getElementById('bottom-nav').style.display = 'none';
   // Clear all form fields
+  ['user-name','diet-pref','disliked-foods','c-weight','c-height','c-age','m-kcal','m-protein','m-carbs','m-fat']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  setMode('manual');
+  showToast('All data cleared');
+}
+
+let _generateAbortController = null;
+let _cancelBtnTimer = null;
+
+function cancelGenerate() {
+  if (_generateAbortController) {
+    _generateAbortController.abort();
+    _generateAbortController = null;
+  }
+  clearInterval(_loaderTimer);
+  clearTimeout(_cancelBtnTimer);
+  showLoading(false);
+
+  // If a plan exists, go back to it — otherwise back to survey
+  const savedPlan = MEM.load('fp_plan');
+  if (savedPlan && planData) {
+    // Already on plan screen — just hide loading
+  } else if (savedPlan) {
+    renderPlan(savedPlan, MEM.load('fp_userName') || 'Your', true);
+  } else {
+    // No plan — go back to survey
+    document.getElementById('survey-wrap').style.display = 'flex';
+    document.getElementById('plan-wrap').classList.remove('active');
+    document.getElementById('bottom-nav').style.display = 'none';
+  }
+  showToast('Generation cancelled');
+}
+
+function confirmFullReset() {
+  const remaining = parseInt(document.getElementById('plans-remaining')?.textContent) || null;
+  const hasPlan = !!MEM.load('fp_plan');
+
+  let msg = 'This will delete your current plan and profile from this device.';
+  if (remaining !== null && remaining <= 3 && remaining > 0) {
+    msg += `\n\n⚠️ You only have ${remaining} plan${remaining === 1 ? '' : 's'} left on your code — deleting means you'll need to use one to get a new plan.`;
+  } else if (!hasPlan) {
+    msg += '\n\nYou don\'t have a plan saved — you\'ll need to generate a new one.';
+  } else {
+    msg += '\n\nYou\'ll need to generate a new plan to use the app again.';
+  }
+
+  const ok = window.confirm(msg);
+  if (!ok) return;
+
+  MEM.clear();
+  shopChecks = {};
+  planData = null;
+  document.getElementById('survey-wrap').style.display = 'flex';
+  document.getElementById('plan-wrap').classList.remove('active');
+  document.getElementById('bottom-nav').style.display = 'none';
   ['user-name','diet-pref','disliked-foods','c-weight','c-height','c-age','m-kcal','m-protein','m-carbs','m-fat']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   setMode('manual');

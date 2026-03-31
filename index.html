@@ -394,10 +394,23 @@
       <span>Building your shopping list</span>
     </div>
   </div>
+  <!-- Cancel button -->
+  <button id="loader-cancel-btn" onclick="cancelGenerate()" style="
+    margin-top: 36px;
+    background: none;
+    border: 1px solid var(--border2);
+    border-radius: 99px;
+    color: var(--muted);
+    font-family: 'Figtree', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 10px 24px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.3s, color 0.2s, border-color 0.2s;
+  ">Cancel</button>
 
 </div>
-
-<!-- ═══════════════════════════ ERROR PANEL ═══════════════════════════════ -->
 <div id="error-panel">
   <div class="error-icon">
     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--red)"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
