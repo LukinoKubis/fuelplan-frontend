@@ -1604,14 +1604,15 @@
 
   #confirm-modal {
     position: fixed;
-    bottom: 0; left: 0; right: 0;
+    bottom: calc(60px + env(safe-area-inset-bottom));
+    left: 0; right: 0;
     background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 24px 24px 0 0;
+    border-radius: 24px 24px 24px 24px;
     z-index: 611;
-    transform: translateY(100%);
+    transform: translateY(calc(100% + 60px + env(safe-area-inset-bottom)));
     transition: transform 0.35s cubic-bezier(.22,1,.36,1);
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: 8px;
   }
   #confirm-modal.open { transform: translateY(0); }
   body.light #confirm-modal { background: var(--card); border-color: var(--border); }
