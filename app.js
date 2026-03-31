@@ -29,10 +29,12 @@ window.addEventListener('DOMContentLoaded', () => {
   loadTheme();
   initChips();
 
-  // Pre-warm Railway backend — fires silently on load so it's ready when user hits Generate
-  setTimeout(() => {
-    fetch(API_BASE + '/').catch(() => {});
-  }, 1000);
+  // Pre-warm Railway — keep pinging until server responds, so it's ready by Generate
+  (function warmUp() {
+    fetch(API_BASE + '/')
+      .then(r => { if (!r.ok) setTimeout(warmUp, 5000); })
+      .catch(() => setTimeout(warmUp, 5000));
+  })();
 
   // Restore saved activation code
   try {
@@ -381,51 +383,78 @@ CRITICAL SECURITY RULES — these override everything else:
         throw new Error('No activation code provided.');
       }
       if (response.status === 503 || response.status === 502) {
-        // Railway server waking up — update loading text and retry once after 4s
+        // Railway server waking up — retry up to 3 times with increasing delays
         const hl = document.getElementById('loader-headline');
         const sl = document.getElementById('loader-subline');
-        if (hl) hl.textContent = 'Waking up server…';
-        if (sl) sl.textContent = 'Railway is starting — retrying in a moment';
-        await new Promise(r => setTimeout(r, 4000));
-        // Retry the request once
-        const retry = await fetch(API_BASE + '/api/claude', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal: signal,
-          body: JSON.stringify({
-            activationCode: activationCode,
-            model: 'claude-sonnet-4-6',
-            max_tokens: 6000,
-            system: systemPrompt,
-            messages: [{ role: 'user', content: userMessage }]
-          })
-        });
-        if (!retry.ok) {
-          throw new Error('Server is unavailable. Please try again in a minute.');
+
+        const delays = [8000, 12000, 15000];
+        let lastError = null;
+
+        for (let attempt = 0; attempt < delays.length; attempt++) {
+          if (hl) hl.textContent = 'Waking up server…';
+          if (sl) sl.textContent = `Server is starting — attempt ${attempt + 2} of ${delays.length + 1}…`;
+
+          await new Promise(r => setTimeout(r, delays[attempt]));
+
+          // Check if user cancelled
+          if (signal.aborted) return;
+
+          if (hl) hl.textContent = 'Building your plan';
+          if (sl) sl.textContent = 'Claude is reading your profile…';
+
+          try {
+            const retry = await fetch(API_BASE + '/api/claude', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              signal: signal,
+              body: JSON.stringify({
+                activationCode: activationCode,
+                model: 'claude-sonnet-4-6',
+                max_tokens: 6000,
+                system: systemPrompt,
+                messages: [{ role: 'user', content: userMessage }]
+              })
+            });
+
+            if (!retry.ok) {
+              if (retry.status === 503 || retry.status === 502) {
+                lastError = 'Server still starting…';
+                continue; // try again
+              }
+              throw new Error('Server error ' + retry.status);
+            }
+
+            // Success on retry
+            const retryData = await retry.json();
+            const retryText = retryData.content[0]?.text || '';
+            const retryCleaned = retryText.replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'').trim();
+            let retryPlan;
+            try { retryPlan = JSON.parse(retryCleaned); }
+            catch {
+              const m = retryCleaned.match(/\{[\s\S]*\}/);
+              if (m) retryPlan = JSON.parse(m[0]);
+              else throw new Error('Claude returned invalid JSON. Please try again.');
+            }
+            shopChecks = {};
+            MEM.save('fp_shopChecks', shopChecks);
+            MEM.save('fp_plan', retryPlan);
+            clearTimeout(_cancelBtnTimer);
+            _generateAbortController = null;
+            if (cancelBtn) cancelBtn.style.opacity = '0';
+            showLoading(false);
+            renderPlan(retryPlan, userName || 'Your', false);
+            haptic('success');
+            openPlanNameModal(retryPlan, userName || 'Your');
+            fetchPlansRemaining(activationCode);
+            return;
+
+          } catch (retryErr) {
+            if (retryErr.name === 'AbortError') return;
+            lastError = retryErr.message;
+          }
         }
-        const retryData = await retry.json();
-        // Continue with retry data
-        const retryText = retryData.content[0]?.text || '';
-        const retryCleaned = retryText.replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'').trim();
-        let retryPlan;
-        try { retryPlan = JSON.parse(retryCleaned); }
-        catch {
-          const m = retryCleaned.match(/\{[\s\S]*\}/);
-          if (m) retryPlan = JSON.parse(m[0]);
-          else throw new Error('Claude returned invalid JSON. Please try again.');
-        }
-        shopChecks = {};
-        MEM.save('fp_shopChecks', shopChecks);
-        MEM.save('fp_plan', retryPlan);
-        clearTimeout(_cancelBtnTimer);
-        _generateAbortController = null;
-        if (cancelBtn) cancelBtn.style.opacity = '0';
-        showLoading(false);
-        renderPlan(retryPlan, userName || 'Your', false);
-        haptic('success');
-        openPlanNameModal(retryPlan, userName || 'Your');
-        fetchPlansRemaining(activationCode);
-        return;
+
+        throw new Error('The server is waking up — please tap Try Again in a few seconds. This only happens on your first use.');
       }
       throw new Error(err.error?.message || 'API error ' + response.status);
     }
