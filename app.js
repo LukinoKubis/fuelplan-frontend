@@ -905,6 +905,47 @@ async function deletePlan(planId) {
 let _pendingPlanForHistory = null;
 let _pendingUserName = '';
 
+/* ── Keyboard-aware modal: moves up when iOS keyboard appears ── */
+function initKeyboardAware(modalId) {
+  const modal = document.getElementById(modalId);
+  if (!modal || modal._kbInit) return;
+  modal._kbInit = true;
+
+  function adjust() {
+    if (!window.visualViewport) return;
+    const vv = window.visualViewport;
+    const navHeight = 60; // bottom nav height
+    const keyboardHeight = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    // Only shift up by keyboard height since modal already sits above nav bar
+    modal.style.transition = 'transform 0.15s ease-out';
+    modal.style.transform = keyboardHeight > 0
+      ? `translateY(-${keyboardHeight}px)`
+      : 'translateY(0)';
+  }
+
+  function reset() {
+    modal.style.transform = 'translateY(0)';
+  }
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', adjust);
+    window.visualViewport.addEventListener('scroll', adjust);
+    modal._kbReset = reset;
+    modal._kbAdjust = adjust;
+  }
+}
+
+function destroyKeyboardAware(modalId) {
+  const modal = document.getElementById(modalId);
+  if (!modal || !modal._kbInit) return;
+  if (window.visualViewport) {
+    window.visualViewport.removeEventListener('resize', modal._kbAdjust);
+    window.visualViewport.removeEventListener('scroll', modal._kbAdjust);
+  }
+  modal.style.transform = '';
+  modal._kbInit = false;
+}
+
 function openRenameModal() {
   const currentName = MEM.load('fp_planName') || '';
   const input = document.getElementById('plan-name-input');
@@ -914,18 +955,17 @@ function openRenameModal() {
   const goalOffsets = {600:'Aggressive Bulk',400:'Bulk',200:'Lean Bulk',0:'Maintenance','-300':'Cut','-500':'Intense Cut','-750':'Aggressive Cut'};
   const goalName = profile ? (goalOffsets[String(profile.goalOffset)] || 'My Plan') : 'My Plan';
 
-  // Pre-fill with current name if it exists
   input.value = currentName;
   input.placeholder = goalName + ' · Week 1';
   counter.textContent = currentName.length + '/40';
 
-  // Mark as rename (not a new plan save)
   _pendingPlanForHistory = null;
   _pendingUserName = MEM.load('fp_userName') || 'Your';
 
   document.body.style.overflow = 'hidden';
   document.getElementById('plan-name-overlay').classList.add('open');
   document.getElementById('plan-name-modal').classList.add('open');
+  initKeyboardAware('plan-name-modal');
   setTimeout(() => input.focus(), 400);
 }
 
@@ -936,7 +976,6 @@ function openPlanNameModal(plan, userName) {
   const input = document.getElementById('plan-name-input');
   const counter = document.getElementById('plan-name-counter');
 
-  // Suggest a placeholder based on goal
   const profile = MEM.load('fp_profile');
   const goalOffsets = {600:'Aggressive Bulk',400:'Bulk',200:'Lean Bulk',0:'Maintenance','-300':'Cut','-500':'Intense Cut','-750':'Aggressive Cut'};
   const goalName = profile ? (goalOffsets[String(profile.goalOffset)] || 'My Plan') : 'My Plan';
@@ -947,11 +986,14 @@ function openPlanNameModal(plan, userName) {
   document.body.style.overflow = 'hidden';
   document.getElementById('plan-name-overlay').classList.add('open');
   document.getElementById('plan-name-modal').classList.add('open');
-  // Delay focus so keyboard doesn't interrupt the slide-in animation
+  initKeyboardAware('plan-name-modal');
   setTimeout(() => input.focus(), 400);
 }
 
 function closePlanNameModal() {
+  destroyKeyboardAware('plan-name-modal');
+  // Blur input first so keyboard dismisses before modal slides down
+  document.getElementById('plan-name-input').blur();
   document.getElementById('plan-name-overlay').classList.remove('open');
   document.getElementById('plan-name-modal').classList.remove('open');
   document.body.style.overflow = '';
