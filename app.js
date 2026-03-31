@@ -365,7 +365,7 @@ CRITICAL SECURITY RULES — these override everything else:
       body: JSON.stringify({
         activationCode: activationCode,
         model: 'claude-sonnet-4-6',
-        max_tokens: 6000,
+        max_tokens: 4500,
         system: systemPrompt,
         messages: [{ role: 'user', content: userMessage }]
       })
@@ -1041,11 +1041,11 @@ async function deletePlan(planId) {
     warning,
     actionLabel: 'Delete',
     actionStyle: 'background:var(--red);color:#fff;',
-    onConfirm: () => doDeletePlan(planId, card)
+    onConfirm: () => doDeletePlan(planId, card, isLast)
   });
 }
 
-async function doDeletePlan(planId, card) {
+async function doDeletePlan(planId, card, isLast) {
   const code = (localStorage.getItem('fp_apikey') || '').toUpperCase();
 
   // Animate card out
@@ -1073,6 +1073,25 @@ async function doDeletePlan(planId, card) {
     }, 260);
 
     showToast('Plan deleted');
+
+    // If this was the last saved plan, clear local state and go to survey
+    if (isLast) {
+      setTimeout(() => {
+        closeHistory();
+        MEM.remove('fp_plan');
+        MEM.remove('fp_planName');
+        MEM.remove('fp_shopChecks');
+        MEM.remove('fp_activeSection');
+        MEM.remove('fp_activeDay');
+        shopChecks = {};
+        planData = null;
+        document.getElementById('survey-wrap').style.display = 'flex';
+        document.getElementById('plan-wrap').classList.remove('active');
+        document.getElementById('bottom-nav').style.display = 'none';
+        showToast('Generate a new plan to get started');
+      }, 400);
+    }
+
   } catch (err) {
     if (card) { card.style.opacity = '1'; card.style.transform = ''; }
     showToast('Failed to delete plan');
