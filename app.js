@@ -28,6 +28,7 @@ let shopChecks = {};  // { "ci-ii": bool }
 window.addEventListener('DOMContentLoaded', () => {
   loadTheme();
   initChips();
+  surveyUpdateUI(); // init step dots, progress, buttons
 
   // Pre-warm Railway — keep pinging until server responds, so it's ready by Generate
   (function warmUp() {
@@ -181,22 +182,120 @@ function setChipValues(groupId, vals) {
   group.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', vals.includes(c.dataset.val)));
 }
 
+/* ═══════════════ STEPPED SURVEY ═══════════════ */
+let _surveyStep = 0;
+const SURVEY_TOTAL_STEPS = 4;
+
+function surveyGoTo(targetStep, direction) {
+  const steps = document.querySelectorAll('.survey-step');
+  const current = steps[_surveyStep];
+  const next = steps[targetStep];
+  if (!current || !next) return;
+
+  const goingForward = direction === 'forward';
+
+  // Animate out current
+  current.classList.add(goingForward ? 'exit-left' : 'exit-right');
+  current.addEventListener('animationend', () => {
+    current.classList.remove('active', 'exit-left', 'exit-right');
+  }, { once: true });
+
+  // Animate in next
+  next.classList.add('active', goingForward ? 'enter-right' : 'enter-left');
+  next.addEventListener('animationend', () => {
+    next.classList.remove('enter-right', 'enter-left');
+  }, { once: true });
+
+  _surveyStep = targetStep;
+  surveyUpdateUI();
+
+  // Scroll to top of new step
+  document.getElementById('survey-steps-wrap')?.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function surveyNext() {
+  // On last step — generate
+  if (_surveyStep === SURVEY_TOTAL_STEPS - 1) {
+    generate();
+    return;
+  }
+  surveyGoTo(_surveyStep + 1, 'forward');
+}
+
+function surveyPrev() {
+  if (_surveyStep === 0) {
+    cancelSurvey();
+    return;
+  }
+  surveyGoTo(_surveyStep - 1, 'back');
+}
+
+function surveyUpdateUI() {
+  // Progress bar
+  const pct = (_surveyStep / (SURVEY_TOTAL_STEPS - 1)) * 100;
+  const fill = document.getElementById('survey-progress-fill');
+  if (fill) fill.style.width = pct + '%';
+
+  // Dots
+  document.querySelectorAll('.step-dot').forEach((dot, i) => {
+    dot.classList.toggle('active', i === _surveyStep);
+    dot.classList.toggle('done', i < _surveyStep);
+  });
+
+  // Prev button
+  const prevBtn = document.getElementById('survey-prev-btn');
+  if (prevBtn) prevBtn.style.display = _surveyStep > 0 ? 'flex' : 'none';
+
+  // Next button label
+  const nextBtn = document.getElementById('survey-next-btn');
+  if (nextBtn) {
+    nextBtn.textContent = _surveyStep === SURVEY_TOTAL_STEPS - 1 ? 'Generate My Plan ⚡' : 'Continue';
+  }
+
+  // Back-to-plan button in header
+  const backBtn = document.getElementById('survey-back-btn');
+  if (backBtn) {
+    // Only show on step 0 if there's an existing plan to go back to
+    backBtn.style.display = (_surveyStep === 0 && MEM.load('fp_plan')) ? 'flex' : 'none';
+  }
+}
+
 function updateSurveyBackButton(show) {
+  // Keep for compatibility — controls header back button visibility
   const btn = document.getElementById('survey-back-btn');
   if (btn) btn.style.display = show ? 'flex' : 'none';
 }
 
 function cancelSurvey() {
-  // User had an existing plan — go back to it
   const savedPlan = MEM.load('fp_plan');
   if (savedPlan && planData) {
+    // Just re-show plan wrap
     document.getElementById('survey-wrap').style.display = 'none';
     document.getElementById('plan-wrap').classList.add('active');
     document.getElementById('bottom-nav').style.display = 'flex';
   } else if (savedPlan) {
     renderPlan(savedPlan, MEM.load('fp_userName') || 'Your', true);
   }
-  updateSurveyBackButton(false);
+  // Reset survey to step 0 for next time
+  _surveyStep = 0;
+  document.querySelectorAll('.survey-step').forEach((s, i) => {
+    s.classList.toggle('active', i === 0);
+    s.classList.remove('exit-left', 'exit-right', 'enter-right', 'enter-left');
+  });
+  surveyUpdateUI();
+}
+
+function goToSurvey() {
+  // Smooth transition to survey — fade out plan, slide in survey
+  _surveyStep = 0;
+  document.querySelectorAll('.survey-step').forEach((s, i) => {
+    s.classList.toggle('active', i === 0);
+    s.classList.remove('exit-left', 'exit-right', 'enter-right', 'enter-left');
+  });
+  surveyUpdateUI();
+  document.getElementById('survey-wrap').style.display = 'flex';
+  document.getElementById('plan-wrap').classList.remove('active');
+  document.getElementById('bottom-nav').style.display = 'none';
 }
 
 /* ═══════════════ SURVEY LOGIC ═══════════════ */
@@ -1106,10 +1205,7 @@ async function doDeletePlan(planId, card, isLast, isActive) {
         MEM.remove('fp_activeDay');
         shopChecks = {};
         planData = null;
-        document.getElementById('survey-wrap').style.display = 'flex';
-        document.getElementById('plan-wrap').classList.remove('active');
-        document.getElementById('bottom-nav').style.display = 'none';
-        updateSurveyBackButton(false);
+        goToSurvey();
       }, 400);
     } else if (isActive) {
       // Deleted the active plan — load the next available one from server
@@ -1284,7 +1380,26 @@ async function saveCurrentPlanToHistory(plan, userName, planName) {
   if (!planName) {
     const profile = MEM.load('fp_profile');
     const goalOffsets = {600:'Aggressive Bulk',400:'Bulk',200:'Lean Bulk',0:'Maintenance','-300':'Cut','-500':'Intense Cut','-750':'Aggressive Cut'};
-    planName = profile ? (goalOffsets[String(profile.goalOffset)] || 'My Plan') : 'My Plan';
+    const baseName = profile ? (goalOffsets[String(profile.goalOffset)] || 'My Plan') : 'My Plan';
+    // Deduplicate — check existing plan names and increment if needed
+    try {
+      const r = await fetch(API_BASE + '/api/history/get', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ activationCode: code })
+      });
+      const d = await r.json();
+      const existing = (d.history || []).map(e => e.planName || '');
+      if (!existing.includes(baseName)) {
+        planName = baseName;
+      } else {
+        let n = 2;
+        while (existing.includes(baseName + ' ' + n)) n++;
+        planName = baseName + ' ' + n;
+      }
+    } catch {
+      planName = baseName;
+    }
   }
 
   try {
@@ -1300,10 +1415,10 @@ async function saveCurrentPlanToHistory(plan, userName, planName) {
       })
     });
     const data = await res.json();
-    // Track which plan is currently active so delete knows what to do
     if (data.id) MEM.save('fp_activePlanId', data.id);
+    MEM.save('fp_planName', planName);
   } catch (err) {
-    console.warn('Failed to save plan to history:', err.message);
+    console.warn('Failed to save plan:', err.message);
   }
 }
 
@@ -1409,16 +1524,11 @@ let _confirmCallback = null;
 function showConfirmModal({ icon, title, body, warning, actionLabel, actionStyle, onConfirm }) {
   _confirmCallback = onConfirm;
 
-  const iconEl = document.getElementById('confirm-icon');
-  const titleEl = document.getElementById('confirm-title');
-  const bodyEl = document.getElementById('confirm-body');
+  document.getElementById('confirm-icon').innerHTML = icon || '';
+  document.getElementById('confirm-title').textContent = title || '';
+  document.getElementById('confirm-body').textContent = body || '';
+
   const warningEl = document.getElementById('confirm-warning');
-  const btn = document.getElementById('confirm-action-btn');
-
-  iconEl.innerHTML = icon || '';
-  titleEl.textContent = title || '';
-  bodyEl.textContent = body || '';
-
   if (warning) {
     warningEl.style.display = 'block';
     warningEl.innerHTML = warning;
@@ -1426,23 +1536,20 @@ function showConfirmModal({ icon, title, body, warning, actionLabel, actionStyle
     warningEl.style.display = 'none';
   }
 
+  const btn = document.getElementById('confirm-action-btn');
   btn.textContent = actionLabel || 'Confirm';
-  btn.style.cssText = actionStyle || 'background:var(--red);color:#fff;';
+  btn.style.cssText = actionStyle || 'background:var(--red);color:#fff;border-radius:12px;';
   btn.onclick = () => {
-    const cb = _confirmCallback; // capture before closeConfirmModal nulls it
+    const cb = _confirmCallback;
     closeConfirmModal();
     if (cb) cb();
   };
 
-  document.body.style.overflow = 'hidden';
   document.getElementById('confirm-overlay').classList.add('open');
-  document.getElementById('confirm-modal').classList.add('open');
 }
 
 function closeConfirmModal() {
   document.getElementById('confirm-overlay').classList.remove('open');
-  document.getElementById('confirm-modal').classList.remove('open');
-  document.body.style.overflow = '';
   _confirmCallback = null;
 }
 
@@ -1474,14 +1581,10 @@ function openSettings_regenerate() {
     actionLabel: 'Generate',
     actionStyle: 'background:var(--lime);color:#0e0f11;border-radius:12px;',
     onConfirm: () => {
-      // Keep planData in memory so user can go back — only clear active display
-      document.getElementById('survey-wrap').style.display = 'flex';
-      document.getElementById('plan-wrap').classList.remove('active');
-      document.getElementById('bottom-nav').style.display = 'none';
-      // Show back button since they have an existing plan
-      updateSurveyBackButton(true);
+      closeSettings();
       setTimeout(() => {
-        document.getElementById('generate-btn')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        updateSurveyBackButton(true);
+        goToSurvey();
       }, 100);
     }
   });
@@ -1531,12 +1634,10 @@ function confirmFullReset() {
       MEM.clear();
       shopChecks = {};
       planData = null;
-      document.getElementById('survey-wrap').style.display = 'flex';
-      document.getElementById('plan-wrap').classList.remove('active');
-      document.getElementById('bottom-nav').style.display = 'none';
       ['user-name','diet-pref','disliked-foods','c-weight','c-height','c-age','m-kcal','m-protein','m-carbs','m-fat']
         .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
       setMode('manual');
+      goToSurvey();
       showToast('All data cleared');
     }
   });

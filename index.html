@@ -43,315 +43,236 @@
 
 <!-- ═══════════════════════════════ SURVEY ═══════════════════════════════ -->
 <div id="survey-wrap">
-  <!-- Back button — shown when user navigates from plan screen -->
-  <div id="survey-back-btn" onclick="cancelSurvey()" style="display:none;align-items:center;gap:8px;padding:16px 24px 0;cursor:pointer;color:var(--muted);font-size:14px;font-weight:500;width:100%">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-    Back to my plan
+
+  <!-- ── STEP INDICATOR ── -->
+  <div id="survey-header">
+    <button id="survey-back-btn" onclick="cancelSurvey()" style="display:none">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div id="survey-logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="14" fill="#c8f542"/><path d="M25 7L13 27h12l-4 14 18-22H27L31 7H25z" fill="#0e0f11"/></svg>
+      <span>FUELPLAN</span>
+    </div>
+    <div id="survey-step-dots">
+      <div class="step-dot active" data-step="0"></div>
+      <div class="step-dot" data-step="1"></div>
+      <div class="step-dot" data-step="2"></div>
+      <div class="step-dot" data-step="3"></div>
+    </div>
   </div>
-  <!-- SVG LOGO -->
-  <div class="logo-wrap">
-    <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="48" height="48" rx="14" fill="#c8f542"/>
-      <path d="M25 7L13 27h12l-4 14 18-22H27L31 7H25z" fill="#0e0f11" stroke="#0e0f11" stroke-width="0.5" stroke-linejoin="round"/>
-    </svg>
-    <span class="logo-text">FUELPLAN</span>
-  </div>
-  <h1 class="hero-title">Your <span>AI-Powered</span><br>Meal Prep Plan</h1>
-  <p class="hero-sub">Tell us your goals. Claude builds a complete 7-day meal prep plan — meals, macros, shopping list, and batch-cook steps.</p>
 
-  <div class="survey-card">
+  <!-- ── PROGRESS BAR ── -->
+  <div id="survey-progress-track"><div id="survey-progress-fill"></div></div>
 
-    <!-- ACTIVATION CODE -->
-    <div class="access-key-wrap">
-      <div style="margin-bottom:8px;display:flex;justify-content:center">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--lime)"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-      </div>
-      <div class="access-key-title">Activation Code</div>
-      <div class="access-key-sub">Enter the code you received when you got access to Fuelplan</div>
-      <div class="field-group" style="margin-bottom:0;margin-top:14px">
-        <input type="text" id="activation-code" placeholder="FUEL-XXXX" autocomplete="off" autocapitalize="characters" style="text-align:center;font-size:15px;letter-spacing:0.12em;font-weight:700;text-transform:uppercase">
-      </div>
-    </div>
+  <!-- ── STEPS CONTAINER ── -->
+  <div id="survey-steps-wrap">
 
-    <!-- NAME & PREFS -->
-    <div class="section-label">About You</div>
-
-    <div class="grid-2" style="margin-bottom:16px">
-      <div class="field-group" style="margin-bottom:0">
-        <label>First Name (optional)</label>
-        <input type="text" id="user-name" placeholder="Alex">
-      </div>
-      <div class="field-group" style="margin-bottom:0">
-        <label>Training Days / Week</label>
-        <select id="training-days">
-          <option value="2">2 days</option>
-          <option value="3">3 days</option>
-          <option value="4" selected>4 days</option>
-          <option value="5">5 days</option>
-          <option value="6">6 days</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="field-group">
-      <label>Training Style</label>
-      <div class="chip-group" id="training-style-group">
-        <button type="button" class="chip active" data-val="weightlifting">🏋️ Weightlifting</button>
-        <button type="button" class="chip" data-val="crossfit">⚡ CrossFit</button>
-        <button type="button" class="chip" data-val="running">🏃 Running</button>
-        <button type="button" class="chip" data-val="cycling">🚴 Cycling</button>
-        <button type="button" class="chip" data-val="swimming">🏊 Swimming</button>
-        <button type="button" class="chip" data-val="calisthenics">💪 Calisthenics</button>
-        <button type="button" class="chip" data-val="yoga">🧘 Yoga / Pilates</button>
-        <button type="button" class="chip" data-val="general">🏃 General Fitness</button>
-      </div>
-    </div>
-
-    <div class="field-group">
-      <label>Cooking Skill</label>
-      <div class="chip-group" id="cooking-skill-group">
-        <button type="button" class="chip active" data-val="beginner">🥚 Beginner</button>
-        <button type="button" class="chip" data-val="intermediate">🍳 Intermediate</button>
-        <button type="button" class="chip" data-val="advanced">👨‍🍳 Advanced</button>
-      </div>
-    </div>
-
-    <div class="field-group">
-      <label>Meal Prep Time Available</label>
-      <div class="chip-group" id="prep-time-group">
-        <button type="button" class="chip" data-val="1 hour">⏱ 1 hour</button>
-        <button type="button" class="chip active" data-val="2 hours">⏱ 2 hours</button>
-        <button type="button" class="chip" data-val="3+ hours">⏱ 3+ hours</button>
-      </div>
-    </div>
-
-    <div class="field-group">
-      <label>Dietary Restrictions & Allergies</label>
-      <input type="text" id="diet-pref" placeholder="e.g. no pork, lactose intolerant, nut allergy…">
-    </div>
-
-    <div class="field-group">
-      <label>Foods You Dislike (optional)</label>
-      <input type="text" id="disliked-foods" placeholder="e.g. broccoli, tuna, cottage cheese…">
-    </div>
-
-    <div class="field-group">
-      <label>Cuisine Preferences (optional)</label>
-      <div class="chip-group" id="cuisine-group">
-        <button type="button" class="chip" data-val="Mediterranean">🫒 Mediterranean</button>
-        <button type="button" class="chip" data-val="Asian">🥢 Asian</button>
-        <button type="button" class="chip" data-val="Mexican">🌮 Mexican</button>
-        <button type="button" class="chip" data-val="American">🍔 American</button>
-        <button type="button" class="chip" data-val="European">🥘 European</button>
-        <button type="button" class="chip" data-val="no preference">✨ No preference</button>
-      </div>
-    </div>
-
-    <div class="field-group">
-      <label>Meal Variety</label>
-      <div class="chip-group" id="variety-group">
-        <button type="button" class="chip" data-val="repeat">🔁 Repeat same meals</button>
-        <button type="button" class="chip active" data-val="some variety">🔀 Some variety</button>
-        <button type="button" class="chip" data-val="fully diverse">🌈 Fully diverse</button>
-      </div>
-      <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5">
-        "Repeat" = same 2–3 meals recycled all week. "Some variety" = mix of repeated and new. "Fully diverse" = different meal every day.
-      </div>
-    </div>
-
-    <hr class="divider">
-
-    <!-- MODE TOGGLE -->
-    <div class="section-label">Macro Mode</div>
-    <div class="mode-toggle">
-      <button class="mode-btn active" data-mode="manual" onclick="setMode('manual')">
-        <div class="mode-icon">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
+    <!-- STEP 0: Welcome / Code -->
+    <div class="survey-step active" data-step="0">
+      <div class="step-hero">
+        <div class="step-icon-wrap" style="background:rgba(200,245,66,0.12);border-color:rgba(200,245,66,0.25)">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--lime)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
         </div>
-        <span class="mode-label">I know my macros</span>
-        <span class="mode-desc">Enter targets directly</span>
-      </button>
-      <button class="mode-btn" data-mode="calc" onclick="setMode('calc')">
-        <div class="mode-icon">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="10" y2="10"/><line x1="14" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="10" y2="14"/><line x1="14" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="10" y2="18"/><line x1="14" y1="18" x2="16" y2="18"/></svg>
-        </div>
-        <span class="mode-label">Calculate for me</span>
-        <span class="mode-desc">From body stats & goal</span>
-      </button>
-    </div>
-
-    <!-- MODE A: MANUAL -->
-    <div id="mode-manual">
-      <div class="section-label">Daily Targets</div>
-      <div class="grid-4">
-        <div class="field-group" style="margin-bottom:0">
-          <label>Calories</label>
-          <input type="number" id="m-kcal" placeholder="2000" min="1000" max="6000">
-        </div>
-        <div class="field-group" style="margin-bottom:0">
-          <label>Protein (g)</label>
-          <input type="number" id="m-protein" placeholder="180" min="50" max="500">
-        </div>
-        <div class="field-group" style="margin-bottom:0">
-          <label>Carbs (g)</label>
-          <input type="number" id="m-carbs" placeholder="200" min="50" max="800">
-        </div>
-        <div class="field-group" style="margin-bottom:0">
-          <label>Fat (g)</label>
-          <input type="number" id="m-fat" placeholder="65" min="20" max="300">
-        </div>
+        <h2 class="step-title">Welcome to<br><span>Fuelplan</span></h2>
+        <p class="step-sub">Your AI-powered meal prep coach. Enter your activation code to get started.</p>
       </div>
-    </div>
-
-    <!-- MODE B: CALC -->
-    <div id="mode-calc" style="display:none">
-      <div class="section-label">Body Stats</div>
-      <div class="grid-2">
+      <div class="step-fields">
         <div class="field-group">
-          <label>Weight (kg)</label>
-          <input type="number" id="c-weight" placeholder="80" min="30" max="300" oninput="calcMacros()">
+          <label>Activation Code</label>
+          <input type="text" id="activation-code" placeholder="FUEL-XXXX" autocomplete="off" autocapitalize="characters" style="text-align:center;font-size:16px;letter-spacing:0.14em;font-weight:700;text-transform:uppercase">
         </div>
         <div class="field-group">
-          <label>Height (cm)</label>
-          <input type="number" id="c-height" placeholder="178" min="100" max="250" oninput="calcMacros()">
+          <label>First Name <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+          <input type="text" id="user-name" placeholder="Alex">
         </div>
-        <div class="field-group">
-          <label>Age</label>
-          <input type="number" id="c-age" placeholder="28" min="15" max="90" oninput="calcMacros()">
+      </div>
+    </div>
+
+    <!-- STEP 1: Training -->
+    <div class="survey-step" data-step="1">
+      <div class="step-hero">
+        <div class="step-icon-wrap" style="background:rgba(87,169,255,0.12);border-color:rgba(87,169,255,0.25)">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5h11M6.5 17.5h11M3 10h18M3 14h18"/></svg>
         </div>
+        <h2 class="step-title">Training &<br><span style="color:var(--blue)">Lifestyle</span></h2>
+        <p class="step-sub">Tell us about how you train so we can match your fuel to your output.</p>
+      </div>
+      <div class="step-fields">
         <div class="field-group">
-          <label>Sex</label>
-          <select id="c-sex" onchange="calcMacros()">
-            <option value="male">Male</option>
-            <option value="female">Female</option>
+          <label>Training Days / Week</label>
+          <select id="training-days">
+            <option value="2">2 days</option>
+            <option value="3">3 days</option>
+            <option value="4" selected>4 days</option>
+            <option value="5">5 days</option>
+            <option value="6">6 days</option>
           </select>
         </div>
-      </div>
-      <div class="field-group">
-        <label>Activity Level</label>
-        <select id="c-activity" onchange="calcMacros()">
-          <option value="1.2">Sedentary (desk job, no exercise)</option>
-          <option value="1.375">Lightly Active (1–3 days/week)</option>
-          <option value="1.55" selected>Moderately Active (3–5 days/week)</option>
-          <option value="1.725">Very Active (6–7 days/week)</option>
-        </select>
-      </div>
-      <div class="field-group" style="margin-bottom:8px">
-        <label>Goal</label>
-      </div>
-      <div class="goal-grid" id="goal-grid">
-
-        <!-- ── BULK TIER ── -->
-        <div class="goal-card" data-offset="200" onclick="setGoal(this)" style="--goal-color:#c8f542;--goal-rgb:200,245,66">
-          <div class="goal-card-top">
-            <span class="goal-icon">🌱</span>
-            <span class="goal-name">Lean Bulk</span>
-            <span class="goal-offset" style="color:#c8f542;margin-left:auto">+200 kcal</span>
+        <div class="field-group">
+          <label>Training Style</label>
+          <div class="chip-group" id="training-style-group">
+            <button type="button" class="chip active" data-val="weightlifting">🏋️ Weightlifting</button>
+            <button type="button" class="chip" data-val="crossfit">⚡ CrossFit</button>
+            <button type="button" class="chip" data-val="running">🏃 Running</button>
+            <button type="button" class="chip" data-val="cycling">🚴 Cycling</button>
+            <button type="button" class="chip" data-val="swimming">🏊 Swimming</button>
+            <button type="button" class="chip" data-val="calisthenics">💪 Calisthenics</button>
+            <button type="button" class="chip" data-val="yoga">🧘 Yoga / Pilates</button>
+            <button type="button" class="chip" data-val="general">🏃 General Fitness</button>
           </div>
-          <div class="goal-desc">Slow, clean gains with minimal fat accumulation</div>
         </div>
-        <div class="goal-card" data-offset="400" onclick="setGoal(this)" style="--goal-color:#a8e832;--goal-rgb:168,232,50">
-          <div class="goal-card-top">
-            <span class="goal-icon">💪</span>
-            <span class="goal-name">Bulking</span>
-            <span class="goal-offset" style="color:#a8e832;margin-left:auto">+400 kcal</span>
+        <div class="field-group">
+          <label>Cooking Skill</label>
+          <div class="chip-group" id="cooking-skill-group">
+            <button type="button" class="chip active" data-val="beginner">🥚 Beginner</button>
+            <button type="button" class="chip" data-val="intermediate">🍳 Intermediate</button>
+            <button type="button" class="chip" data-val="advanced">👨‍🍳 Advanced</button>
           </div>
-          <div class="goal-desc">Solid surplus for steady muscle and strength gains</div>
         </div>
-        <div class="goal-card" data-offset="600" onclick="setGoal(this)" style="--goal-color:#82cc1e;--goal-rgb:130,204,30;grid-column:span 2">
-          <div class="goal-card-top">
-            <span class="goal-icon">🏋️</span>
-            <span class="goal-name">Aggressive Bulk</span>
-            <span class="goal-offset" style="color:#82cc1e;margin-left:auto">+600 kcal</span>
-          </div>
-          <div class="goal-desc">Maximum size phase — expect some fat gain alongside rapid muscle growth</div>
-        </div>
-
-        <!-- ── MAINTAIN ── -->
-        <div class="goal-card active" data-offset="0" onclick="setGoal(this)" style="--goal-color:#57a9ff;--goal-rgb:87,169,255;grid-column:span 2">
-          <div class="goal-card-top">
-            <span class="goal-icon">⚖️</span>
-            <span class="goal-name">Maintaining</span>
-            <span class="goal-offset" style="color:#57a9ff;margin-left:auto">±0 kcal</span>
-          </div>
-          <div class="goal-desc">Hold your current weight and body composition</div>
-        </div>
-
-        <!-- ── CUT TIER ── -->
-        <div class="goal-card" data-offset="-300" onclick="setGoal(this)" style="--goal-color:#ff9a42;--goal-rgb:255,154,66">
-          <div class="goal-card-top">
-            <span class="goal-icon">🔥</span>
-            <span class="goal-name">Cutting</span>
-            <span class="goal-offset" style="color:#ff9a42;margin-left:auto">−300 kcal</span>
-          </div>
-          <div class="goal-desc">Steady fat loss while preserving muscle</div>
-        </div>
-        <div class="goal-card" data-offset="-500" onclick="setGoal(this)" style="--goal-color:#ff7b7b;--goal-rgb:255,123,123">
-          <div class="goal-card-top">
-            <span class="goal-icon">⚡</span>
-            <span class="goal-name">Intense Cut</span>
-            <span class="goal-offset" style="color:#ff7b7b;margin-left:auto">−500 kcal</span>
-          </div>
-          <div class="goal-desc">Faster fat loss, moderate muscle preservation risk</div>
-        </div>
-        <div class="goal-card" data-offset="-750" onclick="setGoal(this)" style="--goal-color:#ff5757;--goal-rgb:255,87,87;grid-column:span 2">
-          <div class="goal-card-top">
-            <span class="goal-icon">🔴</span>
-            <span class="goal-name">Aggressive Cut</span>
-            <span class="goal-offset" style="color:#ff5757;margin-left:auto">−750 kcal</span>
-          </div>
-          <div class="goal-desc">Maximum deficit — short-term only. High protein is critical to minimise muscle loss.</div>
-        </div>
-
-      </div>
-      <div id="cutting-warning" style="display:none;background:rgba(255,87,87,0.08);border:1px solid rgba(255,87,87,0.3);border-radius:10px;padding:12px 14px;font-size:12px;color:#ff9a9a;line-height:1.6;margin-bottom:20px">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:4px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        <strong>Aggressive deficit selected.</strong> This level of restriction should only be used for 2–4 weeks max under professional guidance. High protein intake is essential to minimise muscle loss.
-      </div>
-      <div id="bulking-warning" style="display:none;background:rgba(130,204,30,0.07);border:1px solid rgba(130,204,30,0.3);border-radius:10px;padding:12px 14px;font-size:12px;color:#b8e87a;line-height:1.6;margin-bottom:20px">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:4px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        <strong>Aggressive bulk selected.</strong> Best suited for beginners or those returning after a break. Expect faster strength gains alongside some fat gain. Consider cycling with a mini-cut after 8–12 weeks.
-      </div>
-
-      <!-- Calculated preview -->
-      <div id="macro-preview-wrap" style="display:none">
-        <div class="section-label">Calculated Targets</div>
-        <div class="macro-preview">
-          <div class="macro-preview-item">
-            <div class="val" id="prev-kcal">—</div>
-            <span class="unit">kcal / day</span>
-          </div>
-          <div class="macro-preview-item">
-            <div class="val" id="prev-protein">—</div>
-            <span class="unit">protein g</span>
-          </div>
-          <div class="macro-preview-item">
-            <div class="val" id="prev-carbs">—</div>
-            <span class="unit">carbs g</span>
-          </div>
-          <div class="macro-preview-item">
-            <div class="val" id="prev-fat">—</div>
-            <span class="unit">fat g</span>
+        <div class="field-group">
+          <label>Prep Time Available</label>
+          <div class="chip-group" id="prep-time-group">
+            <button type="button" class="chip" data-val="1 hour">⏱ 1 hour</button>
+            <button type="button" class="chip active" data-val="2 hours">⏱ 2 hours</button>
+            <button type="button" class="chip" data-val="3+ hours">⏱ 3+ hours</button>
           </div>
         </div>
       </div>
     </div>
 
-    <hr class="divider">
+    <!-- STEP 2: Food Preferences -->
+    <div class="survey-step" data-step="2">
+      <div class="step-hero">
+        <div class="step-icon-wrap" style="background:rgba(255,154,66,0.12);border-color:rgba(255,154,66,0.25)">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><path d="M12 8v4l3 3"/></svg>
+        </div>
+        <h2 class="step-title">Food &<br><span style="color:var(--orange)">Preferences</span></h2>
+        <p class="step-sub">Help us understand what you like to eat so your plan actually works for you.</p>
+      </div>
+      <div class="step-fields">
+        <div class="field-group">
+          <label>Dietary Restrictions & Allergies</label>
+          <input type="text" id="diet-pref" placeholder="e.g. no pork, lactose intolerant, nut allergy…">
+        </div>
+        <div class="field-group">
+          <label>Foods You Dislike <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+          <input type="text" id="disliked-foods" placeholder="e.g. broccoli, tuna, cottage cheese…">
+        </div>
+        <div class="field-group">
+          <label>Cuisine Preferences <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+          <div class="chip-group" id="cuisine-group">
+            <button type="button" class="chip" data-val="Mediterranean">🫒 Mediterranean</button>
+            <button type="button" class="chip" data-val="Asian">🥢 Asian</button>
+            <button type="button" class="chip" data-val="Mexican">🌮 Mexican</button>
+            <button type="button" class="chip" data-val="American">🍔 American</button>
+            <button type="button" class="chip" data-val="European">🥘 European</button>
+            <button type="button" class="chip" data-val="no preference">✨ No preference</button>
+          </div>
+        </div>
+        <div class="field-group">
+          <label>Meal Variety</label>
+          <div class="chip-group" id="variety-group">
+            <button type="button" class="chip" data-val="repeat">🔁 Repeat same meals</button>
+            <button type="button" class="chip active" data-val="some variety">🔀 Some variety</button>
+            <button type="button" class="chip" data-val="fully diverse">🌈 Fully diverse</button>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5">"Repeat" = same 2–3 meals all week. "Some variety" = mix. "Fully diverse" = different every day.</div>
+        </div>
+      </div>
+    </div>
 
-    <button class="btn-primary" id="generate-btn" onclick="generate()">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-right:6px;vertical-align:-2px"><path d="M13 2L4.5 13.5H11L9 22L19.5 10H13L15 2H13z"/></svg>
-      Generate My Plan
+    <!-- STEP 3: Macros -->
+    <div class="survey-step" data-step="3">
+      <div class="step-hero">
+        <div class="step-icon-wrap" style="background:rgba(200,245,66,0.12);border-color:rgba(200,245,66,0.25)">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--lime)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
+        </div>
+        <h2 class="step-title">Macros &<br><span>Goal</span></h2>
+        <p class="step-sub">Set your daily targets. Enter them manually or let us calculate them from your stats.</p>
+      </div>
+      <div class="step-fields">
+        <!-- MODE TOGGLE -->
+        <div class="mode-toggle" style="margin-bottom:20px">
+          <button class="mode-btn active" data-mode="manual" onclick="setMode('manual')">
+            <div class="mode-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg></div>
+            <span class="mode-label">I know my macros</span>
+            <span class="mode-desc">Enter targets directly</span>
+          </button>
+          <button class="mode-btn" data-mode="calc" onclick="setMode('calc')">
+            <div class="mode-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="10" y2="10"/><line x1="14" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="10" y2="14"/><line x1="14" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="10" y2="18"/><line x1="14" y1="18" x2="16" y2="18"/></svg></div>
+            <span class="mode-label">Calculate for me</span>
+            <span class="mode-desc">From body stats & goal</span>
+          </button>
+        </div>
+
+        <!-- MANUAL -->
+        <div id="mode-manual">
+          <div class="section-label">Daily Targets</div>
+          <div class="grid-4">
+            <div class="field-group" style="margin-bottom:0"><label>Calories</label><input type="number" id="m-kcal" placeholder="2000" min="1000" max="6000"></div>
+            <div class="field-group" style="margin-bottom:0"><label>Protein (g)</label><input type="number" id="m-protein" placeholder="180" min="50" max="500"></div>
+            <div class="field-group" style="margin-bottom:0"><label>Carbs (g)</label><input type="number" id="m-carbs" placeholder="200" min="50" max="800"></div>
+            <div class="field-group" style="margin-bottom:0"><label>Fat (g)</label><input type="number" id="m-fat" placeholder="65" min="20" max="300"></div>
+          </div>
+        </div>
+
+        <!-- CALC -->
+        <div id="mode-calc" style="display:none">
+          <div class="section-label">Body Stats</div>
+          <div class="grid-2">
+            <div class="field-group"><label>Weight (kg)</label><input type="number" id="c-weight" placeholder="80" min="30" max="300" oninput="calcMacros()"></div>
+            <div class="field-group"><label>Height (cm)</label><input type="number" id="c-height" placeholder="178" min="100" max="250" oninput="calcMacros()"></div>
+            <div class="field-group"><label>Age</label><input type="number" id="c-age" placeholder="28" min="15" max="90" oninput="calcMacros()"></div>
+            <div class="field-group"><label>Sex</label><select id="c-sex" onchange="calcMacros()"><option value="male">Male</option><option value="female">Female</option></select></div>
+          </div>
+          <div class="field-group"><label>Activity Level</label>
+            <select id="c-activity" onchange="calcMacros()">
+              <option value="1.2">Sedentary (desk job, no exercise)</option>
+              <option value="1.375">Lightly Active (1–3 days/week)</option>
+              <option value="1.55" selected>Moderately Active (3–5 days/week)</option>
+              <option value="1.725">Very Active (6–7 days/week)</option>
+            </select>
+          </div>
+          <div class="field-group" style="margin-bottom:8px"><label>Goal</label></div>
+          <div class="goal-grid" id="goal-grid">
+            <div class="goal-card" data-offset="200" onclick="setGoal(this)" style="--goal-color:#c8f542;--goal-rgb:200,245,66"><div class="goal-card-top"><span class="goal-icon">🌱</span><span class="goal-name">Lean Bulk</span><span class="goal-offset" style="color:#c8f542;margin-left:auto">+200 kcal</span></div><div class="goal-desc">Slow, clean gains with minimal fat accumulation</div></div>
+            <div class="goal-card" data-offset="400" onclick="setGoal(this)" style="--goal-color:#a8e832;--goal-rgb:168,232,50"><div class="goal-card-top"><span class="goal-icon">💪</span><span class="goal-name">Bulking</span><span class="goal-offset" style="color:#a8e832;margin-left:auto">+400 kcal</span></div><div class="goal-desc">Solid surplus for steady muscle and strength gains</div></div>
+            <div class="goal-card" data-offset="600" onclick="setGoal(this)" style="--goal-color:#82cc1e;--goal-rgb:130,204,30;grid-column:span 2"><div class="goal-card-top"><span class="goal-icon">🏋️</span><span class="goal-name">Aggressive Bulk</span><span class="goal-offset" style="color:#82cc1e;margin-left:auto">+600 kcal</span></div><div class="goal-desc">Maximum size phase — expect some fat gain alongside rapid muscle growth</div></div>
+            <div class="goal-card active" data-offset="0" onclick="setGoal(this)" style="--goal-color:#57a9ff;--goal-rgb:87,169,255;grid-column:span 2"><div class="goal-card-top"><span class="goal-icon">⚖️</span><span class="goal-name">Maintaining</span><span class="goal-offset" style="color:#57a9ff;margin-left:auto">±0 kcal</span></div><div class="goal-desc">Hold your current weight and body composition</div></div>
+            <div class="goal-card" data-offset="-300" onclick="setGoal(this)" style="--goal-color:#ff9a42;--goal-rgb:255,154,66"><div class="goal-card-top"><span class="goal-icon">🔥</span><span class="goal-name">Cutting</span><span class="goal-offset" style="color:#ff9a42;margin-left:auto">−300 kcal</span></div><div class="goal-desc">Steady fat loss while preserving muscle</div></div>
+            <div class="goal-card" data-offset="-500" onclick="setGoal(this)" style="--goal-color:#ff7b7b;--goal-rgb:255,123,123"><div class="goal-card-top"><span class="goal-icon">⚡</span><span class="goal-name">Intense Cut</span><span class="goal-offset" style="color:#ff7b7b;margin-left:auto">−500 kcal</span></div><div class="goal-desc">Faster fat loss, moderate muscle preservation risk</div></div>
+            <div class="goal-card" data-offset="-750" onclick="setGoal(this)" style="--goal-color:#ff5757;--goal-rgb:255,87,87;grid-column:span 2"><div class="goal-card-top"><span class="goal-icon">🔴</span><span class="goal-name">Aggressive Cut</span><span class="goal-offset" style="color:#ff5757;margin-left:auto">−750 kcal</span></div><div class="goal-desc">Maximum deficit — short-term only. High protein is critical.</div></div>
+          </div>
+          <div id="cutting-warning" style="display:none;background:rgba(255,87,87,0.08);border:1px solid rgba(255,87,87,0.3);border-radius:10px;padding:12px 14px;font-size:12px;color:#ff9a9a;line-height:1.6;margin-bottom:20px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:4px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><strong>Aggressive deficit.</strong> 2–4 weeks max. Keep protein high.</div>
+          <div id="bulking-warning" style="display:none;background:rgba(130,204,30,0.07);border:1px solid rgba(130,204,30,0.3);border-radius:10px;padding:12px 14px;font-size:12px;color:#b8e87a;line-height:1.6;margin-bottom:20px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:4px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><strong>Aggressive bulk.</strong> Best for beginners. Cycle with a mini-cut after 8–12 weeks.</div>
+          <div id="macro-preview-wrap" style="display:none">
+            <div class="section-label">Calculated Targets</div>
+            <div class="macro-preview">
+              <div class="macro-preview-item"><div class="val" id="prev-kcal">—</div><span class="unit">kcal / day</span></div>
+              <div class="macro-preview-item"><div class="val" id="prev-protein">—</div><span class="unit">protein g</span></div>
+              <div class="macro-preview-item"><div class="val" id="prev-carbs">—</div><span class="unit">carbs g</span></div>
+              <div class="macro-preview-item"><div class="val" id="prev-fat">—</div><span class="unit">fat g</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end survey-steps-wrap -->
+
+  <!-- ── BOTTOM NAV BUTTONS ── -->
+  <div id="survey-nav-btns">
+    <button id="survey-prev-btn" onclick="surveyPrev()" style="display:none">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
+    <button id="survey-next-btn" onclick="surveyNext()">Continue</button>
+  </div>
 
-    <p style="text-align:center; font-size:12px; color:var(--muted); margin-top:16px;">
-      Powered by Claude — your plan &amp; profile are saved locally on this device. API key is never stored.
-    </p>
-  </div>
-  <div class="version-footer">
+  <div class="version-footer" style="margin-top:0;padding-bottom:calc(env(safe-area-inset-bottom) + 8px)">
     <svg width="10" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-1px;opacity:0.5"><path d="M13 2L4.5 13.5H11L9 22L19.5 10H13L15 2H13z"/></svg>
-    FUELPLAN &nbsp;·&nbsp; v2.4.0
+    FUELPLAN &nbsp;·&nbsp; v2.5.0
   </div>
+
 </div>
 
 <!-- ═══════════════════════════ LOADING OVERLAY ═══════════════════════════ -->
@@ -624,16 +545,17 @@
 
 <!-- ═══════════════════════════ PLAN NAME MODAL ══════════════════════════ -->
 <!-- ═══════════════════════════ CONFIRM MODAL ═══════════════════════════ -->
-<div id="confirm-overlay" onclick="closeConfirmModal()"></div>
-<div id="confirm-modal" onclick="event.stopPropagation()">
-  <div style="padding: 24px 24px 20px">
-    <div id="confirm-icon" style="margin-bottom:14px;display:flex;justify-content:center"></div>
-    <div id="confirm-title" style="font-family:'Syne',sans-serif;font-weight:800;font-size:20px;margin-bottom:8px;text-align:center"></div>
-    <div id="confirm-body" style="font-size:14px;color:var(--muted);line-height:1.6;text-align:center;margin-bottom:20px"></div>
-    <div id="confirm-warning" style="display:none;background:rgba(255,154,66,0.1);border:1px solid rgba(255,154,66,0.3);border-radius:12px;padding:12px 14px;font-size:12px;color:var(--orange);line-height:1.6;margin-bottom:20px;text-align:left"></div>
-    <div style="display:flex;gap:10px">
-      <button onclick="closeConfirmModal()" style="flex:1;background:var(--bg2);border:1.5px solid var(--border);border-radius:12px;color:var(--muted);font-family:'Syne',sans-serif;font-weight:700;font-size:13px;padding:0;height:52px;cursor:pointer;min-width:0">Cancel</button>
-      <button id="confirm-action-btn" style="flex:1;border:none;border-radius:12px;font-family:'Syne',sans-serif;font-weight:800;font-size:13px;padding:0;height:52px;cursor:pointer;min-width:0"></button>
+<div id="confirm-overlay" onclick="if(event.target===this)closeConfirmModal()">
+  <div id="confirm-modal" onclick="event.stopPropagation()">
+    <div style="padding:28px 24px 24px">
+      <div id="confirm-icon" style="margin-bottom:16px;display:flex;justify-content:center"></div>
+      <div id="confirm-title" style="font-family:'Syne',sans-serif;font-weight:800;font-size:22px;margin-bottom:8px;text-align:center;line-height:1.2"></div>
+      <div id="confirm-body" style="font-size:14px;color:var(--muted);line-height:1.6;text-align:center"></div>
+      <div id="confirm-warning" style="display:none;background:rgba(255,154,66,0.1);border:1px solid rgba(255,154,66,0.25);border-radius:12px;padding:12px 14px;font-size:12px;color:var(--orange);line-height:1.6;margin-top:16px;text-align:left"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:24px">
+        <button onclick="closeConfirmModal()" style="background:var(--bg2);border:1.5px solid var(--border);border-radius:12px;color:var(--text);font-family:'Syne',sans-serif;font-weight:700;font-size:14px;height:52px;cursor:pointer">Cancel</button>
+        <button id="confirm-action-btn" style="border:none;border-radius:12px;font-family:'Syne',sans-serif;font-weight:800;font-size:14px;height:52px;cursor:pointer"></button>
+      </div>
     </div>
   </div>
 </div>
