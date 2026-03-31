@@ -1146,6 +1146,18 @@
 
   .history-card:hover { border-color: var(--lime); transform: translateY(-1px); }
 
+  .history-card-active {
+    border-color: rgba(200,245,66,0.35) !important;
+    background: rgba(200,245,66,0.04);
+  }
+  .history-card-active::before { background: var(--lime); opacity: 1; }
+
+  /* Survey back button */
+  #survey-back-btn {
+    transition: color 0.15s;
+  }
+  #survey-back-btn:hover { color: var(--text); }
+
   .history-card-top {
     display: flex;
     justify-content: space-between;

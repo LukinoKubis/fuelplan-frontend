@@ -181,6 +181,24 @@ function setChipValues(groupId, vals) {
   group.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', vals.includes(c.dataset.val)));
 }
 
+function updateSurveyBackButton(show) {
+  const btn = document.getElementById('survey-back-btn');
+  if (btn) btn.style.display = show ? 'flex' : 'none';
+}
+
+function cancelSurvey() {
+  // User had an existing plan — go back to it
+  const savedPlan = MEM.load('fp_plan');
+  if (savedPlan && planData) {
+    document.getElementById('survey-wrap').style.display = 'none';
+    document.getElementById('plan-wrap').classList.add('active');
+    document.getElementById('bottom-nav').style.display = 'flex';
+  } else if (savedPlan) {
+    renderPlan(savedPlan, MEM.load('fp_userName') || 'Your', true);
+  }
+  updateSurveyBackButton(false);
+}
+
 /* ═══════════════ SURVEY LOGIC ═══════════════ */
 
 function setMode(mode) {
@@ -268,14 +286,10 @@ function getMacroTargets() {
 async function generate() {
   if (!navigator.onLine) {
     showToast('You\'re offline — connect to generate a new plan');
-    // If already on plan screen, stay there. If on survey, let them go back.
     const savedPlan = MEM.load('fp_plan');
-    if (!savedPlan) {
-      // No plan — they're on survey already, nothing to do
-    } else {
-      // They're on survey trying to regenerate — take them back to their plan
-      const savedName = MEM.load('fp_planName') || '';
+    if (savedPlan) {
       const savedUser = MEM.load('fp_userName') || 'Your';
+      const savedName = MEM.load('fp_planName') || '';
       renderPlan(savedPlan, savedUser, true, savedName);
     }
     return;
@@ -643,6 +657,7 @@ function renderPlan(plan, userName, isRestoring, planName) {
   document.getElementById('survey-wrap').style.display = 'none';
   document.getElementById('plan-wrap').classList.add('active');
   document.getElementById('bottom-nav').style.display = 'flex';
+  updateSurveyBackButton(false);
   window.scrollTo(0, 0);
 
   // Restore active section
@@ -939,18 +954,22 @@ async function loadHistoryList() {
       return;
     }
 
+    const activePlanId = MEM.load('fp_activePlanId');
+
     listEl.innerHTML = history.map(function(entry, i) {
       const date = new Date(entry.savedAt);
       const dateStr = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
       const timeStr = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
       const macros = entry.macros || {};
-      const label = i === 0 ? 'Latest' : '#' + (i + 1);
+      const isActive = String(entry.id) === String(activePlanId);
+      const label = isActive ? 'Active' : (i === 0 ? 'Latest' : '#' + (i + 1));
+      const labelColor = isActive ? 'color:var(--lime);border-color:rgba(200,245,66,0.4);background:rgba(200,245,66,0.08)' : '';
       const displayName = entry.planName || (entry.userName ? entry.userName + "'s Plan" : 'My Plan');
       return `
-        <div class="history-card" id="hcard-${entry.id}">
+        <div class="history-card${isActive ? ' history-card-active' : ''}" id="hcard-${entry.id}">
           <div class="history-card-top">
             <div class="history-card-date">${dateStr} · ${timeStr}</div>
-            <span class="history-card-label">${label}</span>
+            <span class="history-card-label" style="${labelColor}">${label}</span>
           </div>
           <div class="history-card-name">${escHtml(displayName)}</div>
           <div class="history-macros">
@@ -960,10 +979,13 @@ async function loadHistoryList() {
             <span class="history-macro" style="color:var(--red)">${macros.fat || '—'}g fat</span>
           </div>
           <div style="display:flex;gap:8px;margin-top:12px">
-            <button class="history-restore-btn" style="flex:1" onclick="restorePlan(${entry.id})">
+            ${isActive ? `<div class="history-restore-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;opacity:0.5;cursor:default">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              Currently Active
+            </div>` : `<button class="history-restore-btn" style="flex:1" onclick="restorePlan(${entry.id})">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:5px"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.36"/></svg>
-              Restore
-            </button>
+              Load Plan
+            </button>`}
             <button class="history-delete-btn" onclick="deletePlan(${entry.id})" title="Delete this plan">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
             </button>
@@ -999,6 +1021,7 @@ async function restorePlan(planId) {
     MEM.save('fp_plan', data.plan);
     MEM.save('fp_userName', data.userName || 'Your');
     MEM.save('fp_planName', data.planName || '');
+    MEM.save('fp_activePlanId', planId);
 
     closeHistory();
     renderPlan(data.plan, data.userName || 'Your', false, data.planName || '');
@@ -1010,45 +1033,42 @@ async function restorePlan(planId) {
   }
 }
 
-// Called after a plan is successfully generated & rendered — saves to server history
 async function deletePlan(planId) {
-  const code = (localStorage.getItem('fp_apikey') || '').toUpperCase();
   const card = document.getElementById('hcard-' + planId);
-
-  // Count how many plans are currently shown
   const totalCards = document.querySelectorAll('.history-card').length;
-  const remaining = parseInt(document.getElementById('plans-remaining')?.textContent) || null;
+  const generationsLeft = parseInt(document.getElementById('plans-remaining')?.textContent) || null;
   const isLast = totalCards === 1;
 
-  // Build warning message
-  let warning = null;
-  if (isLast && remaining !== null && remaining <= 3) {
-    warning = `<strong>This is your last saved plan</strong> and you only have <strong>${remaining} plan${remaining === 1 ? '' : 's'} left</strong> on your code. Once deleted, you'll need to spend a plan to get a new one.`;
-  } else if (isLast) {
-    warning = `<strong>This is your last saved plan.</strong> Once deleted, you'll need to generate a new one to use the app.`;
-  } else if (remaining !== null && remaining <= 3) {
-    warning = `You only have <strong>${remaining} plan${remaining === 1 ? '' : 's'} left</strong> on your code — make sure you don't need this one before deleting.`;
-  }
+  // Check if this is the currently active plan
+  const activePlanId = MEM.load('fp_activePlanId');
+  const isActive = String(planId) === String(activePlanId);
 
-  // Get the plan name from the card
   const nameEl = card?.querySelector('.history-card-name');
   const planName = nameEl?.textContent || 'this plan';
+
+  let warning = null;
+  if (isLast) {
+    warning = `<strong>This is your only saved plan.</strong> Once deleted, you'll need to generate a new one${generationsLeft !== null && generationsLeft <= 3 ? ` (${generationsLeft} generation${generationsLeft === 1 ? '' : 's'} remaining)` : ''}.`;
+  } else if (isActive) {
+    warning = `This is your currently active plan. Deleting it will switch you to another saved plan.`;
+  } else if (generationsLeft !== null && generationsLeft <= 3) {
+    warning = `You only have <strong>${generationsLeft} generation${generationsLeft === 1 ? '' : 's'} left</strong> on your code.`;
+  }
 
   showConfirmModal({
     icon: `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`,
     title: 'Delete Plan?',
-    body: `"${planName}" will be permanently removed from your history.`,
+    body: `"${planName}" will be permanently removed from My Plans.`,
     warning,
     actionLabel: 'Delete',
-    actionStyle: 'background:var(--red);color:#fff;',
-    onConfirm: () => doDeletePlan(planId, card, isLast)
+    actionStyle: 'background:var(--red);color:#fff;border-radius:12px;',
+    onConfirm: () => doDeletePlan(planId, card, isLast, isActive)
   });
 }
 
-async function doDeletePlan(planId, card, isLast) {
+async function doDeletePlan(planId, card, isLast, isActive) {
   const code = (localStorage.getItem('fp_apikey') || '').toUpperCase();
 
-  // Animate card out
   if (card) {
     card.style.transition = 'opacity 0.25s, transform 0.25s';
     card.style.opacity = '0';
@@ -1068,18 +1088,19 @@ async function doDeletePlan(planId, card, isLast) {
       const remaining = document.querySelectorAll('.history-card');
       if (remaining.length === 0) {
         document.getElementById('history-list').innerHTML =
-          '<div style="text-align:center;padding:32px;color:var(--muted);font-size:14px;line-height:1.6">No saved plans yet.<br>Generate a plan to start building your history.</div>';
+          '<div style="text-align:center;padding:32px;color:var(--muted);font-size:14px;line-height:1.6">No plans saved yet.<br>Generate your first plan to get started.</div>';
       }
     }, 260);
 
     showToast('Plan deleted');
 
-    // If this was the last saved plan, clear local state and go to survey
     if (isLast) {
+      // No plans left — clear everything and go to survey
       setTimeout(() => {
         closeHistory();
         MEM.remove('fp_plan');
         MEM.remove('fp_planName');
+        MEM.remove('fp_activePlanId');
         MEM.remove('fp_shopChecks');
         MEM.remove('fp_activeSection');
         MEM.remove('fp_activeDay');
@@ -1088,7 +1109,40 @@ async function doDeletePlan(planId, card, isLast) {
         document.getElementById('survey-wrap').style.display = 'flex';
         document.getElementById('plan-wrap').classList.remove('active');
         document.getElementById('bottom-nav').style.display = 'none';
-        showToast('Generate a new plan to get started');
+        updateSurveyBackButton(false);
+      }, 400);
+    } else if (isActive) {
+      // Deleted the active plan — load the next available one from server
+      setTimeout(async () => {
+        try {
+          const r = await fetch(API_BASE + '/api/history/get', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ activationCode: code })
+          });
+          const d = await r.json();
+          const next = d.history?.[0];
+          if (next) {
+            // Restore the next plan
+            const r2 = await fetch(API_BASE + '/api/history/restore', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ activationCode: code, planId: next.id })
+            });
+            const d2 = await r2.json();
+            MEM.save('fp_plan', d2.plan);
+            MEM.save('fp_userName', d2.userName || 'Your');
+            MEM.save('fp_planName', d2.planName || '');
+            MEM.save('fp_activePlanId', next.id);
+            shopChecks = {};
+            MEM.save('fp_shopChecks', shopChecks);
+            closeHistory();
+            renderPlan(d2.plan, d2.userName || 'Your', false, d2.planName || '');
+            showToast('Switched to: ' + (d2.planName || 'previous plan'));
+          }
+        } catch (e) {
+          closeHistory();
+        }
       }, 400);
     }
 
@@ -1227,7 +1281,6 @@ async function saveCurrentPlanToHistory(plan, userName, planName) {
   const code = (localStorage.getItem('fp_apikey') || '').toUpperCase();
   if (!code || !plan) return;
 
-  // Auto-generate name if not provided
   if (!planName) {
     const profile = MEM.load('fp_profile');
     const goalOffsets = {600:'Aggressive Bulk',400:'Bulk',200:'Lean Bulk',0:'Maintenance','-300':'Cut','-500':'Intense Cut','-750':'Aggressive Cut'};
@@ -1235,7 +1288,7 @@ async function saveCurrentPlanToHistory(plan, userName, planName) {
   }
 
   try {
-    await fetch(API_BASE + '/api/history/save', {
+    const res = await fetch(API_BASE + '/api/history/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1246,6 +1299,9 @@ async function saveCurrentPlanToHistory(plan, userName, planName) {
         macros: plan.summary
       })
     });
+    const data = await res.json();
+    // Track which plan is currently active so delete knows what to do
+    if (data.id) MEM.save('fp_activePlanId', data.id);
   } catch (err) {
     console.warn('Failed to save plan to history:', err.message);
   }
@@ -1391,32 +1447,39 @@ function closeConfirmModal() {
 }
 
 function openSettings_regenerate() {
-  const remaining = planData ? (
-    parseInt(document.getElementById('plans-remaining')?.textContent) || null
-  ) : null;
+  // Block if 0 plans remaining
+  const remaining = parseInt(document.getElementById('plans-remaining')?.textContent) || 0;
+  if (remaining <= 0) {
+    showConfirmModal({
+      icon: `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+      title: 'No Plans Left',
+      body: 'You\'ve used all your plan generations. Contact us to top up your activation code.',
+      warning: null,
+      actionLabel: 'OK',
+      actionStyle: 'background:var(--lime);color:#0e0f11;border-radius:12px;',
+      onConfirm: () => {}
+    });
+    return;
+  }
 
-  const warningMsg = (remaining !== null && remaining <= 3 && remaining > 0)
-    ? `<strong>You only have ${remaining} plan${remaining === 1 ? '' : 's'} left</strong> on your code. Generating a new one will use one up.`
+  const warningMsg = remaining <= 3
+    ? `<strong>You only have ${remaining} plan generation${remaining === 1 ? '' : 's'} left</strong> on your code.`
     : null;
 
   showConfirmModal({
     icon: `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--lime)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4.5 13.5H11L9 22L19.5 10H13L15 2H13z"/></svg>`,
     title: 'Generate New Plan?',
-    body: 'Your current plan will be replaced. Make sure you\'ve saved anything you want to keep in My Plans first.',
+    body: 'This will use one of your plan generations. You can keep up to 5 plans in My Plans.',
     warning: warningMsg,
-    actionLabel: 'Yes, Generate New',
-    actionStyle: 'background:var(--lime);color:#0e0f11;',
+    actionLabel: 'Generate',
+    actionStyle: 'background:var(--lime);color:#0e0f11;border-radius:12px;',
     onConfirm: () => {
-      MEM.remove('fp_plan');
-      MEM.remove('fp_shopChecks');
-      MEM.remove('fp_activeSection');
-      MEM.remove('fp_activeDay');
-      MEM.remove('fp_planName');
-      shopChecks = {};
-      planData = null;
+      // Keep planData in memory so user can go back — only clear active display
       document.getElementById('survey-wrap').style.display = 'flex';
       document.getElementById('plan-wrap').classList.remove('active');
       document.getElementById('bottom-nav').style.display = 'none';
+      // Show back button since they have an existing plan
+      updateSurveyBackButton(true);
       setTimeout(() => {
         document.getElementById('generate-btn')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 100);
