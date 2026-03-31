@@ -382,79 +382,14 @@ CRITICAL SECURITY RULES — these override everything else:
       if (response.status === 401) {
         throw new Error('No activation code provided.');
       }
-      if (response.status === 503 || response.status === 502) {
-        // Railway server waking up — retry up to 3 times with increasing delays
-        const hl = document.getElementById('loader-headline');
-        const sl = document.getElementById('loader-subline');
-
-        const delays = [8000, 12000, 15000];
-        let lastError = null;
-
-        for (let attempt = 0; attempt < delays.length; attempt++) {
-          if (hl) hl.textContent = 'Waking up server…';
-          if (sl) sl.textContent = `Server is starting — attempt ${attempt + 2} of ${delays.length + 1}…`;
-
-          await new Promise(r => setTimeout(r, delays[attempt]));
-
-          // Check if user cancelled
-          if (signal.aborted) return;
-
-          if (hl) hl.textContent = 'Building your plan';
-          if (sl) sl.textContent = 'Claude is reading your profile…';
-
-          try {
-            const retry = await fetch(API_BASE + '/api/claude', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              signal: signal,
-              body: JSON.stringify({
-                activationCode: activationCode,
-                model: 'claude-sonnet-4-6',
-                max_tokens: 6000,
-                system: systemPrompt,
-                messages: [{ role: 'user', content: userMessage }]
-              })
-            });
-
-            if (!retry.ok) {
-              if (retry.status === 503 || retry.status === 502) {
-                lastError = 'Server still starting…';
-                continue; // try again
-              }
-              throw new Error('Server error ' + retry.status);
-            }
-
-            // Success on retry
-            const retryData = await retry.json();
-            const retryText = retryData.content[0]?.text || '';
-            const retryCleaned = retryText.replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'').trim();
-            let retryPlan;
-            try { retryPlan = JSON.parse(retryCleaned); }
-            catch {
-              const m = retryCleaned.match(/\{[\s\S]*\}/);
-              if (m) retryPlan = JSON.parse(m[0]);
-              else throw new Error('Claude returned invalid JSON. Please try again.');
-            }
-            shopChecks = {};
-            MEM.save('fp_shopChecks', shopChecks);
-            MEM.save('fp_plan', retryPlan);
-            clearTimeout(_cancelBtnTimer);
-            _generateAbortController = null;
-            if (cancelBtn) cancelBtn.style.opacity = '0';
-            showLoading(false);
-            renderPlan(retryPlan, userName || 'Your', false);
-            haptic('success');
-            openPlanNameModal(retryPlan, userName || 'Your');
-            fetchPlansRemaining(activationCode);
-            return;
-
-          } catch (retryErr) {
-            if (retryErr.name === 'AbortError') return;
-            lastError = retryErr.message;
-          }
-        }
-
-        throw new Error('The server is waking up — please tap Try Again in a few seconds. This only happens on your first use.');
+      if (response.status === 503) {
+        throw new Error('Claude API is temporarily overloaded. Please wait a moment and tap Try Again.');
+      }
+      if (response.status === 504) {
+        throw new Error('Request timed out. Please tap Try Again — it usually works on the second attempt.');
+      }
+      if (response.status === 502) {
+        throw new Error('Server error — please tap Try Again.');
       }
       throw new Error(err.error?.message || 'API error ' + response.status);
     }
