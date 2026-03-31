@@ -999,6 +999,39 @@ async function deletePlan(planId) {
   const code = (localStorage.getItem('fp_apikey') || '').toUpperCase();
   const card = document.getElementById('hcard-' + planId);
 
+  // Count how many plans are currently shown
+  const totalCards = document.querySelectorAll('.history-card').length;
+  const remaining = parseInt(document.getElementById('plans-remaining')?.textContent) || null;
+  const isLast = totalCards === 1;
+
+  // Build warning message
+  let warning = null;
+  if (isLast && remaining !== null && remaining <= 3) {
+    warning = `<strong>This is your last saved plan</strong> and you only have <strong>${remaining} plan${remaining === 1 ? '' : 's'} left</strong> on your code. Once deleted, you'll need to spend a plan to get a new one.`;
+  } else if (isLast) {
+    warning = `<strong>This is your last saved plan.</strong> Once deleted, you'll need to generate a new one to use the app.`;
+  } else if (remaining !== null && remaining <= 3) {
+    warning = `You only have <strong>${remaining} plan${remaining === 1 ? '' : 's'} left</strong> on your code — make sure you don't need this one before deleting.`;
+  }
+
+  // Get the plan name from the card
+  const nameEl = card?.querySelector('.history-card-name');
+  const planName = nameEl?.textContent || 'this plan';
+
+  showConfirmModal({
+    icon: `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`,
+    title: 'Delete Plan?',
+    body: `"${planName}" will be permanently removed from your history.`,
+    warning,
+    actionLabel: 'Delete',
+    actionStyle: 'background:var(--red);color:#fff;',
+    onConfirm: () => doDeletePlan(planId, card)
+  });
+}
+
+async function doDeletePlan(planId, card) {
+  const code = (localStorage.getItem('fp_apikey') || '').toUpperCase();
+
   // Animate card out
   if (card) {
     card.style.transition = 'opacity 0.25s, transform 0.25s';
@@ -1014,10 +1047,8 @@ async function deletePlan(planId) {
     });
     if (!res.ok) throw new Error('Failed to delete');
 
-    // Remove card from DOM after animation
     setTimeout(() => {
       if (card) card.remove();
-      // Show empty state if no cards left
       const remaining = document.querySelectorAll('.history-card');
       if (remaining.length === 0) {
         document.getElementById('history-list').innerHTML =
@@ -1027,7 +1058,6 @@ async function deletePlan(planId) {
 
     showToast('Plan deleted');
   } catch (err) {
-    // Restore card on failure
     if (card) { card.style.opacity = '1'; card.style.transform = ''; }
     showToast('Failed to delete plan');
   }
@@ -1282,20 +1312,80 @@ function initSettingsDrag() {
   window.addEventListener('mouseup', onEnd);
 }
 
+/* ═══════════════ CONFIRM MODAL ═══════════════ */
+let _confirmCallback = null;
+
+function showConfirmModal({ icon, title, body, warning, actionLabel, actionStyle, onConfirm }) {
+  _confirmCallback = onConfirm;
+
+  const iconEl = document.getElementById('confirm-icon');
+  const titleEl = document.getElementById('confirm-title');
+  const bodyEl = document.getElementById('confirm-body');
+  const warningEl = document.getElementById('confirm-warning');
+  const btn = document.getElementById('confirm-action-btn');
+
+  iconEl.innerHTML = icon || '';
+  titleEl.textContent = title || '';
+  bodyEl.textContent = body || '';
+
+  if (warning) {
+    warningEl.style.display = 'block';
+    warningEl.innerHTML = warning;
+  } else {
+    warningEl.style.display = 'none';
+  }
+
+  btn.textContent = actionLabel || 'Confirm';
+  btn.style.cssText = actionStyle || 'background:var(--red);color:#fff;';
+  btn.onclick = () => { closeConfirmModal(); _confirmCallback && _confirmCallback(); };
+
+  document.body.style.overflow = 'hidden';
+  document.getElementById('confirm-overlay').classList.add('open');
+  document.getElementById('confirm-modal').classList.add('open');
+}
+
+function closeConfirmModal() {
+  document.getElementById('confirm-overlay').classList.remove('open');
+  document.getElementById('confirm-modal').classList.remove('open');
+  document.body.style.overflow = '';
+  _confirmCallback = null;
+}
+
+// Close on overlay tap
+document.getElementById('confirm-overlay').addEventListener('click', closeConfirmModal);
+
 function openSettings_regenerate() {
-  MEM.remove('fp_plan');
-  MEM.remove('fp_shopChecks');
-  MEM.remove('fp_activeSection');
-  MEM.remove('fp_activeDay');
-  shopChecks = {};
-  planData = null;
-  document.getElementById('survey-wrap').style.display = 'flex';
-  document.getElementById('plan-wrap').classList.remove('active');
-  document.getElementById('bottom-nav').style.display = 'none';
-  setTimeout(() => {
-    document.getElementById('generate-btn')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, 100);
-  showToast('Update anything and regenerate');
+  const remaining = planData ? (
+    parseInt(document.getElementById('plans-remaining')?.textContent) || null
+  ) : null;
+
+  const warningMsg = (remaining !== null && remaining <= 3 && remaining > 0)
+    ? `<strong>You only have ${remaining} plan${remaining === 1 ? '' : 's'} left</strong> on your code. Generating a new one will use one up.`
+    : null;
+
+  showConfirmModal({
+    icon: `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--lime)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4.5 13.5H11L9 22L19.5 10H13L15 2H13z"/></svg>`,
+    title: 'Generate New Plan?',
+    body: 'Your current plan will be replaced. Make sure you\'ve saved anything you want to keep in My Plans first.',
+    warning: warningMsg,
+    actionLabel: 'Yes, Generate New',
+    actionStyle: 'background:var(--lime);color:#0e0f11;',
+    onConfirm: () => {
+      MEM.remove('fp_plan');
+      MEM.remove('fp_shopChecks');
+      MEM.remove('fp_activeSection');
+      MEM.remove('fp_activeDay');
+      MEM.remove('fp_planName');
+      shopChecks = {};
+      planData = null;
+      document.getElementById('survey-wrap').style.display = 'flex';
+      document.getElementById('plan-wrap').classList.remove('active');
+      document.getElementById('bottom-nav').style.display = 'none';
+      setTimeout(() => {
+        document.getElementById('generate-btn')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+  });
 }
 
 function editProfile() {
@@ -1317,7 +1407,6 @@ function editProfile() {
 function resetShopList() {
   shopChecks = {};
   MEM.save('fp_shopChecks', shopChecks);
-  // Re-render shopping panel
   const container = document.getElementById('shopping-content');
   if (container && planData) {
     container.innerHTML = renderShoppingPanel(planData.shopping_list, true);
@@ -1326,20 +1415,32 @@ function resetShopList() {
 }
 
 function confirmFullReset() {
-  // Simple confirm on mobile
-  const ok = window.confirm('This will delete your plan, profile, and all saved data. Are you sure?');
-  if (!ok) return;
-  MEM.clear();
-  shopChecks = {};
-  planData = null;
-  document.getElementById('survey-wrap').style.display = 'flex';
-  document.getElementById('plan-wrap').classList.remove('active');
-  document.getElementById('bottom-nav').style.display = 'none';
-  // Clear all form fields
-  ['user-name','diet-pref','disliked-foods','c-weight','c-height','c-age','m-kcal','m-protein','m-carbs','m-fat']
-    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  setMode('manual');
-  showToast('All data cleared');
+  const remaining = parseInt(document.getElementById('plans-remaining')?.textContent) || null;
+
+  const warningMsg = (remaining !== null && remaining <= 3 && remaining > 0)
+    ? `<strong>You only have ${remaining} plan${remaining === 1 ? '' : 's'} left</strong> on your code — you'll need to use one to get a new plan.`
+    : null;
+
+  showConfirmModal({
+    icon: `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`,
+    title: 'Full Reset?',
+    body: 'This deletes your plan, profile, and all data from this device. This cannot be undone.',
+    warning: warningMsg,
+    actionLabel: 'Delete Everything',
+    actionStyle: 'background:var(--red);color:#fff;',
+    onConfirm: () => {
+      MEM.clear();
+      shopChecks = {};
+      planData = null;
+      document.getElementById('survey-wrap').style.display = 'flex';
+      document.getElementById('plan-wrap').classList.remove('active');
+      document.getElementById('bottom-nav').style.display = 'none';
+      ['user-name','diet-pref','disliked-foods','c-weight','c-height','c-age','m-kcal','m-protein','m-carbs','m-fat']
+        .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+      setMode('manual');
+      showToast('All data cleared');
+    }
+  });
 }
 
 let _generateAbortController = null;
@@ -1354,47 +1455,17 @@ function cancelGenerate() {
   clearTimeout(_cancelBtnTimer);
   showLoading(false);
 
-  // If a plan exists, go back to it — otherwise back to survey
   const savedPlan = MEM.load('fp_plan');
   if (savedPlan && planData) {
     // Already on plan screen — just hide loading
   } else if (savedPlan) {
     renderPlan(savedPlan, MEM.load('fp_userName') || 'Your', true);
   } else {
-    // No plan — go back to survey
     document.getElementById('survey-wrap').style.display = 'flex';
     document.getElementById('plan-wrap').classList.remove('active');
     document.getElementById('bottom-nav').style.display = 'none';
   }
   showToast('Generation cancelled');
-}
-
-function confirmFullReset() {
-  const remaining = parseInt(document.getElementById('plans-remaining')?.textContent) || null;
-  const hasPlan = !!MEM.load('fp_plan');
-
-  let msg = 'This will delete your current plan and profile from this device.';
-  if (remaining !== null && remaining <= 3 && remaining > 0) {
-    msg += `\n\n⚠️ You only have ${remaining} plan${remaining === 1 ? '' : 's'} left on your code — deleting means you'll need to use one to get a new plan.`;
-  } else if (!hasPlan) {
-    msg += '\n\nYou don\'t have a plan saved — you\'ll need to generate a new one.';
-  } else {
-    msg += '\n\nYou\'ll need to generate a new plan to use the app again.';
-  }
-
-  const ok = window.confirm(msg);
-  if (!ok) return;
-
-  MEM.clear();
-  shopChecks = {};
-  planData = null;
-  document.getElementById('survey-wrap').style.display = 'flex';
-  document.getElementById('plan-wrap').classList.remove('active');
-  document.getElementById('bottom-nav').style.display = 'none';
-  ['user-name','diet-pref','disliked-foods','c-weight','c-height','c-age','m-kcal','m-protein','m-carbs','m-fat']
-    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  setMode('manual');
-  showToast('All data cleared');
 }
 
 /* ═══════════════ HAPTICS ═══════════════ */
