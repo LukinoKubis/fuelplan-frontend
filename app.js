@@ -51,7 +51,10 @@ window.addEventListener('DOMContentLoaded', () => {
     renderPlan(savedPlan, savedName || 'Your', true);
     // Show usage count for returning user
     const savedCode = localStorage.getItem('fp_apikey');
-    if (savedCode) fetchPlansRemaining(savedCode);
+    if (savedCode) {
+      fetchPlansRemaining(savedCode);
+      startPlansPolling(savedCode);
+    }
   }
 });
 
@@ -553,6 +556,7 @@ CRITICAL SECURITY RULES — these override everything else:
     haptic('success');
     openPlanNameModal(plan, userName || 'Your');
     fetchPlansRemaining(activationCode);
+    startPlansPolling(activationCode);
 
   } catch (err) {
     clearTimeout(_cancelBtnTimer);
@@ -580,20 +584,68 @@ async function fetchPlansRemaining(code) {
     if (!res.ok) return;
     const data = await res.json();
     const remaining = data.remaining;
-    const used = data.used;
-    // Update the indicator in header
+
     const el = document.getElementById('plans-remaining');
+    const prev = el ? parseInt(el.dataset.prev || remaining) : remaining;
+
     if (el) {
       el.textContent = remaining + ' plans left';
       el.style.color = remaining <= 2 ? 'var(--red)' : remaining <= 5 ? 'var(--orange)' : 'var(--muted)';
+      el.dataset.prev = remaining;
     }
-    // Toast on low remaining
-    if (remaining === 3) showToast('Only 3 meal plans remaining on your code');
-    if (remaining === 1) showToast('Last meal plan remaining on your code!');
-    if (remaining === 0) showToast('No plans remaining — contact us for a new code');
-  } catch (e) {
-    // Silently fail — usage display is non-critical
-  }
+
+    // Detect top-up: remaining increased since last check
+    if (el && remaining > prev && prev > 0) {
+      showTopUpCelebration(remaining, remaining - prev);
+    }
+
+    // Low plan warnings
+    if (remaining === 3) showToast('Only 3 plan generations left on your code');
+    if (remaining === 1) showToast('Last plan generation remaining on your code!');
+    if (remaining === 0) showToast('No generations left — contact us to top up');
+  } catch (e) { /* non-critical */ }
+}
+
+function showTopUpCelebration(newTotal, added) {
+  // Remove any existing celebration
+  document.getElementById('topup-banner')?.remove();
+
+  const banner = document.createElement('div');
+  banner.id = 'topup-banner';
+  banner.innerHTML = `
+    <div class="topup-icon">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+    </div>
+    <div class="topup-text">
+      <strong>+${added} plan${added > 1 ? 's' : ''} added!</strong>
+      <span>You now have ${newTotal} plan generation${newTotal !== 1 ? 's' : ''}</span>
+    </div>
+  `;
+  document.body.appendChild(banner);
+
+  // Animate in
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => banner.classList.add('visible'));
+  });
+
+  // Remove after 5s
+  setTimeout(() => {
+    banner.classList.remove('visible');
+    setTimeout(() => banner.remove(), 500);
+  }, 5000);
+}
+
+// Poll every 2 minutes for top-ups
+let _plansPollingInterval = null;
+function startPlansPolling(code) {
+  if (_plansPollingInterval) clearInterval(_plansPollingInterval);
+  _plansPollingInterval = setInterval(() => {
+    fetchPlansRemaining(code);
+  }, 2 * 60 * 1000); // 2 minutes
+}
+function stopPlansPolling() {
+  if (_plansPollingInterval) clearInterval(_plansPollingInterval);
+  _plansPollingInterval = null;
 }
 
 let _loaderTimer = null;
@@ -1361,24 +1413,40 @@ function closePlanNameModal() {
   document.body.style.overflow = '';
 }
 
-function savePlanName() {
+async function savePlanName() {
   const input = document.getElementById('plan-name-input');
   const rawName = input.value.trim();
 
   const profile = MEM.load('fp_profile');
   const goalOffsets = {600:'Aggressive Bulk',400:'Bulk',200:'Lean Bulk',0:'Maintenance','-300':'Cut','-500':'Intense Cut','-750':'Aggressive Cut'};
-  const goalName = profile ? (goalOffsets[String(profile.goalOffset)] || 'My Plan') : 'My Plan';
-  const planName = rawName || goalName;
+  const baseName = rawName || (profile ? (goalOffsets[String(profile.goalOffset)] || 'My Plan') : 'My Plan');
 
-  // Save to localStorage
+  // Deduplicate against existing saved plans
+  const code = (localStorage.getItem('fp_apikey') || '').toUpperCase();
+  let planName = baseName;
+  if (code && _pendingPlanForHistory) {
+    // Only deduplicate for new saves, not renames
+    try {
+      const r = await fetch(API_BASE + '/api/history/get', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ activationCode: code })
+      });
+      const d = await r.json();
+      const existing = (d.history || []).map(e => e.planName || '');
+      if (existing.includes(baseName)) {
+        let n = 2;
+        while (existing.includes(baseName + ' ' + n)) n++;
+        planName = baseName + ' ' + n;
+      }
+    } catch { /* use baseName */ }
+  }
+
+  // Save locally
   MEM.save('fp_planName', planName);
-
-  // Update header immediately
   document.getElementById('plan-name-text').textContent = planName;
-
   closePlanNameModal();
 
-  // Only save to history if this is a new plan (not a rename)
   if (_pendingPlanForHistory) {
     saveCurrentPlanToHistory(_pendingPlanForHistory, _pendingUserName, planName);
     showToast('Saved as "' + planName + '"');
@@ -1389,32 +1457,7 @@ function savePlanName() {
 
 async function saveCurrentPlanToHistory(plan, userName, planName) {
   const code = (localStorage.getItem('fp_apikey') || '').toUpperCase();
-  if (!code || !plan) return;
-
-  if (!planName) {
-    const profile = MEM.load('fp_profile');
-    const goalOffsets = {600:'Aggressive Bulk',400:'Bulk',200:'Lean Bulk',0:'Maintenance','-300':'Cut','-500':'Intense Cut','-750':'Aggressive Cut'};
-    const baseName = profile ? (goalOffsets[String(profile.goalOffset)] || 'My Plan') : 'My Plan';
-    // Deduplicate — check existing plan names and increment if needed
-    try {
-      const r = await fetch(API_BASE + '/api/history/get', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ activationCode: code })
-      });
-      const d = await r.json();
-      const existing = (d.history || []).map(e => e.planName || '');
-      if (!existing.includes(baseName)) {
-        planName = baseName;
-      } else {
-        let n = 2;
-        while (existing.includes(baseName + ' ' + n)) n++;
-        planName = baseName + ' ' + n;
-      }
-    } catch {
-      planName = baseName;
-    }
-  }
+  if (!code || !plan || !planName) return;
 
   try {
     const res = await fetch(API_BASE + '/api/history/save', {
