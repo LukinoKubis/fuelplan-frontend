@@ -74,7 +74,7 @@ function saveProfile() {
     name: document.getElementById('user-name').value,
     dietPref: document.getElementById('diet-pref').value,
     dislikedFoods: document.getElementById('disliked-foods').value,
-    trainingDays: document.getElementById('training-days').value,
+    trainingDays: getChipValue('training-days-group') || '4',
     trainingStyle: getChipValue('training-style-group'),
     cookingSkill: getChipValue('cooking-skill-group'),
     prepTime: getChipValue('prep-time-group'),
@@ -101,7 +101,7 @@ function restoreProfile() {
   if (p.name) document.getElementById('user-name').value = p.name;
   if (p.dietPref) document.getElementById('diet-pref').value = p.dietPref;
   if (p.dislikedFoods) document.getElementById('disliked-foods').value = p.dislikedFoods;
-  if (p.trainingDays) document.getElementById('training-days').value = p.trainingDays;
+  if (p.trainingDays) setChipValue('training-days-group', p.trainingDays);
   if (p.trainingStyle) setChipValue('training-style-group', p.trainingStyle);
   if (p.cookingSkill) setChipValue('cooking-skill-group', p.cookingSkill);
   if (p.prepTime) setChipValue('prep-time-group', p.prepTime);
@@ -140,20 +140,31 @@ function restoreProfile() {
 /* ═══════════════ CHIP TOGGLES ═══════════════ */
 
 function initChips() {
-  ['training-style-group','cooking-skill-group','prep-time-group','variety-group'].forEach(groupId => {
-    const group = document.getElementById(groupId);
+  // Single-select groups — chips, icon-cards, icon-pills (all use .active toggle)
+  const singleGroups = [
+    { id: 'training-style-group', sel: '.icon-card' },
+    { id: 'cooking-skill-group',  sel: '.icon-card' },
+    { id: 'prep-time-group',      sel: '.icon-card' },
+    { id: 'variety-group',        sel: '.variety-card' },
+    { id: 'training-days-group',  sel: '.icon-pill' },
+  ];
+
+  singleGroups.forEach(({ id, sel }) => {
+    const group = document.getElementById(id);
     if (!group) return;
-    group.querySelectorAll('.chip').forEach(chip => {
-      chip.addEventListener('click', () => {
-        group.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
+    group.querySelectorAll(sel).forEach(el => {
+      el.addEventListener('click', () => {
+        group.querySelectorAll(sel).forEach(c => c.classList.remove('active'));
+        el.classList.add('active');
       });
     });
   });
+
+  // Multi-select: cuisine
   const cuisineGroup = document.getElementById('cuisine-group');
   if (cuisineGroup) {
-    cuisineGroup.querySelectorAll('.chip').forEach(chip => {
-      chip.addEventListener('click', () => chip.classList.toggle('active'));
+    cuisineGroup.querySelectorAll('.icon-card').forEach(el => {
+      el.addEventListener('click', () => el.classList.toggle('active'));
     });
   }
 }
@@ -161,25 +172,29 @@ function initChips() {
 function getChipValue(groupId) {
   const group = document.getElementById(groupId);
   if (!group) return '';
-  return group.querySelector('.chip.active')?.dataset.val || '';
+  // Support icon-card, icon-pill, variety-card, chip
+  return group.querySelector('.icon-card.active, .icon-pill.active, .variety-card.active, .chip.active')?.dataset.val || '';
 }
 
 function getChipValues(groupId) {
   const group = document.getElementById(groupId);
   if (!group) return [];
-  return Array.from(group.querySelectorAll('.chip.active')).map(c => c.dataset.val);
+  return Array.from(group.querySelectorAll('.icon-card.active, .icon-pill.active, .chip.active')).map(c => c.dataset.val);
 }
 
 function setChipValue(groupId, val) {
   const group = document.getElementById(groupId);
   if (!group || !val) return;
-  group.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.val === val));
+  const all = group.querySelectorAll('.icon-card, .icon-pill, .variety-card, .chip');
+  all.forEach(c => c.classList.toggle('active', c.dataset.val === val));
 }
 
 function setChipValues(groupId, vals) {
   const group = document.getElementById(groupId);
   if (!group || !vals) return;
-  group.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', vals.includes(c.dataset.val)));
+  group.querySelectorAll('.icon-card, .icon-pill, .chip').forEach(c =>
+    c.classList.toggle('active', vals.includes(c.dataset.val))
+  );
 }
 
 /* ═══════════════ STEPPED SURVEY ═══════════════ */
@@ -193,28 +208,28 @@ function surveyGoTo(targetStep, direction) {
   if (!current || !next) return;
 
   const goingForward = direction === 'forward';
+  const outClass = goingForward ? 'slide-out-left' : 'slide-out-right';
+  const inClass  = goingForward ? 'slide-in-right' : 'slide-in-left';
 
-  // Animate out current
-  current.classList.add(goingForward ? 'exit-left' : 'exit-right');
+  current.classList.add(outClass);
   current.addEventListener('animationend', () => {
-    current.classList.remove('active', 'exit-left', 'exit-right');
+    current.classList.remove('active', outClass);
   }, { once: true });
 
-  // Animate in next
-  next.classList.add('active', goingForward ? 'enter-right' : 'enter-left');
-  next.addEventListener('animationend', () => {
-    next.classList.remove('enter-right', 'enter-left');
-  }, { once: true });
+  // Small delay so both animations don't overlap badly
+  setTimeout(() => {
+    next.classList.add('active', inClass);
+    next.addEventListener('animationend', () => {
+      next.classList.remove(inClass);
+    }, { once: true });
+  }, 60);
 
   _surveyStep = targetStep;
   surveyUpdateUI();
-
-  // Scroll to top of new step
-  document.getElementById('survey-steps-wrap')?.scrollTo({ top: 0, behavior: 'smooth' });
+  document.getElementById('survey-steps-wrap')?.scrollTo({ top: 0, behavior: 'instant' });
 }
 
 function surveyNext() {
-  // On last step — generate
   if (_surveyStep === SURVEY_TOTAL_STEPS - 1) {
     generate();
     return;
@@ -236,27 +251,26 @@ function surveyUpdateUI() {
   const fill = document.getElementById('survey-progress-fill');
   if (fill) fill.style.width = pct + '%';
 
-  // Dots
-  document.querySelectorAll('.step-dot').forEach((dot, i) => {
-    dot.classList.toggle('active', i === _surveyStep);
-    dot.classList.toggle('done', i < _surveyStep);
-  });
+  // Step counter
+  const num = document.getElementById('survey-step-num');
+  if (num) num.textContent = _surveyStep + 1;
 
-  // Prev button
+  // Prev button — show/hide via class
   const prevBtn = document.getElementById('survey-prev-btn');
-  if (prevBtn) prevBtn.style.display = _surveyStep > 0 ? 'flex' : 'none';
+  if (prevBtn) prevBtn.classList.toggle('visible', _surveyStep > 0);
 
-  // Next button label
+  // Back-to-plan button
+  const backBtn = document.getElementById('survey-back-btn');
+  if (backBtn) backBtn.classList.toggle('visible', _surveyStep === 0 && !!MEM.load('fp_plan'));
+
+  // Next button label + icon
   const nextBtn = document.getElementById('survey-next-btn');
   if (nextBtn) {
-    nextBtn.textContent = _surveyStep === SURVEY_TOTAL_STEPS - 1 ? 'Generate My Plan ⚡' : 'Continue';
-  }
-
-  // Back-to-plan button in header
-  const backBtn = document.getElementById('survey-back-btn');
-  if (backBtn) {
-    // Only show on step 0 if there's an existing plan to go back to
-    backBtn.style.display = (_surveyStep === 0 && MEM.load('fp_plan')) ? 'flex' : 'none';
+    if (_surveyStep === SURVEY_TOTAL_STEPS - 1) {
+      nextBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 11-12h-9z"/></svg> Generate My Plan`;
+    } else {
+      nextBtn.innerHTML = `Continue <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
+    }
   }
 }
 
@@ -408,7 +422,7 @@ async function generate() {
   const dietPref = document.getElementById('diet-pref').value.trim();
   const userName = document.getElementById('user-name').value.trim();
   const dislikedFoods = document.getElementById('disliked-foods').value.trim();
-  const trainingDays = document.getElementById('training-days').value;
+  const trainingDays = getChipValue('training-days-group') || '4';
   const trainingStyle = getChipValue('training-style-group');
   const cookingSkill = getChipValue('cooking-skill-group');
   const prepTime = getChipValue('prep-time-group');
