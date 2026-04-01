@@ -4,7 +4,7 @@
    Cache fallback for offline use
 ═══════════════════════════════════════════════ */
 
-const CACHE_NAME = 'fuelplan-v10'; // bump this whenever you deploy
+const CACHE_NAME = 'fuelplan-v13'; // bump this whenever you deploy
 
 // App shell files to cache
 const SHELL_URLS = [

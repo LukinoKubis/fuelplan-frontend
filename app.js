@@ -584,22 +584,27 @@ async function fetchPlansRemaining(code) {
     const remaining = data.remaining;
 
     const el = document.getElementById('plans-remaining');
-    // Use -1 as sentinel: means "never fetched before" so we don't false-trigger
-    const prev = el ? parseInt(el.dataset.prev ?? '-1') : -1;
+
+    // Load last known count from localStorage so top-ups are detected even after app close
+    const stored = localStorage.getItem('fp_lastRemaining_' + code);
+    const prev = stored !== null ? parseInt(stored) : -1;
 
     if (el) {
       el.textContent = remaining + ' plans left';
       el.style.color = remaining <= 2 ? 'var(--red)' : remaining <= 5 ? 'var(--orange)' : 'var(--muted)';
-      el.dataset.remaining = remaining; // store numeric for easy reading
-      el.dataset.prev = remaining;
+      el.dataset.remaining = remaining;
     }
 
-    // Detect top-up: remaining increased since last check (prev >= 0 means we've fetched before)
-    if (el && prev >= 0 && remaining > prev) {
+    // Persist so next open can compare
+    localStorage.setItem('fp_lastRemaining_' + code, remaining);
+
+    // Detect top-up: went up since last known value
+    // prev === -1 means brand new user, never stored — don't show banner
+    if (prev >= 0 && remaining > prev) {
       showTopUpCelebration(remaining, remaining - prev);
     }
 
-    // Low plan warnings — only show when count first drops to that level
+    // Low plan warnings — only when count first drops to that level
     if (prev > 3 && remaining === 3) showToast('Only 3 plan generations left on your code');
     if (prev > 1 && remaining === 1) showToast('Last plan generation remaining!');
     if (prev > 0 && remaining === 0) showToast('No generations left — contact us to top up');
@@ -607,32 +612,41 @@ async function fetchPlansRemaining(code) {
 }
 
 function showTopUpCelebration(newTotal, added) {
-  // Remove any existing celebration
   document.getElementById('topup-banner')?.remove();
+
+  const appreciations = [
+    "Keep crushing it — you've got this! 🔥",
+    "Your coach just restocked. Time to build.",
+    "Fresh plans loaded. Let's get to work.",
+    "You're back in action — stay consistent!",
+    "New fuel in the tank. Make it count.",
+  ];
+  const sub = appreciations[Math.floor(Math.random() * appreciations.length)];
 
   const banner = document.createElement('div');
   banner.id = 'topup-banner';
   banner.innerHTML = `
     <div class="topup-icon">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
     </div>
     <div class="topup-text">
-      <strong>+${added} plan${added > 1 ? 's' : ''} added!</strong>
-      <span>You now have ${newTotal} plan generation${newTotal !== 1 ? 's' : ''}</span>
+      <strong>+${added} plan${added > 1 ? 's' : ''} topped up!</strong>
+      <span>${sub} You now have <em>${newTotal}</em> left.</span>
     </div>
+    <button class="topup-close" onclick="document.getElementById('topup-banner').remove()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
   `;
   document.body.appendChild(banner);
 
-  // Animate in
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => banner.classList.add('visible'));
-  });
+  requestAnimationFrame(() => requestAnimationFrame(() => banner.classList.add('visible')));
 
-  // Remove after 5s
   setTimeout(() => {
-    banner.classList.remove('visible');
-    setTimeout(() => banner.remove(), 500);
-  }, 5000);
+    if (document.getElementById('topup-banner') === banner) {
+      banner.classList.remove('visible');
+      setTimeout(() => banner.remove(), 500);
+    }
+  }, 8000);
 }
 
 // Poll every 2 minutes for top-ups
@@ -641,7 +655,7 @@ function startPlansPolling(code) {
   if (_plansPollingInterval) clearInterval(_plansPollingInterval);
   _plansPollingInterval = setInterval(() => {
     fetchPlansRemaining(code);
-  }, 2 * 60 * 1000); // 2 minutes
+  }, 30 * 1000); // 30 seconds — fast enough to catch top-ups promptly
 }
 function stopPlansPolling() {
   if (_plansPollingInterval) clearInterval(_plansPollingInterval);
@@ -797,16 +811,16 @@ function renderPlan(plan, userName, isRestoring, planName) {
     return '<div class="prep-step"><div class="step-num">' + (i + 1) + '</div><div class="step-text">' + escHtml(step) + '</div></div>';
   }).join('');
 
-  // Day tabs (inside This Week section)
+  // Day carousel
   const days = plan.days || [];
-  const dayTabsNav = document.getElementById('day-tabs-nav');
   const dayTabsContent = document.getElementById('day-tabs-content');
   const savedDayTab = MEM.load('fp_activeDay') || (days[0]?.day?.toLowerCase());
 
-  dayTabsNav.innerHTML = days.map(function(d) {
-    var id = d.day.toLowerCase();
-    return '<button class="day-tab-btn' + (id === savedDayTab ? ' active' : '') + '" onclick="switchDayTab(\'' + id + '\')" id="day-tab-btn-' + id + '">' + d.day.slice(0, 3) + '</button>';
-  }).join('');
+  // Store days globally for carousel navigation
+  window._carouselDays = days.map(d => d.day.toLowerCase());
+  window._carouselIndex = Math.max(0, window._carouselDays.indexOf(savedDayTab));
+
+  renderCarousel();
 
   dayTabsContent.innerHTML = days.map(function(d) {
     return renderDayPanel(d, s, d.day.toLowerCase() === savedDayTab);
@@ -951,7 +965,6 @@ function switchSection(id, skipSave) {
   if (btn) btn.classList.add('active');
   if (!skipSave) MEM.save('fp_activeSection', id);
 
-  // Animate bars if switching to week
   if (id === 'week') {
     setTimeout(function() {
       var activeDay = document.querySelector('.tab-panel.active');
@@ -964,24 +977,94 @@ function switchSection(id, skipSave) {
   }
 }
 
+function renderCarousel(slideDir) {
+  const days = window._carouselDays || [];
+  const idx = window._carouselIndex || 0;
+  const track = document.getElementById('day-tabs-nav');
+  if (!track) return;
+
+  // Positions relative to center: -2, -1, 0(center), +1, +2
+  const slots = [-2, -1, 0, 1, 2];
+
+  track.innerHTML = slots.map(offset => {
+    const di = idx + offset;
+    if (di < 0 || di >= days.length) {
+      // Empty spacer to keep layout stable
+      return `<div class="day-tab-btn dc-hidden" aria-hidden="true"></div>`;
+    }
+    const dayId = days[di];
+    const dayName = dayId.charAt(0).toUpperCase() + dayId.slice(1);
+    const abbr = dayName.slice(0, 3);
+    const num = di + 1; // day number
+
+    let cls = 'dc-hidden';
+    if (offset === 0) cls = 'dc-center';
+    else if (Math.abs(offset) === 1) cls = 'dc-side';
+    else if (Math.abs(offset) === 2) cls = 'dc-far';
+
+    return `<button class="day-tab-btn ${cls}" id="day-tab-btn-${dayId}" onclick="switchDayTab('${dayId}')">
+      <span class="day-letter">${abbr}</span>
+    </button>`;
+  }).join('');
+
+  // Animate the track
+  if (slideDir) {
+    track.classList.remove('slide-left', 'slide-right');
+    void track.offsetWidth; // reflow
+    track.classList.add(slideDir === 'left' ? 'slide-left' : 'slide-right');
+    track.addEventListener('animationend', () => {
+      track.classList.remove('slide-left', 'slide-right');
+    }, { once: true });
+  }
+}
+
 function switchDayTab(id) {
   haptic('light');
-  document.querySelectorAll('.day-tab-btn').forEach(function(b) { b.classList.remove('active'); });
-  document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
-  var btn = document.getElementById('day-tab-btn-' + id);
-  var panel = document.getElementById('panel-' + id);
-  if (btn) btn.classList.add('active');
-  if (panel) panel.classList.add('active');
-  MEM.save('fp_activeDay', id);
+  const days = window._carouselDays || [];
+  const newIndex = days.indexOf(id);
+  if (newIndex === -1) return;
 
-  setTimeout(function() {
-    var panel2 = document.getElementById('panel-' + id);
-    if (panel2) {
-      panel2.querySelectorAll('.bar-fill[data-pct]').forEach(function(el) {
+  const prevIndex = window._carouselIndex || 0;
+  const slideDir = newIndex > prevIndex ? 'left' : 'right';
+
+  window._carouselIndex = newIndex;
+
+  // Animate panels
+  const allPanels = document.querySelectorAll('.tab-panel');
+  const oldPanel = document.querySelector('.tab-panel.active');
+  const newPanel = document.getElementById('panel-' + id);
+
+  if (oldPanel && newPanel && oldPanel !== newPanel) {
+    const outClass = slideDir === 'left' ? 'panel-out-left' : 'panel-out-right';
+    const inClass  = slideDir === 'left' ? 'panel-in-right' : 'panel-in-left';
+
+    oldPanel.classList.add(outClass);
+    oldPanel.addEventListener('animationend', () => {
+      oldPanel.classList.remove('active', outClass);
+    }, { once: true });
+
+    setTimeout(() => {
+      newPanel.classList.add('active', inClass);
+      newPanel.addEventListener('animationend', () => {
+        newPanel.classList.remove(inClass);
+        // Animate bars
+        newPanel.querySelectorAll('.bar-fill[data-pct]').forEach(el => {
+          el.style.width = el.dataset.pct + '%';
+        });
+      }, { once: true });
+    }, 40);
+  } else if (newPanel) {
+    allPanels.forEach(p => p.classList.remove('active'));
+    newPanel.classList.add('active');
+    setTimeout(() => {
+      newPanel.querySelectorAll('.bar-fill[data-pct]').forEach(el => {
         el.style.width = el.dataset.pct + '%';
       });
-    }
-  }, 50);
+    }, 50);
+  }
+
+  renderCarousel(slideDir);
+  MEM.save('fp_activeDay', id);
 }
 
 /* ═══════════════ TOAST ═══════════════ */
