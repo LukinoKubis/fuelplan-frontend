@@ -469,7 +469,7 @@ CRITICAL SECURITY RULES — these override everything else:
     ? 'Meal variety: FULLY DIVERSE — every single meal must be different across all 7 days. No repeated meal names.'
     : 'Meal variety: SOME VARIETY — mix of repeated and new meals. Some days can share meals, but at least 50% should be unique.';
 
-  const jsonTemplate = '{\"summary\":{\"kcal\":' + macros.kcal + ',\"protein\":' + macros.protein + ',\"carbs\":' + macros.carbs + ',\"fat\":' + macros.fat + '},\"prep_steps\":[\"as many steps as needed\"],\"prep_tasks\":[{\"task\":\"Cook 1400g basmati rice\",\"meal\":\"Rice Bowl\",\"durationMinutes\":20,\"lane\":\"stovetop\"},{\"task\":\"Roast 800g chicken breast\",\"meal\":\"Chicken & Rice\",\"durationMinutes\":25,\"lane\":\"oven\"},{\"task\":\"Chop all vegetables\",\"meal\":\"All meals\",\"durationMinutes\":10,\"lane\":\"active\"},{\"task\":\"Marinate 600g salmon\",\"meal\":\"Salmon Bowl\",\"durationMinutes\":15,\"lane\":\"passive\"}],\"days\":[{\"day\":\"Monday\",\"kcal\":0,\"protein\":0,\"carbs\":0,\"fat\":0,\"meals\":[{\"time\":\"Breakfast 7:00\",\"name\":\"...\",\"protein\":0,\"carbs\":0,\"fat\":0,\"kcal\":0,\"ingredients\":\"...\"},{\"time\":\"Lunch 13:00\",\"name\":\"...\",\"protein\":0,\"carbs\":0,\"fat\":0,\"kcal\":0,\"ingredients\":\"...\"},{\"time\":\"Dinner 19:30\",\"name\":\"...\",\"protein\":0,\"carbs\":0,\"fat\":0,\"kcal\":0,\"ingredients\":\"...\"},{\"time\":\"Snack 16:00\",\"name\":\"...\",\"protein\":0,\"carbs\":0,\"fat\":0,\"kcal\":0,\"ingredients\":\"...\"}]}],\"shopping_list\":[{\"category\":\"Proteins\",\"items\":[{\"name\":\"...\",\"qty\":\"...\"}]},{\"category\":\"Carbohydrates\",\"items\":[]},{\"category\":\"Vegetables\",\"items\":[]},{\"category\":\"Dairy & Eggs\",\"items\":[]},{\"category\":\"Pantry & Spices\",\"items\":[]},{\"category\":\"Fruits\",\"items\":[]}]}'
+  const jsonTemplate = '{\"summary\":{\"kcal\":' + macros.kcal + ',\"protein\":' + macros.protein + ',\"carbs\":' + macros.carbs + ',\"fat\":' + macros.fat + '},\"prep_tasks\":[{\"task\":\"Cook 1400g basmati rice\",\"meal\":\"Rice Bowl\",\"durationMinutes\":20,\"lane\":\"stovetop\"},{\"task\":\"Roast 800g chicken breast\",\"meal\":\"Chicken & Rice\",\"durationMinutes\":25,\"lane\":\"oven\"},{\"task\":\"Chop all vegetables\",\"meal\":\"All meals\",\"durationMinutes\":10,\"lane\":\"active\"},{\"task\":\"Marinate 600g salmon\",\"meal\":\"Salmon Bowl\",\"durationMinutes\":15,\"lane\":\"passive\"}],\"days\":[{\"day\":\"Monday\",\"kcal\":0,\"protein\":0,\"carbs\":0,\"fat\":0,\"meals\":[{\"time\":\"Breakfast 7:00\",\"name\":\"...\",\"protein\":0,\"carbs\":0,\"fat\":0,\"kcal\":0,\"ingredients\":\"...\"},{\"time\":\"Lunch 13:00\",\"name\":\"...\",\"protein\":0,\"carbs\":0,\"fat\":0,\"kcal\":0,\"ingredients\":\"...\"},{\"time\":\"Dinner 19:30\",\"name\":\"...\",\"protein\":0,\"carbs\":0,\"fat\":0,\"kcal\":0,\"ingredients\":\"...\"},{\"time\":\"Snack 16:00\",\"name\":\"...\",\"protein\":0,\"carbs\":0,\"fat\":0,\"kcal\":0,\"ingredients\":\"...\"}]}],\"shopping_list\":[{\"category\":\"Proteins\",\"items\":[{\"name\":\"...\",\"qty\":\"...\"}]},{\"category\":\"Carbohydrates\",\"items\":[]},{\"category\":\"Vegetables\",\"items\":[]},{\"category\":\"Dairy & Eggs\",\"items\":[]},{\"category\":\"Pantry & Spices\",\"items\":[]},{\"category\":\"Fruits\",\"items\":[]}]}'
 
   const userMessage = '7-day meal prep plan.\n'
     + 'Daily targets: ' + macros.kcal + 'kcal, ' + macros.protein + 'g protein, ' + macros.carbs + 'g carbs, ' + macros.fat + 'g fat.\n'
@@ -805,11 +805,7 @@ function renderPlan(plan, userName, isRestoring, planName) {
     '<div class="pill"><div class="pill-val orange">' + s.carbs + 'g</div><div class="pill-label">carbs</div></div>' +
     '<div class="pill"><div class="pill-val red">' + s.fat + 'g</div><div class="pill-label">fat</div></div>';
 
-  // Prep steps
-  const stepsEl = document.getElementById('prep-steps-list');
-  stepsEl.innerHTML = (plan.prep_steps || []).map(function(step, i) {
-    return '<div class="prep-step"><div class="step-num">' + (i + 1) + '</div><div class="step-text">' + escHtml(step) + '</div></div>';
-  }).join('');
+  // Prep steps rendered by renderPrepTimeOverview()
 
   // Day carousel
   const days = plan.days || [];
@@ -1908,133 +1904,136 @@ function escHtml(str) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   PREP TIME — Interactive step-by-step guided cook session
-   State persisted in localStorage as fp_prepSession
+   PREP TIME — Interactive guided cook session
+   Replaces the old static Prep section entirely.
+   State: fp_prepSession in localStorage
 ═══════════════════════════════════════════════════════════════ */
 
 const PREP_LANE_META = {
-  oven:      { label: 'Oven',      color: 'var(--orange)', icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/><circle cx="6" cy="7" r="1"/><circle cx="10" cy="7" r="1"/></svg>' },
-  stovetop:  { label: 'Stovetop', color: 'var(--red)',    icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="8" r="2"/><circle cx="17" cy="8" r="2"/><circle cx="7" cy="16" r="2"/><circle cx="17" cy="16" r="2"/><rect x="2" y="3" width="20" height="18" rx="2"/></svg>' },
-  passive:   { label: 'Passive',  color: 'var(--blue)',   icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' },
-  active:    { label: 'Active',   color: 'var(--lime)',   icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 10c-.83 0-1.5-.67-1.5-1.5v-5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5v5c0 .83-.67 1.5-1.5 1.5z"/><path d="M20.5 10H19V8.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/><path d="M9.5 14.5v-5c0-.83-.67-1.5-1.5-1.5S6.5 8.67 6.5 9.5v5"/><path d="M3.5 12H5v1.5c0 .83-.67 1.5-1.5 1.5S2 14.33 2 13.5 2.67 12 3.5 12z"/><path d="M20 16.5c0 2.5-1 4-6 4s-6-1.5-6-4v-2.5h12v2.5z"/></svg>' },
+  oven:     { label: 'Oven',     color: '#f97316', icon: '🔥' },
+  stovetop: { label: 'Stovetop', color: '#ef4444', icon: '♨️' },
+  passive:  { label: 'Passive',  color: '#3b82f6', icon: '⏳' },
+  active:   { label: 'Active',   color: '#c8f542', icon: '🔪' },
 };
 
-let _prepTimers = {};     // { taskIndex: { intervalId, remaining, running } }
-let _prepSession = null;  // { tasks, completedIndices: Set, startedAt }
+/* ── Audio: generate a short beep via Web Audio API ── */
+function playTimerBeep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const playTone = (freq, start, dur, vol = 0.35) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, ctx.currentTime + start);
+      gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + start + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + dur + 0.05);
+    };
+    // Three ascending tones
+    playTone(880, 0,    0.18);
+    playTone(1047, 0.2, 0.18);
+    playTone(1319, 0.4, 0.35);
+  } catch(e) { /* AudioContext not available */ }
+}
 
+/* ── Get prep tasks from current plan ── */
 function getPrepTasks() {
   const plan = planData || MEM.load('fp_plan');
   if (!plan) return [];
-  // Use structured prep_tasks if available, else fall back to parsing prep_steps
-  if (plan.prep_tasks && plan.prep_tasks.length > 0) {
-    return plan.prep_tasks;
-  }
-  // Fallback: convert prose prep_steps into basic active tasks
-  return (plan.prep_steps || []).map((step, i) => ({
-    task: step,
-    meal: 'All meals',
-    durationMinutes: 0,
-    lane: 'active'
+  if (plan.prep_tasks && plan.prep_tasks.length > 0) return plan.prep_tasks;
+  // Fallback for old plans without prep_tasks
+  return (plan.prep_steps || []).map(step => ({
+    task: step, meal: 'All meals', durationMinutes: 0, lane: 'active'
   }));
 }
 
-function getPrepTotalMinutes(tasks) {
-  // Estimate: find the longest parallel chain
-  // Simple heuristic: sum of max(oven, stovetop) + all active + all passive
-  const laneMaxes = { oven: 0, stovetop: 0, passive: 0, active: 0 };
-  tasks.forEach(t => {
-    const lane = t.lane || 'active';
-    laneMaxes[lane] = (laneMaxes[lane] || 0) + (t.durationMinutes || 0);
-  });
-  // Oven and stovetop can overlap — take the max
-  const heatTime = Math.max(laneMaxes.oven, laneMaxes.stovetop);
-  return heatTime + laneMaxes.active + Math.round(laneMaxes.passive * 0.5); // passive partially overlaps
+function getPrepEstimate(tasks) {
+  const laneSum = { oven: 0, stovetop: 0, passive: 0, active: 0 };
+  tasks.forEach(t => { laneSum[t.lane || 'active'] += (t.durationMinutes || 0); });
+  const min = Math.max(laneSum.oven, laneSum.stovetop) + laneSum.active + Math.round(laneSum.passive * 0.4);
+  const h = Math.floor(min / 60), m = min % 60;
+  return h > 0 ? `${h}h ${m > 0 ? m + 'm' : ''}`.trim() : `~${m} min`;
 }
 
-/* ── Render the Prep Time overview screen ── */
+/* ─────────────────────────────────────────────
+   OVERVIEW SCREEN
+───────────────────────────────────────────── */
 function renderPrepTimeOverview() {
-  const tasks = getPrepTasks();
-  const totalMin = getPrepTotalMinutes(tasks);
-  const h = Math.floor(totalMin / 60);
-  const m = totalMin % 60;
-  const timeStr = h > 0 ? `${h}h ${m > 0 ? m + 'm' : ''}` : `${m} min`;
-
-  const laneCount = {};
-  tasks.forEach(t => { laneCount[t.lane || 'active'] = (laneCount[t.lane || 'active'] || 0) + 1; });
-
-  const savedSession = MEM.load('fp_prepSession');
-  const hasResume = savedSession && savedSession.planId === MEM.load('fp_activePlanId') && savedSession.completedIndices?.length > 0 && savedSession.completedIndices.length < tasks.length;
-  const resumePct = hasResume ? Math.round((savedSession.completedIndices.length / tasks.length) * 100) : 0;
-
-  const section = document.getElementById('section-preptime');
+  const section = document.getElementById('section-prep');
   if (!section) return;
+  const tasks = getPrepTasks();
+
+  if (!tasks.length) {
+    section.innerHTML = `<div style="padding:48px 24px;text-align:center;color:var(--muted);font-size:14px">Generate a plan to see your prep session.</div>`;
+    return;
+  }
+
+  const estimate = getPrepEstimate(tasks);
+  const laneCount = {};
+  tasks.forEach(t => { const l = t.lane||'active'; laneCount[l] = (laneCount[l]||0)+1; });
+
+  const saved = MEM.load('fp_prepSession');
+  const activePlanId = MEM.load('fp_activePlanId');
+  const hasResume = saved && saved.planId === activePlanId
+    && Array.isArray(saved.completedIndices)
+    && saved.completedIndices.length > 0
+    && saved.completedIndices.length < tasks.length;
+  const resumePct = hasResume ? Math.round((saved.completedIndices.length / tasks.length) * 100) : 0;
 
   section.innerHTML = `
-    <div class="preptime-overview">
-      <div class="preptime-hero">
-        <div class="preptime-hero-icon">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    <div class="pt-overview">
+      <div class="pt-hero">
+        <div class="pt-hero-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         </div>
-        <h2 class="preptime-hero-title">Prep Time</h2>
-        <p class="preptime-hero-sub">Your guided Sunday batch cook session</p>
-        <div class="preptime-stats-row">
-          <div class="preptime-stat">
-            <span class="preptime-stat-val">${tasks.length}</span>
-            <span class="preptime-stat-label">tasks</span>
-          </div>
-          <div class="preptime-stat-divider"></div>
-          <div class="preptime-stat">
-            <span class="preptime-stat-val">${timeStr}</span>
-            <span class="preptime-stat-label">estimated</span>
-          </div>
-          <div class="preptime-stat-divider"></div>
-          <div class="preptime-stat">
-            <span class="preptime-stat-val">${Object.keys(laneCount).length}</span>
-            <span class="preptime-stat-label">stations</span>
-          </div>
-        </div>
+        <h2 class="pt-hero-title">Prep Time</h2>
+        <p class="pt-hero-sub">Your guided Sunday batch cook</p>
       </div>
 
-      <div class="preptime-lanes-preview">
-        ${Object.entries(laneCount).map(([lane, count]) => {
-          const meta = PREP_LANE_META[lane] || PREP_LANE_META.active;
-          return `<div class="preptime-lane-chip" style="--lane-color:${meta.color}">
-            ${meta.icon} <span>${meta.label}</span> <em>${count}</em>
-          </div>`;
+      <div class="pt-stats-row">
+        <div class="pt-stat"><span class="pt-stat-val">${tasks.length}</span><span class="pt-stat-lbl">tasks</span></div>
+        <div class="pt-stat-sep"></div>
+        <div class="pt-stat"><span class="pt-stat-val">${estimate}</span><span class="pt-stat-lbl">estimated</span></div>
+        <div class="pt-stat-sep"></div>
+        <div class="pt-stat"><span class="pt-stat-val">${Object.keys(laneCount).length}</span><span class="pt-stat-lbl">stations</span></div>
+      </div>
+
+      <div class="pt-lanes">
+        ${Object.entries(laneCount).map(([lane, cnt]) => {
+          const m = PREP_LANE_META[lane] || PREP_LANE_META.active;
+          return `<div class="pt-lane-chip" style="--lc:${m.color}">${m.icon} ${m.label} <em>${cnt}</em></div>`;
         }).join('')}
       </div>
 
       ${hasResume ? `
-        <div class="preptime-resume-bar">
-          <div class="preptime-resume-track"><div class="preptime-resume-fill" style="width:${resumePct}%"></div></div>
-          <span>${savedSession.completedIndices.length} of ${tasks.length} done</span>
-        </div>
-      ` : ''}
+        <div class="pt-resume-wrap">
+          <div class="pt-resume-label">Session in progress — ${saved.completedIndices.length} of ${tasks.length} done</div>
+          <div class="pt-resume-track"><div class="pt-resume-fill" style="width:${resumePct}%"></div></div>
+        </div>` : ''}
 
-      <div class="preptime-cta-row">
-        ${hasResume ? `
-          <button class="preptime-start-btn secondary" onclick="startPrepSession(true)">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            Resume Session
-          </button>
-          <button class="preptime-start-btn ghost" onclick="startPrepSession(false)">Start Fresh</button>
-        ` : `
-          <button class="preptime-start-btn" onclick="startPrepSession(false)">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            Start Prep Session
-          </button>
-        `}
+      <div class="pt-cta">
+        ${hasResume
+          ? `<button class="pt-btn-primary" onclick="startPrepSession(true)">▶ Resume Session</button>
+             <button class="pt-btn-ghost" onclick="startPrepSession(false)">Start fresh</button>`
+          : `<button class="pt-btn-primary" onclick="startPrepSession(false)">
+               <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px;margin-right:6px"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+               Start Prep Session
+             </button>`
+        }
       </div>
 
-      <div class="preptime-task-preview">
-        <div class="preptime-preview-label">All tasks</div>
+      <div class="pt-task-list">
+        <div class="pt-task-list-label">All tasks</div>
         ${tasks.map((t, i) => {
-          const meta = PREP_LANE_META[t.lane || 'active'] || PREP_LANE_META.active;
-          const done = hasResume && savedSession.completedIndices.includes(i);
-          return `<div class="preptime-preview-row${done ? ' done' : ''}">
-            <div class="preptime-preview-lane-dot" style="background:${meta.color}"></div>
-            <span class="preptime-preview-task">${escHtml(t.task)}</span>
-            ${t.durationMinutes > 0 ? `<span class="preptime-preview-dur">${t.durationMinutes}m</span>` : ''}
+          const m = PREP_LANE_META[t.lane||'active'] || PREP_LANE_META.active;
+          const done = hasResume && saved.completedIndices.includes(i);
+          return `<div class="pt-task-row${done?' done':''}">
+            <span class="pt-task-dot" style="background:${m.color}"></span>
+            <span class="pt-task-text">${escHtml(t.task)}</span>
+            ${t.durationMinutes > 0 ? `<span class="pt-task-dur">${t.durationMinutes}m</span>` : ''}
           </div>`;
         }).join('')}
       </div>
@@ -2042,35 +2041,11 @@ function renderPrepTimeOverview() {
   `;
 }
 
-/* ── Start or resume a prep session ── */
-function startPrepSession(resume) {
-  const tasks = getPrepTasks();
-  if (tasks.length === 0) { showToast('No prep tasks found'); return; }
-
-  // Stop any existing timers
-  Object.values(_prepTimers).forEach(t => clearInterval(t.intervalId));
-  _prepTimers = {};
-
-  if (resume) {
-    const saved = MEM.load('fp_prepSession');
-    _prepSession = {
-      tasks,
-      completedIndices: new Set(saved.completedIndices || []),
-      startedAt: saved.startedAt || Date.now(),
-      planId: saved.planId
-    };
-  } else {
-    _prepSession = {
-      tasks,
-      completedIndices: new Set(),
-      startedAt: Date.now(),
-      planId: MEM.load('fp_activePlanId')
-    };
-    savePrepSession();
-  }
-
-  renderPrepSession();
-}
+/* ─────────────────────────────────────────────
+   SESSION
+───────────────────────────────────────────── */
+let _prepTimers = {};   // { i: { startEpoch, durationSec, running, rafId } }
+let _prepSession = null;
 
 function savePrepSession() {
   if (!_prepSession) return;
@@ -2082,212 +2057,218 @@ function savePrepSession() {
   });
 }
 
-/* ── Render the active session ── */
-function renderPrepSession() {
+function startPrepSession(resume) {
+  const tasks = getPrepTasks();
+  if (!tasks.length) { showToast('No prep tasks found'); return; }
+
+  // Kill any running timers
+  Object.values(_prepTimers).forEach(t => { if (t.rafId) cancelAnimationFrame(t.rafId); });
+  _prepTimers = {};
+
+  if (resume) {
+    const s = MEM.load('fp_prepSession');
+    _prepSession = { tasks, completedIndices: new Set(s.completedIndices||[]), startedAt: s.startedAt||Date.now(), planId: s.planId };
+  } else {
+    MEM.remove('fp_prepSession');
+    _prepSession = { tasks, completedIndices: new Set(), startedAt: Date.now(), planId: MEM.load('fp_activePlanId') };
+    savePrepSession();
+  }
+
+  renderSession();
+}
+
+function renderSession() {
   const { tasks, completedIndices } = _prepSession;
-  const total = tasks.length;
-  const done = completedIndices.size;
+  const done = completedIndices.size, total = tasks.length;
   const pct = Math.round((done / total) * 100);
 
-  const section = document.getElementById('section-preptime');
+  const section = document.getElementById('section-prep');
   section.innerHTML = `
-    <div class="preptime-session" id="preptime-session">
-      <!-- Progress header -->
-      <div class="preptime-session-header">
-        <div class="preptime-session-progress-row">
-          <span class="preptime-session-count">${done}<span class="preptime-session-total"> / ${total}</span></span>
-          <span class="preptime-session-pct">${pct}%</span>
+    <div class="pt-session" id="pt-session">
+      <div class="pt-sess-hdr" id="pt-sess-hdr">
+        <div class="pt-sess-top">
+          <div>
+            <span class="pt-sess-count" id="pt-sess-count">${done}</span>
+            <span class="pt-sess-total"> / ${total} tasks</span>
+          </div>
+          <button class="pt-exit-btn" onclick="exitPrepSession()">✕ Exit</button>
         </div>
-        <div class="preptime-progress-track">
-          <div class="preptime-progress-fill" id="preptime-progress-fill" style="width:${pct}%"></div>
-        </div>
-        <button class="preptime-exit-btn" onclick="exitPrepSession()">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          Exit
-        </button>
+        <div class="pt-prog-track"><div class="pt-prog-fill" id="pt-prog-fill" style="width:${pct}%"></div></div>
+        <div class="pt-sess-pct" id="pt-sess-pct">${pct}% complete</div>
       </div>
-
-      <!-- Task cards -->
-      <div class="preptime-cards" id="preptime-cards">
-        ${tasks.map((task, i) => renderTaskCard(task, i)).join('')}
+      <div class="pt-cards" id="pt-cards">
+        ${tasks.map((t, i) => buildCardHTML(t, i)).join('')}
       </div>
     </div>
   `;
 
-  // Animate bars in
+  // Scroll to first undone
   requestAnimationFrame(() => {
-    document.getElementById('preptime-progress-fill')?.style && null;
-    // Re-initialise any already-running timers (if resuming)
-    tasks.forEach((task, i) => {
-      if (!completedIndices.has(i) && task.durationMinutes > 0) {
-        // Don't auto-start; user taps to start
-      }
-    });
-    // Scroll first incomplete into view
-    const firstPending = document.querySelector('.preptime-card:not(.done)');
-    if (firstPending) setTimeout(() => firstPending.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200);
+    const first = document.querySelector('.pt-card:not(.pt-done)');
+    if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Resume any timers that were running (restore from state not needed — timers don't persist across closes by design)
   });
 }
 
-function renderTaskCard(task, i) {
-  const meta = PREP_LANE_META[task.lane || 'active'] || PREP_LANE_META.active;
-  const isDone = _prepSession.completedIndices.has(i);
-  const hasDuration = task.durationMinutes > 0;
-  const timerState = _prepTimers[i];
+function buildCardHTML(task, i) {
+  const m = PREP_LANE_META[task.lane||'active'] || PREP_LANE_META.active;
+  const done = _prepSession.completedIndices.has(i);
+  const hasDur = task.durationMinutes > 0;
   const totalSec = task.durationMinutes * 60;
 
-  return `
-    <div class="preptime-card${isDone ? ' done' : ''}" id="ptcard-${i}" data-index="${i}">
-      <div class="preptime-card-lane" style="background:${meta.color}20;border-color:${meta.color}40">
-        <span style="color:${meta.color}">${meta.icon} ${meta.label}</span>
-        ${task.meal && task.meal !== 'All meals' ? `<span class="preptime-card-meal">${escHtml(task.meal)}</span>` : ''}
-      </div>
-      <div class="preptime-card-body">
-        <div class="preptime-card-task">${escHtml(task.task)}</div>
-        ${hasDuration ? `
-          <div class="preptime-card-timer" id="pttimer-${i}">
-            <div class="preptime-timer-ring-wrap">
-              <svg class="preptime-timer-ring" viewBox="0 0 56 56">
-                <circle class="ring-bg" cx="28" cy="28" r="24" fill="none" stroke-width="4"/>
-                <circle class="ring-fill" id="ptring-${i}" cx="28" cy="28" r="24" fill="none" stroke-width="4"
-                  stroke-dasharray="150.8" stroke-dashoffset="0"
-                  style="stroke:${meta.color};transform-origin:center;transform:rotate(-90deg)"/>
-              </svg>
-              <div class="preptime-timer-display" id="ptdisp-${i}">${formatTimerDisplay(totalSec)}</div>
-            </div>
-            <div class="preptime-timer-btns">
-              <button class="preptime-timer-start-btn" id="ptbtn-${i}" onclick="toggleTimer(${i})" style="--btn-color:${meta.color}">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                Start timer
-              </button>
-            </div>
-          </div>
-        ` : ''}
-      </div>
-      <div class="preptime-card-actions">
-        ${isDone
-          ? `<button class="preptime-undone-btn" onclick="undoTask(${i})">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.36"/></svg>
-              Undo
-            </button>`
-          : `<button class="preptime-done-btn" onclick="markTaskDone(${i})" style="--btn-color:${meta.color}">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              Done
-            </button>`
-        }
-      </div>
+  return `<div class="pt-card${done?' pt-done':''}" id="ptc-${i}">
+    <div class="pt-card-header" style="--lc:${m.color}">
+      <span class="pt-card-lane">${m.icon} ${m.label}</span>
+      ${task.meal && task.meal !== 'All meals' ? `<span class="pt-card-meal">${escHtml(task.meal)}</span>` : ''}
     </div>
-  `;
+    <div class="pt-card-body">
+      <p class="pt-card-task">${escHtml(task.task)}</p>
+      ${hasDur ? `<div class="pt-timer-row" id="ptr-${i}">
+        <div class="pt-ring-wrap">
+          <svg class="pt-ring-svg" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+            <circle class="pt-ring-bg" cx="24" cy="24" r="20"/>
+            <circle class="pt-ring-arc" id="pt-arc-${i}" cx="24" cy="24" r="20"
+              fill="none" stroke="${m.color}" stroke-width="3.5"
+              stroke-dasharray="125.66" stroke-dashoffset="0"
+              stroke-linecap="round"/>
+          </svg>
+          <div class="pt-timer-txt" id="pt-disp-${i}">${fmtSec(totalSec)}</div>
+        </div>
+        <button class="pt-timer-btn" id="pt-tbtn-${i}" onclick="toggleTimer(${i})" style="--lc:${m.color}">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Start
+        </button>
+      </div>` : ''}
+    </div>
+    <div class="pt-card-foot">
+      ${done
+        ? `<button class="pt-undo-btn" onclick="undoTask(${i})">↩ Undo</button>`
+        : `<button class="pt-done-btn" onclick="markTaskDone(${i})" style="--lc:${m.color}">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Mark done
+          </button>`
+      }
+    </div>
+  </div>`;
 }
 
-function formatTimerDisplay(seconds) {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+function fmtSec(s) {
+  return String(Math.floor(Math.max(0,s)/60)).padStart(2,'0') + ':' + String(Math.max(0,s)%60).padStart(2,'0');
 }
 
+/* ── Background-safe timer using rAF + Date.now() ── */
 function toggleTimer(i) {
   const task = _prepSession.tasks[i];
   const totalSec = task.durationMinutes * 60;
 
   if (!_prepTimers[i]) {
-    // Start fresh
-    _prepTimers[i] = { remaining: totalSec, running: true, intervalId: null };
+    _prepTimers[i] = { remaining: totalSec, running: false, lastTick: null, rafId: null };
   }
-
   const t = _prepTimers[i];
 
   if (t.running) {
-    // Pause
-    clearInterval(t.intervalId);
-    t.intervalId = null;
+    // Pause — cancel rAF loop
+    if (t.rafId) cancelAnimationFrame(t.rafId);
+    t.rafId = null;
     t.running = false;
-    const btn = document.getElementById('ptbtn-' + i);
-    if (btn) btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Resume`;
+    updateTimerBtn(i, 'paused');
   } else {
     // Start / Resume
     t.running = true;
-    const btn = document.getElementById('ptbtn-' + i);
-    if (btn) btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Pause`;
+    t.lastTick = Date.now();
+    updateTimerBtn(i, 'running');
 
-    t.intervalId = setInterval(() => {
-      t.remaining--;
-      updateTimerUI(i, t.remaining, totalSec);
+    const tick = () => {
+      if (!t.running) return;
+      const now = Date.now();
+      const elapsed = (now - t.lastTick) / 1000;
+      t.lastTick = now;
+      t.remaining = Math.max(0, t.remaining - elapsed);
+
+      renderTimerUI(i, t.remaining, totalSec);
 
       if (t.remaining <= 0) {
-        clearInterval(t.intervalId);
         t.running = false;
-        t.remaining = 0;
-        timerComplete(i);
+        t.rafId = null;
+        timerDone(i);
+        return;
       }
-    }, 1000);
+      t.rafId = requestAnimationFrame(tick);
+    };
+    t.rafId = requestAnimationFrame(tick);
   }
 }
 
-function updateTimerUI(i, remaining, total) {
-  const disp = document.getElementById('ptdisp-' + i);
-  const ring = document.getElementById('ptring-' + i);
-  if (disp) disp.textContent = formatTimerDisplay(Math.max(0, remaining));
-  if (ring) {
-    const circumference = 150.8;
-    const pct = remaining / total;
-    ring.style.strokeDashoffset = circumference * (1 - pct);
+function renderTimerUI(i, remaining, total) {
+  const disp = document.getElementById('pt-disp-' + i);
+  const arc  = document.getElementById('pt-arc-' + i);
+  if (disp) disp.textContent = fmtSec(Math.ceil(remaining));
+  if (arc) {
+    const circ = 125.66;
+    arc.style.strokeDashoffset = circ * (1 - remaining / total);
   }
 }
 
-function timerComplete(i) {
-  haptic('success');
-  const disp = document.getElementById('ptdisp-' + i);
-  const btn = document.getElementById('ptbtn-' + i);
-  const ring = document.getElementById('ptring-' + i);
-  if (disp) { disp.textContent = '00:00'; disp.style.color = 'var(--lime)'; }
-  if (btn) {
-    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Timer done!`;
-    btn.style.opacity = '0.6';
+function updateTimerBtn(i, state) {
+  const btn = document.getElementById('pt-tbtn-' + i);
+  if (!btn) return;
+  if (state === 'running') {
+    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Pause`;
+  } else if (state === 'paused') {
+    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Resume`;
+  } else if (state === 'done') {
+    btn.innerHTML = `✓ Done!`;
     btn.disabled = true;
+    btn.style.opacity = '0.55';
   }
-  if (ring) ring.style.stroke = 'var(--lime)';
-  showToast('⏱ Timer done — ' + escHtml(_prepSession.tasks[i].task));
 }
 
+function timerDone(i) {
+  playTimerBeep();
+  haptic('success');
+  updateTimerBtn(i, 'done');
+  const disp = document.getElementById('pt-disp-' + i);
+  const arc  = document.getElementById('pt-arc-' + i);
+  if (disp) { disp.textContent = '00:00'; disp.style.color = 'var(--lime)'; }
+  if (arc)  { arc.style.stroke = 'var(--lime)'; arc.style.strokeDashoffset = 0; }
+  showToast('⏱ Timer done!');
+}
+
+/* ── Mark task done ── */
 function markTaskDone(i) {
   haptic('success');
   _prepSession.completedIndices.add(i);
   savePrepSession();
 
   // Stop timer if running
-  if (_prepTimers[i]) {
-    clearInterval(_prepTimers[i].intervalId);
-    delete _prepTimers[i];
-  }
+  const t = _prepTimers[i];
+  if (t) { if (t.rafId) cancelAnimationFrame(t.rafId); delete _prepTimers[i]; }
 
-  // Animate card to done
-  const card = document.getElementById('ptcard-' + i);
+  // Swap card in place — no animationend hell, just replace directly after a beat
+  const card = document.getElementById('ptc-' + i);
   if (card) {
-    card.classList.add('marking-done');
-    card.addEventListener('animationend', () => {
-      card.classList.remove('marking-done');
-      card.classList.add('done');
-      card.innerHTML = renderTaskCard(_prepSession.tasks[i], i).match(/class="preptime-card[^"]*"[^>]*>([\s\S]*)<\/div>\s*$/)?.[0] || card.innerHTML;
-      // Re-render the card properly
+    card.classList.add('pt-checking');
+    setTimeout(() => {
+      const container = document.getElementById('pt-cards');
+      // Find position and replace
       const wrapper = document.createElement('div');
-      wrapper.innerHTML = renderTaskCard(_prepSession.tasks[i], i);
+      wrapper.innerHTML = buildCardHTML(_prepSession.tasks[i], i);
       const newCard = wrapper.firstElementChild;
-      card.replaceWith(newCard);
+      if (card.parentNode) card.parentNode.replaceChild(newCard, card);
       updateSessionProgress();
-      checkPrepComplete();
-    }, { once: true });
+      checkAllDone();
+    }, 320);
   }
 }
 
 function undoTask(i) {
   _prepSession.completedIndices.delete(i);
   savePrepSession();
-  const card = document.getElementById('ptcard-' + i);
+  const card = document.getElementById('ptc-' + i);
   if (card) {
     const wrapper = document.createElement('div');
-    wrapper.innerHTML = renderTaskCard(_prepSession.tasks[i], i);
-    card.replaceWith(wrapper.firstElementChild);
+    wrapper.innerHTML = buildCardHTML(_prepSession.tasks[i], i);
+    card.parentNode.replaceChild(wrapper.firstElementChild, card);
     updateSessionProgress();
   }
 }
@@ -2296,61 +2277,50 @@ function updateSessionProgress() {
   const done = _prepSession.completedIndices.size;
   const total = _prepSession.tasks.length;
   const pct = Math.round((done / total) * 100);
-  const fill = document.getElementById('preptime-progress-fill');
-  const countEl = document.querySelector('.preptime-session-count');
-  const pctEl = document.querySelector('.preptime-session-pct');
-  if (fill) fill.style.width = pct + '%';
-  if (countEl) countEl.innerHTML = done + `<span class="preptime-session-total"> / ${total}</span>`;
-  if (pctEl) pctEl.textContent = pct + '%';
+  const el = document.getElementById('pt-prog-fill');
+  const cnt = document.getElementById('pt-sess-count');
+  const pctEl = document.getElementById('pt-sess-pct');
+  if (el)  el.style.width = pct + '%';
+  if (cnt) cnt.textContent = done;
+  if (pctEl) pctEl.textContent = pct + '% complete';
 }
 
-function checkPrepComplete() {
-  const { tasks, completedIndices } = _prepSession;
+function checkAllDone() {
+  const { tasks, completedIndices, startedAt } = _prepSession;
   if (completedIndices.size < tasks.length) return;
 
-  // All done!
-  const elapsed = Math.round((Date.now() - _prepSession.startedAt) / 60000);
-  const h = Math.floor(elapsed / 60);
-  const m = elapsed % 60;
-  const timeStr = h > 0 ? `${h}h ${m > 0 ? m + 'm' : ''}` : `${m} min`;
-
   MEM.remove('fp_prepSession');
+  playTimerBeep();
+  haptic('success');
+
+  const elapsedMin = Math.round((Date.now() - startedAt) / 60000);
+  const h = Math.floor(elapsedMin / 60), m = elapsedMin % 60;
+  const timeStr = h > 0 ? `${h}h ${m > 0 ? m+'m' : ''}`.trim() : `${m} min`;
 
   setTimeout(() => {
-    const section = document.getElementById('section-preptime');
+    const section = document.getElementById('section-prep');
     if (!section) return;
     section.innerHTML = `
-      <div class="preptime-complete">
-        <div class="preptime-complete-icon">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--lime)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <div class="pt-complete">
+        <div class="pt-complete-icon">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--lime)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
         </div>
-        <h2 class="preptime-complete-title">Prep complete!</h2>
-        <p class="preptime-complete-sub">Your week is sorted 🎉</p>
-        <div class="preptime-complete-stats">
-          <div class="preptime-stat">
-            <span class="preptime-stat-val">${tasks.length}</span>
-            <span class="preptime-stat-label">tasks done</span>
-          </div>
-          <div class="preptime-stat-divider"></div>
-          <div class="preptime-stat">
-            <span class="preptime-stat-val">${timeStr}</span>
-            <span class="preptime-stat-label">time taken</span>
-          </div>
+        <h2 class="pt-complete-title">Prep complete!</h2>
+        <p class="pt-complete-sub">Your week is sorted 🎉</p>
+        <div class="pt-complete-stats">
+          <div class="pt-stat"><span class="pt-stat-val">${tasks.length}</span><span class="pt-stat-lbl">tasks done</span></div>
+          <div class="pt-stat-sep"></div>
+          <div class="pt-stat"><span class="pt-stat-val">${timeStr}</span><span class="pt-stat-lbl">total time</span></div>
         </div>
-        <button class="preptime-start-btn" onclick="renderPrepTimeOverview()" style="margin-top:32px">
-          Back to Plan
-        </button>
+        <button class="pt-btn-primary" style="margin-top:32px" onclick="renderPrepTimeOverview()">Back to overview</button>
       </div>
     `;
-    haptic('success');
-  }, 300);
+  }, 350);
 }
 
 function exitPrepSession() {
-  // Stop all timers
-  Object.values(_prepTimers).forEach(t => clearInterval(t.intervalId));
+  Object.values(_prepTimers).forEach(t => { if (t.rafId) cancelAnimationFrame(t.rafId); });
   _prepTimers = {};
   _prepSession = null;
   renderPrepTimeOverview();
 }
-
