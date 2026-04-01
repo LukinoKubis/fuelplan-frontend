@@ -278,9 +278,8 @@ function surveyUpdateUI() {
 }
 
 function updateSurveyBackButton(show) {
-  // Keep for compatibility — controls header back button visibility
   const btn = document.getElementById('survey-back-btn');
-  if (btn) btn.style.display = show ? 'flex' : 'none';
+  if (btn) btn.classList.toggle('visible', show);
 }
 
 function cancelSurvey() {
@@ -297,17 +296,16 @@ function cancelSurvey() {
   _surveyStep = 0;
   document.querySelectorAll('.survey-step').forEach((s, i) => {
     s.classList.toggle('active', i === 0);
-    s.classList.remove('exit-left', 'exit-right', 'enter-right', 'enter-left');
+    s.classList.remove('slide-in-right','slide-in-left','slide-out-left','slide-out-right');
   });
   surveyUpdateUI();
 }
 
 function goToSurvey() {
-  // Smooth transition to survey — fade out plan, slide in survey
   _surveyStep = 0;
   document.querySelectorAll('.survey-step').forEach((s, i) => {
     s.classList.toggle('active', i === 0);
-    s.classList.remove('exit-left', 'exit-right', 'enter-right', 'enter-left');
+    s.classList.remove('slide-in-right','slide-in-left','slide-out-left','slide-out-right');
   });
   surveyUpdateUI();
   document.getElementById('survey-wrap').style.display = 'flex';
@@ -586,23 +584,25 @@ async function fetchPlansRemaining(code) {
     const remaining = data.remaining;
 
     const el = document.getElementById('plans-remaining');
-    const prev = el ? parseInt(el.dataset.prev || remaining) : remaining;
+    // Use -1 as sentinel: means "never fetched before" so we don't false-trigger
+    const prev = el ? parseInt(el.dataset.prev ?? '-1') : -1;
 
     if (el) {
       el.textContent = remaining + ' plans left';
       el.style.color = remaining <= 2 ? 'var(--red)' : remaining <= 5 ? 'var(--orange)' : 'var(--muted)';
+      el.dataset.remaining = remaining; // store numeric for easy reading
       el.dataset.prev = remaining;
     }
 
-    // Detect top-up: remaining increased since last check
-    if (el && remaining > prev && prev > 0) {
+    // Detect top-up: remaining increased since last check (prev >= 0 means we've fetched before)
+    if (el && prev >= 0 && remaining > prev) {
       showTopUpCelebration(remaining, remaining - prev);
     }
 
-    // Low plan warnings
-    if (remaining === 3) showToast('Only 3 plan generations left on your code');
-    if (remaining === 1) showToast('Last plan generation remaining on your code!');
-    if (remaining === 0) showToast('No generations left — contact us to top up');
+    // Low plan warnings — only show when count first drops to that level
+    if (prev > 3 && remaining === 3) showToast('Only 3 plan generations left on your code');
+    if (prev > 1 && remaining === 1) showToast('Last plan generation remaining!');
+    if (prev > 0 && remaining === 0) showToast('No generations left — contact us to top up');
   } catch (e) { /* non-critical */ }
 }
 
@@ -769,12 +769,9 @@ function resetToSurvey() {
   MEM.remove('fp_activeDay');
   shopChecks = {};
   planData = null;
-
-  document.getElementById('survey-wrap').style.display = 'flex';
-  document.getElementById('plan-wrap').classList.remove('active');
   document.getElementById('error-panel').classList.remove('active');
   document.getElementById('loading-overlay').classList.remove('active');
-  document.getElementById('bottom-nav').style.display = 'none';
+  goToSurvey();
 }
 
 /* ═══════════════ RENDER PLAN ═══════════════ */
@@ -994,7 +991,7 @@ function showToast(msg) {
   const t = document.createElement('div');
   t.textContent = msg;
   t.style.cssText = `
-    position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);
+    position:fixed;bottom:calc(70px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(20px);
     background:${isLight ? '#1e2128' : '#1e2128'};border:1px solid ${isLight ? '#c4c9d8' : '#2a2d35'};color:${isLight ? '#ffffff' : '#f0f2f5'};
     padding:12px 22px;border-radius:40px;font-size:13px;font-weight:600;
     font-family:'Figtree',sans-serif;z-index:9998;opacity:0;
@@ -1201,7 +1198,7 @@ async function restorePlan(planId) {
 async function deletePlan(planId) {
   const card = document.getElementById('hcard-' + planId);
   const totalCards = document.querySelectorAll('.history-card').length;
-  const generationsLeft = parseInt(document.getElementById('plans-remaining')?.textContent) || null;
+  const generationsLeft = parseInt(document.getElementById('plans-remaining')?.dataset.remaining) || null;
   const isLast = totalCards === 1;
 
   // Check if this is the currently active plan
@@ -1612,7 +1609,7 @@ function closeConfirmModal() {
 
 function openSettings_regenerate() {
   // Block if 0 plans remaining
-  const remaining = parseInt(document.getElementById('plans-remaining')?.textContent) || 0;
+  const remaining = parseInt(document.getElementById('plans-remaining')?.dataset.remaining) || 0;
   if (remaining <= 0) {
     showConfirmModal({
       icon: `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
@@ -1658,7 +1655,7 @@ function editProfile() {
   document.getElementById('plan-wrap').classList.remove('active');
   document.getElementById('bottom-nav').style.display = 'none';
   setTimeout(() => {
-    document.querySelector('.survey-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('survey-steps-wrap')?.scrollTo({ top: 0, behavior: 'smooth' });
   }, 100);
   showToast('Edit your profile then regenerate');
 }
@@ -1674,7 +1671,7 @@ function resetShopList() {
 }
 
 function confirmFullReset() {
-  const remaining = parseInt(document.getElementById('plans-remaining')?.textContent) || null;
+  const remaining = parseInt(document.getElementById('plans-remaining')?.dataset.remaining) || null;
 
   const warningMsg = (remaining !== null && remaining <= 3 && remaining > 0)
     ? `<strong>You only have ${remaining} plan${remaining === 1 ? '' : 's'} left</strong> on your code — you'll need to use one to get a new plan.`
@@ -1714,13 +1711,11 @@ function cancelGenerate() {
 
   const savedPlan = MEM.load('fp_plan');
   if (savedPlan && planData) {
-    // Already on plan screen — just hide loading
+    // Already on plan screen — just hide loading, nothing to do
   } else if (savedPlan) {
     renderPlan(savedPlan, MEM.load('fp_userName') || 'Your', true);
   } else {
-    document.getElementById('survey-wrap').style.display = 'flex';
-    document.getElementById('plan-wrap').classList.remove('active');
-    document.getElementById('bottom-nav').style.display = 'none';
+    goToSurvey();
   }
   showToast('Generation cancelled');
 }
