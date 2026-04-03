@@ -1919,8 +1919,17 @@ function haptic(type) {
 }
 
 /* ═══════════════ THEME ═══════════════ */
+function updateThemeBtn() {
+  const isLight = document.body.classList.contains('light');
+  const moon = document.getElementById('theme-icon-moon');
+  const sun = document.getElementById('theme-icon-sun');
+  if (moon) moon.style.display = isLight ? 'none' : '';
+  if (sun) sun.style.display = isLight ? '' : 'none';
+}
+
 function applyTheme(isLight) {
   document.body.classList.toggle('light', isLight);
+  updateThemeBtn();
   const themeColor = document.querySelector('meta[name="theme-color"]');
   if (themeColor) themeColor.content = isLight ? '#f0f2f5' : '#0e0f11';
   document.documentElement.style.background = isLight ? '#f0f2f5' : '#0e0f11';
@@ -2228,10 +2237,16 @@ function taskCardHTML(task, i) {
     <div class="pt-card-foot">
       ${done
         ? `<button class="pt-undo-btn" onclick="undoTask(${i})">↩ Undo</button>`
-        : `<button class="pt-done-btn" onclick="markTaskDone(${i})" style="--lc:${l.color}">
-             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-             Done
-           </button>`
+        : `<div class="pt-foot-row">
+             ${hasDur ? `<button class="pt-timer-btn" id="ptimer-btn-${i}" onclick="togglePrepTimer(${i},${task.durationMinutes})">
+               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+               <span id="ptimer-label-${i}">Start timer</span>
+             </button>` : ''}
+             <button class="pt-done-btn" onclick="markTaskDone(${i})" style="--lc:${l.color}">
+               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+               Done
+             </button>
+           </div>`
       }
     </div>
 
@@ -2325,6 +2340,9 @@ function checkAllDone() {
 }
 
 function exitPrepSession() {
+  // Clear any running timers
+  Object.keys(_prepTimers).forEach(function(k) { clearInterval(_prepTimers[k].intervalId); });
+  _prepTimers = {};
   _prepSession = null;
   renderPrepTimeOverview();
 }
@@ -2932,4 +2950,65 @@ function clearCheckedShopItems() {
     document.getElementById('shopping-content').innerHTML = renderShoppingPanel(planData.shopping_list, true, scale, groceryView);
   }
   showToast('Cleared checked items');
+}
+
+/* ═══════════════════════════════════════════════════
+   PREP COUNTDOWN TIMERS
+═══════════════════════════════════════════════════ */
+var _prepTimers = {}; // { taskIdx: { intervalId, remaining } }
+
+function togglePrepTimer(i, minutes) {
+  if (_prepTimers[i]) {
+    cancelPrepTimer(i);
+  } else {
+    startPrepTimer(i, minutes);
+  }
+}
+
+function startPrepTimer(i, minutes) {
+  haptic('medium');
+  var remaining = minutes * 60;
+  var btn = document.getElementById('ptimer-btn-' + i);
+  var label = document.getElementById('ptimer-label-' + i);
+  if (!btn || !label) return;
+
+  btn.classList.add('pt-timer-running');
+
+  function tick() {
+    remaining--;
+    var lbl = document.getElementById('ptimer-label-' + i);
+    var b = document.getElementById('ptimer-btn-' + i);
+    if (!lbl || !b) { cancelPrepTimer(i); return; }
+
+    if (remaining <= 0) {
+      cancelPrepTimer(i);
+      b.classList.add('pt-timer-done');
+      lbl.textContent = 'Time\'s up!';
+      haptic('success');
+      showToastWithAction('Timer done!', 'Mark done', function() { markTaskDone(i); });
+      return;
+    }
+
+    var m = Math.floor(remaining / 60);
+    var s = remaining % 60;
+    lbl.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  var m0 = Math.floor(remaining / 60);
+  var s0 = remaining % 60;
+  label.textContent = m0 + ':' + (s0 < 10 ? '0' : '') + s0;
+
+  var id = setInterval(tick, 1000);
+  _prepTimers[i] = { intervalId: id, remaining: remaining };
+}
+
+function cancelPrepTimer(i) {
+  if (_prepTimers[i]) {
+    clearInterval(_prepTimers[i].intervalId);
+    delete _prepTimers[i];
+  }
+  var btn = document.getElementById('ptimer-btn-' + i);
+  var label = document.getElementById('ptimer-label-' + i);
+  if (btn) btn.classList.remove('pt-timer-running', 'pt-timer-done');
+  if (label) label.textContent = 'Start timer';
 }

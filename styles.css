@@ -2970,3 +2970,41 @@ body.light .haul-action-btn { background: var(--bg2); border-color: var(--border
 }
 .action-toast-btn:hover { background: #d8ff5a; }
 body.light .action-toast { background: #fff; border-color: #e0e4ef; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
+
+/* ═══════════════════════════════════════════════════
+   PREP TIMER BUTTON
+═══════════════════════════════════════════════════ */
+.pt-foot-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+.pt-foot-row .pt-done-btn { flex: 1; }
+.pt-timer-btn {
+  background: none;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Figtree', sans-serif;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.pt-timer-btn:hover { border-color: var(--lime); color: var(--lime); }
+.pt-timer-btn.pt-timer-running {
+  border-color: var(--orange);
+  color: var(--orange);
+  background: rgba(255,154,66,0.08);
+}
+.pt-timer-btn.pt-timer-done {
+  border-color: var(--lime);
+  color: var(--lime);
+  background: rgba(200,245,66,0.1);
+}
