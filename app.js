@@ -1235,7 +1235,11 @@ function renderPlan(plan, userName, isRestoring, planName) {
   // Animate rings on active panel
   setTimeout(function() {
     var activePanel = document.querySelector('.tab-panel.active');
-    if (activePanel) animateRings(activePanel);
+    if (activePanel) {
+      animateRings(activePanel);
+      var activeDayId = activePanel.id.replace('panel-', '');
+      initIngredientToggles(activeDayId);
+    }
   }, 120);
 
   // Init swipe gesture for day navigation (once per page load)
@@ -1405,7 +1409,8 @@ function renderDayPanel(day, summary, isActive) {
               const pp = Math.round(p/tot*100), cp = Math.round(c/tot*100), fp = 100 - pp - cp;
               return `<div class="meal-macro-bar"><div class="mmb-p" style="width:${pp}%"></div><div class="mmb-c" style="width:${cp}%"></div><div class="mmb-f" style="width:${fp}%"></div></div>`;
             })()}
-            <div class="meal-ingredients">${escHtml(meal.ingredients)}</div>
+            <div class="meal-ingredients" id="mingr-${dayId}-${mealIdx}" onclick="toggleIngredients('${dayId}',${mealIdx})">${escHtml(meal.ingredients)}</div>
+            <button class="meal-ingr-toggle" id="mingr-toggle-${dayId}-${mealIdx}" onclick="toggleIngredients('${dayId}',${mealIdx})">Show more ▾</button>
             ${mealAnnotations[noteKey] ? `<div class="meal-note-text" id="mnote-text-${dayId}-${mealIdx}">${escHtml(mealAnnotations[noteKey])}</div>` : ''}
             <div class="meal-note-editor" id="mnote-editor-${dayId}-${mealIdx}" style="display:none">
               <textarea class="meal-note-input" id="mnote-input-${dayId}-${mealIdx}" placeholder="Add a note…" rows="2">${mealAnnotations[noteKey] ? escHtml(mealAnnotations[noteKey]) : ''}</textarea>
@@ -1592,6 +1597,32 @@ function updateShopProgress() {
   // Show search bar when there are items
   var sw = document.getElementById('shop-search-wrap');
   if (sw) sw.style.display = total > 0 ? 'block' : 'none';
+}
+
+/* ── MEAL INGREDIENT EXPAND/COLLAPSE ──────────────── */
+function initIngredientToggles(dayId) {
+  // Show the "Show more" button only when text is actually clamped
+  requestAnimationFrame(function() {
+    var dayObj = planData && planData.days.find(function(d) { return d.day.toLowerCase() === dayId; });
+    if (!dayObj) return;
+    dayObj.meals.forEach(function(_, i) {
+      var ingr = document.getElementById('mingr-' + dayId + '-' + i);
+      var btn = document.getElementById('mingr-toggle-' + dayId + '-' + i);
+      if (!ingr || !btn) return;
+      // Element is clamped when scrollHeight > clientHeight
+      if (ingr.scrollHeight > ingr.clientHeight + 2) {
+        btn.classList.add('visible');
+      }
+    });
+  });
+}
+
+function toggleIngredients(dayId, mealIdx) {
+  var ingr = document.getElementById('mingr-' + dayId + '-' + mealIdx);
+  var btn = document.getElementById('mingr-toggle-' + dayId + '-' + mealIdx);
+  if (!ingr) return;
+  var expanded = ingr.classList.toggle('expanded');
+  if (btn) btn.textContent = expanded ? 'Show less ▴' : 'Show more ▾';
 }
 
 /* ── CUSTOM SHOPPING ITEMS ──────────────────────────── */
@@ -1844,6 +1875,7 @@ function switchDayTab(id) {
 
   renderCarousel(slideDir);
   MEM.save('fp_activeDay', id);
+  setTimeout(function() { initIngredientToggles(id); }, 100);
 }
 
 /* ═══════════════ TOAST ═══════════════ */
