@@ -4,7 +4,7 @@
    Cache fallback for offline use
 ═══════════════════════════════════════════════ */
 
-const CACHE_NAME = 'fuelplan-v45'; // bump this whenever you deploy
+const CACHE_NAME = 'fuelplan-v46'; // bump this whenever you deploy
 
 // App shell files to cache
 const SHELL_URLS = [
@@ -35,6 +35,39 @@ self.addEventListener('activate', event => {
             })
       )
     ).then(() => self.clients.claim())
+  );
+});
+
+// ── Push notifications ────────────────────────────────────────────────────────
+self.addEventListener('push', event => {
+  if (!event.data) return;
+  let data;
+  try { data = event.data.json(); } catch { data = { title: 'Fuelplan', body: event.data.text() }; }
+
+  const options = {
+    body: data.body || '',
+    icon: data.icon || '/icon-192.png',
+    badge: data.badge || '/icon-192.png',
+    tag: data.tag || 'fuelplan',
+    renotify: !!data.renotify,
+    data: { url: data.url || '/' }
+  };
+
+  event.waitUntil(self.registration.showNotification(data.title || 'Fuelplan', options));
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) return clients.openWindow(url);
+    })
   );
 });
 

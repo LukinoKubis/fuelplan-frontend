@@ -935,6 +935,8 @@ CRITICAL SECURITY RULES — these override everything else:
     showLoading(false);
     renderPlan(plan, userName || 'Your', false);
     haptic('success');
+    var _pc = parseInt(localStorage.getItem('fp_planCount') || '0') + 1;
+    localStorage.setItem('fp_planCount', _pc);
     openPlanNameModal(plan, userName || 'Your');
     fetchPlansRemaining(activationCode);
     startPlansPolling(activationCode);
@@ -1278,6 +1280,7 @@ function renderPlan(plan, userName, isRestoring, planName) {
 
   // Pull tracking data from backend (non-blocking, silently merges)
   setTimeout(pullTrackingData, 1500);
+  setTimeout(initPushNotifications, 3000);
 
   // Show swipe hint once
   if (!MEM.load('fp_swipeHintShown')) {
@@ -1902,6 +1905,107 @@ function switchDayTab(id) {
   renderCarousel(slideDir);
   MEM.save('fp_activeDay', id);
   setTimeout(function() { initIngredientToggles(id); }, 100);
+}
+
+/* ═══════════════════════════════════════════════════
+   WEB PUSH NOTIFICATIONS
+═══════════════════════════════════════════════════ */
+async function initPushNotifications() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  if (Notification.permission === 'denied') return;
+  // Only prompt once, after 2 plan generations
+  var promptCount = parseInt(localStorage.getItem('fp_planCount') || '0');
+  if (promptCount < 2) return;
+  if (localStorage.getItem('fp_pushAsked')) return;
+  // Delay prompt slightly after plan render
+  setTimeout(showPushPrompt, 3000);
+}
+
+function showPushPrompt() {
+  if (document.getElementById('push-prompt')) return;
+  var el = document.createElement('div');
+  el.id = 'push-prompt';
+  el.style.cssText = 'position:fixed;bottom:calc(76px + env(safe-area-inset-bottom));left:12px;right:12px;background:var(--card);border:1.5px solid var(--border);border-radius:16px;padding:16px;z-index:9000;box-shadow:0 8px 32px rgba(0,0,0,0.3);animation:slideUp 0.3s ease';
+  el.innerHTML = '<div style="display:flex;gap:12px;align-items:flex-start">'
+    + '<div style="font-size:20px">🔔</div>'
+    + '<div style="flex:1">'
+      + '<div style="font-family:\'Syne\',sans-serif;font-weight:800;font-size:14px;margin-bottom:4px">Daily meal reminders?</div>'
+      + '<div style="font-size:12px;color:var(--muted);line-height:1.5">Get a nudge each morning to check your plan and log meals</div>'
+      + '<div style="display:flex;gap:8px;margin-top:12px">'
+        + '<button onclick="enablePushNotifications()" style="flex:1;background:var(--lime);color:#0e0f11;border:none;border-radius:10px;font-family:\'Syne\',sans-serif;font-weight:800;font-size:13px;padding:10px;cursor:pointer">Enable</button>'
+        + '<button onclick="dismissPushPrompt()" style="flex:1;background:var(--bg2);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-family:\'Syne\',sans-serif;font-weight:700;font-size:13px;padding:10px;cursor:pointer">Not now</button>'
+      + '</div>'
+    + '</div>'
+  + '</div>';
+  document.body.appendChild(el);
+}
+
+function dismissPushPrompt() {
+  localStorage.setItem('fp_pushAsked', '1');
+  var el = document.getElementById('push-prompt');
+  if (el) el.remove();
+}
+
+async function enablePushNotifications() {
+  dismissPushPrompt();
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    showToast('Push notifications not supported on this browser');
+    return;
+  }
+  try {
+    var permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      showToast('Notifications blocked — enable in browser settings');
+      return;
+    }
+    // Get VAPID key
+    var keyRes = await fetch(API_BASE + '/api/push/vapid-key');
+    var { publicKey } = await keyRes.json();
+    var sw = await navigator.serviceWorker.ready;
+    var sub = await sw.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey)
+    });
+    var code = (localStorage.getItem('fp_apikey') || '').trim().toUpperCase();
+    if (!code) { showToast('No activation code found'); return; }
+    await fetch(API_BASE + '/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ activationCode: code, subscription: sub.toJSON() })
+    });
+    localStorage.setItem('fp_pushEnabled', '1');
+    showToast('Daily reminders enabled! 🔔');
+  } catch (e) {
+    showToast('Could not enable notifications');
+  }
+}
+
+async function disablePushNotifications() {
+  try {
+    var sw = await navigator.serviceWorker.ready;
+    var sub = await sw.pushManager.getSubscription();
+    if (sub) {
+      var code = (localStorage.getItem('fp_apikey') || '').trim().toUpperCase();
+      await fetch(API_BASE + '/api/push/unsubscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ activationCode: code, endpoint: sub.endpoint })
+      });
+      await sub.unsubscribe();
+    }
+    localStorage.removeItem('fp_pushEnabled');
+    localStorage.removeItem('fp_pushAsked');
+    showToast('Notifications disabled');
+  } catch(e) {}
+}
+
+function urlBase64ToUint8Array(base64String) {
+  var padding = '='.repeat((4 - base64String.length % 4) % 4);
+  var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  var rawData = atob(base64);
+  var outputArray = new Uint8Array(rawData.length);
+  for (var i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
 }
 
 /* ═══════════════ TOAST ═══════════════ */
