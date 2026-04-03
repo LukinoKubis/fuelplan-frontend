@@ -1208,10 +1208,13 @@ function renderDayPanel(day, summary, isActive) {
       <div class="day-eaten-bar" id="eaten-bar-${dayId}">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
           <span id="eaten-count-${dayId}" style="font-size:12px;color:var(--muted)">${eatenCount}/${mealCount} meals eaten</span>
+          <div style="display:flex;align-items:center;gap:10px">
           <span id="eaten-kcal-${dayId}" style="font-size:12px;font-weight:700;color:var(--lime)">${(function(){
             var ek = (day.meals||[]).reduce(function(s,m,i){return s+(eaten[dayId+'-'+i]?(parseInt(m.kcal)||0):0);},0);
             return ek > 0 ? ek + ' kcal logged' : '';
           })()}</span>
+          <button id="log-all-btn-${dayId}" onclick="logAllMeals('${dayId}')" style="font-size:11px;color:var(--muted);background:none;border:none;cursor:pointer;padding:2px 0;text-decoration:underline;text-underline-offset:2px;flex-shrink:0">${eatenCount === mealCount && mealCount > 0 ? 'Clear' : 'Log all'}</button>
+          </div>
         </div>
         <div class="day-eaten-track"><div class="day-eaten-fill" id="eaten-fill-${dayId}" style="width:${eatenPct}%"></div></div>
         ${(function(){
@@ -3742,12 +3745,26 @@ function renderWeekStats() {
   // Goal progress card
   var oldGoalCard = document.getElementById('goal-progress-card');
   if (oldGoalCard) oldGoalCard.remove();
+  var oldInsightsCard = document.getElementById('plan-insights-card');
+  if (oldInsightsCard) oldInsightsCard.remove();
+
+  var lastInserted = statsEl;
+
   var goalProgressHtml = buildGoalProgressCard();
   if (goalProgressHtml) {
     var goalCardEl = document.createElement('div');
     goalCardEl.id = 'goal-progress-card';
     goalCardEl.innerHTML = goalProgressHtml;
-    statsEl.insertAdjacentElement('afterend', goalCardEl);
+    lastInserted.insertAdjacentElement('afterend', goalCardEl);
+    lastInserted = goalCardEl;
+  }
+
+  var insightsHtml = buildNutritionalInsightsCard();
+  if (insightsHtml) {
+    var insightsEl = document.createElement('div');
+    insightsEl.id = 'plan-insights-card';
+    insightsEl.innerHTML = insightsHtml;
+    lastInserted.insertAdjacentElement('afterend', insightsEl);
   }
 }
 
@@ -3787,6 +3804,80 @@ function buildGoalProgressCard() {
       + '<span style="font-size:12px;color:var(--muted)">' + statusText + '</span>'
       + '<span style="font-size:13px;font-weight:700;color:' + barColor + '">' + pct + '%</span>'
     + '</div>'
+  + '</div>';
+}
+
+/* ═══════════════════════════════════════════════════
+   NUTRITIONAL INSIGHTS CARD
+═══════════════════════════════════════════════════ */
+function buildNutritionalInsightsCard() {
+  if (!planData) return '';
+  var days = planData.days || [];
+  if (!days.length) return '';
+  var summary = planData.summary || {};
+  var profile = MEM.load('fp_profile') || {};
+  var bodyWeight = parseFloat(profile.weight) || 0;
+  var trainingDayIds = profile.trainingDayIds || [];
+
+  var insights = [];
+
+  // 1. Protein per kg bodyweight
+  if (bodyWeight > 0 && summary.protein) {
+    var pPerKg = (summary.protein / bodyWeight).toFixed(1);
+    if (pPerKg >= 1.8) {
+      insights.push({ icon: '💪', label: 'Excellent protein', sub: pPerKg + 'g/kg — ideal for muscle', col: 'var(--lime)' });
+    } else if (pPerKg >= 1.4) {
+      insights.push({ icon: '✓', label: 'Good protein', sub: pPerKg + 'g/kg — adequate for goals', col: 'var(--blue)' });
+    } else {
+      insights.push({ icon: '⚠', label: 'Low protein', sub: pPerKg + 'g/kg — aim for 1.6g/kg+', col: 'var(--orange)' });
+    }
+  }
+
+  // 2. Meal frequency
+  var totalMeals = days.reduce(function(s, d) { return s + (d.meals || []).length; }, 0);
+  var avgMeals = days.length ? (totalMeals / days.length).toFixed(1) : 0;
+  var mealFreqText = avgMeals >= 4 ? 'High frequency — great for satiety' : avgMeals >= 3 ? 'Standard meal frequency' : 'Low frequency — consider snacks';
+  insights.push({ icon: '🍽', label: avgMeals + ' meals/day', sub: mealFreqText, col: 'var(--muted)' });
+
+  // 3. Training vs rest day calories
+  if (trainingDayIds.length > 0) {
+    var trainDays = days.filter(function(d) { return trainingDayIds.includes(d.day.toLowerCase()); });
+    var restDays  = days.filter(function(d) { return !trainingDayIds.includes(d.day.toLowerCase()); });
+    if (trainDays.length && restDays.length) {
+      var avgTrain = Math.round(trainDays.reduce(function(s, d) { return s + (d.kcal||0); }, 0) / trainDays.length);
+      var avgRest  = Math.round(restDays.reduce(function(s, d) { return s + (d.kcal||0); }, 0) / restDays.length);
+      var diff = avgTrain - avgRest;
+      if (diff > 50) {
+        insights.push({ icon: '⚡', label: 'Training day fuelling', sub: '+' + diff + ' kcal vs rest days — optimal', col: 'var(--lime)' });
+      } else if (diff >= -50) {
+        insights.push({ icon: '〜', label: 'Equal calories daily', sub: 'Training/rest same calories', col: 'var(--muted)' });
+      }
+    }
+  }
+
+  // 4. Macro balance check
+  var pKcal = (summary.protein || 0) * 4;
+  var cKcal = (summary.carbs || 0) * 4;
+  var fKcal = (summary.fat || 0) * 9;
+  var totKcal2 = pKcal + cKcal + fKcal || 1;
+  var pPct2 = Math.round(pKcal / totKcal2 * 100);
+  var cPct2 = Math.round(cKcal / totKcal2 * 100);
+  var fPct2 = 100 - pPct2 - cPct2;
+  insights.push({ icon: '⚖', label: 'Macro split', sub: pPct2 + '% protein · ' + cPct2 + '% carbs · ' + fPct2 + '% fat', col: 'var(--muted)' });
+
+  var rows = insights.map(function(ins) {
+    return '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">'
+      + '<span style="font-size:16px;line-height:1;margin-top:1px">' + ins.icon + '</span>'
+      + '<div style="flex:1;min-width:0">'
+        + '<div style="font-size:13px;font-weight:700;color:' + ins.col + ';margin-bottom:1px">' + ins.label + '</div>'
+        + '<div style="font-size:11px;color:var(--muted);line-height:1.4">' + ins.sub + '</div>'
+      + '</div>'
+    + '</div>';
+  }).join('');
+
+  return '<div style="margin:0 16px 20px;background:var(--card);border:1.5px solid var(--border);border-radius:16px;padding:16px">'
+    + '<div style="font-family:\'Syne\',sans-serif;font-weight:800;font-size:14px;margin-bottom:4px">Plan Insights</div>'
+    + '<div style="margin-top:4px">' + rows.replace(/border-bottom[^"]+"\s*last-child-no/g, '') + '</div>'
   + '</div>';
 }
 
@@ -4181,6 +4272,64 @@ function toggleMealEaten(dayId, mealIdx) {
   }
 
   // Refresh week stats (streak might change) and today snapshot
+  renderWeekStats();
+  renderTodaySnapshot();
+}
+
+function logAllMeals(dayId) {
+  if (!planData) return;
+  const dayObj = planData.days.find(d => d.day.toLowerCase() === dayId);
+  if (!dayObj) return;
+  haptic('medium');
+
+  const eaten = MEM.load('fp_eaten') || {};
+  const mealCount = dayObj.meals.length;
+  const eatenCount = dayObj.meals.filter((_, i) => eaten[dayId + '-' + i]).length;
+  const allEaten = eatenCount === mealCount;
+
+  // Toggle: mark all eaten if not all done, clear if all done
+  dayObj.meals.forEach(function(_, i) {
+    if (allEaten) {
+      delete eaten[dayId + '-' + i];
+    } else {
+      eaten[dayId + '-' + i] = true;
+    }
+  });
+  MEM.save('fp_eaten', eaten);
+
+  // Update each meal card + button
+  const svgCheck = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  dayObj.meals.forEach(function(meal, i) {
+    const btn = document.getElementById('eatbtn-' + dayId + '-' + i);
+    const card = document.getElementById('mcard-' + dayId + '-' + i);
+    if (btn) {
+      btn.classList.toggle('eaten', !allEaten);
+      btn.innerHTML = svgCheck + ' ' + (!allEaten ? 'Eaten' : 'Ate it');
+    }
+    if (card) card.classList.toggle('meal-card-eaten', !allEaten);
+  });
+
+  // Update eaten bar
+  const newCount = allEaten ? 0 : mealCount;
+  const newPct = allEaten ? 0 : 100;
+  const countEl = document.getElementById('eaten-count-' + dayId);
+  const fillEl  = document.getElementById('eaten-fill-' + dayId);
+  const kcalEl  = document.getElementById('eaten-kcal-' + dayId);
+  const logBtn  = document.getElementById('log-all-btn-' + dayId);
+  if (countEl) countEl.textContent = newCount + '/' + mealCount + ' meals eaten';
+  if (fillEl)  fillEl.style.width = newPct + '%';
+  if (kcalEl) {
+    var totalK = allEaten ? 0 : dayObj.meals.reduce(function(s, m) { return s + (parseInt(m.kcal)||0); }, 0);
+    kcalEl.textContent = totalK > 0 ? totalK + ' kcal logged' : '';
+  }
+  if (logBtn) logBtn.textContent = allEaten ? 'Log all' : 'Clear';
+
+  if (!allEaten) {
+    haptic('success');
+    showToast('All meals logged for ' + dayObj.day + '!');
+  }
+
+  renderCarousel();
   renderWeekStats();
   renderTodaySnapshot();
 }
