@@ -3613,7 +3613,24 @@ function openMealSwap(dayId, mealIdx) {
     : '';
   if (otherFavs.length) window._swapFavs = otherFavs.slice(0, 3);
 
-  document.getElementById('swap-results').innerHTML = favsHtml;
+  // Show swap history for this meal slot
+  var swapHistory = MEM.load('fp_swapHistory') || [];
+  var slotHistory = swapHistory.filter(function(h) { return h.dayId === dayId && h.mealIdx === mealIdx; });
+  var historyHtml = '';
+  if (slotHistory.length) {
+    historyHtml = '<div class="swap-section-label" style="margin-top:12px">Swap History</div>'
+      + '<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px">'
+      + slotHistory.slice(0, 3).map(function(h) {
+          return '<div style="font-size:11px;color:var(--muted);background:var(--bg2);border-radius:8px;padding:6px 10px">'
+            + '<span style="color:var(--red);text-decoration:line-through;margin-right:4px">' + escHtml(h.from.name) + '</span>'
+            + '→ <span style="color:var(--fg)">' + escHtml(h.to.name) + '</span>'
+            + ' <span style="opacity:0.5;float:right">' + h.date + '</span>'
+            + '</div>';
+        }).join('')
+      + '</div>';
+  }
+
+  document.getElementById('swap-results').innerHTML = favsHtml + historyHtml;
   document.getElementById('swap-spinner').style.display = 'flex';
 
   document.getElementById('meal-swap-overlay').classList.add('open');
@@ -3728,6 +3745,13 @@ function useMealSwap(altMeal) {
   const captureMealIdx = _swapMealIdx;
   const dayIdx = planData.days.findIndex(d => d.day.toLowerCase() === captureDayId);
   if (dayIdx === -1) return;
+
+  // Record swap history
+  var oldMeal = planData.days[dayIdx].meals[captureMealIdx];
+  var swapHistory = MEM.load('fp_swapHistory') || [];
+  swapHistory.unshift({ date: new Date().toISOString().slice(0,10), dayId: captureDayId, mealIdx: captureMealIdx, from: { name: oldMeal.name, kcal: oldMeal.kcal }, to: { name: altMeal.name, kcal: altMeal.kcal } });
+  swapHistory = swapHistory.slice(0, 50);
+  MEM.save('fp_swapHistory', swapHistory);
 
   // Replace meal
   planData.days[dayIdx].meals[captureMealIdx] = altMeal;
