@@ -1383,14 +1383,29 @@ function renderCarousel(slideDir) {
 
   var todayDate = new Date().getDate();
 
+  // Compute which days are fully eaten
+  var completeDays = {};
+  if (planData) {
+    var eaten = MEM.load('fp_eaten') || {};
+    planData.days.forEach(function(dayObj) {
+      var dId = dayObj.day.toLowerCase();
+      var mc = (dayObj.meals || []).length;
+      if (!mc) return;
+      var ec = dayObj.meals.filter(function(_, i) { return eaten[dId + '-' + i]; }).length;
+      if (ec === mc) completeDays[dId] = true;
+    });
+  }
+
   track.innerHTML = days.map(function(dayId, di) {
     const abbr = dayId.charAt(0).toUpperCase() + dayId.slice(1, 3);
     const isTrain = _trainDays.includes(dayId);
     const isActive = di === idx;
     const dateNum = planDates[dayId];
     const isToday = dateNum === todayDate && savedAt;
-    return '<button class="day-tab-btn' + (isActive ? ' dc-center' : '') + (isToday ? ' day-tab-today' : '') + '" id="day-tab-btn-' + dayId + '" onclick="switchDayTab(\'' + dayId + '\')">'
-      + (isTrain ? '<div class="day-tab-train-dot"></div>' : '')
+    const isDone = completeDays[dayId];
+    return '<button class="day-tab-btn' + (isActive ? ' dc-center' : '') + (isToday ? ' day-tab-today' : '') + (isDone ? ' day-tab-done' : '') + '" id="day-tab-btn-' + dayId + '" onclick="switchDayTab(\'' + dayId + '\')">'
+      + (isTrain && !isDone ? '<div class="day-tab-train-dot"></div>' : '')
+      + (isDone && !isActive ? '<div class="day-tab-check">✓</div>' : '')
       + '<span class="day-letter">' + abbr + '</span>'
       + (dateNum ? '<span class="day-date-num">' + dateNum + '</span>' : '')
       + '</button>';
@@ -3384,6 +3399,17 @@ function renderWeekStats() {
   const deficitColor = Math.abs(deficit) < weekTarget * 0.05 ? 'var(--lime)'
     : deficit > 0 ? 'var(--blue)' : 'var(--orange)';
 
+  // Adherence tracking
+  const eatenAll = MEM.load('fp_eaten') || {};
+  let completeDayCount = 0;
+  days.forEach(function(dayObj) {
+    const dId = dayObj.day.toLowerCase();
+    const mc = (dayObj.meals || []).length;
+    if (!mc) return;
+    const ec = dayObj.meals.filter(function(_, i) { return eatenAll[dId + '-' + i]; }).length;
+    if (ec === mc) completeDayCount++;
+  });
+
   // Week stats row
   const statsEl = document.createElement('div');
   statsEl.id = 'week-stats';
@@ -3397,8 +3423,8 @@ function renderWeekStats() {
       <span class="wstat-label">avg protein/day</span>
     </div>
     <div class="wstat-item">
-      <span class="wstat-val" style="color:${deficitColor}">${deficitText.split(' ')[0]}</span>
-      <span class="wstat-label">${deficitText.split(' ').slice(1).join(' ')}</span>
+      <span class="wstat-val" style="color:${completeDayCount > 0 ? 'var(--lime)' : 'var(--muted)'}">${completeDayCount}/${days.length}</span>
+      <span class="wstat-label">days logged</span>
     </div>
   `;
 

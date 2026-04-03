@@ -2130,6 +2130,14 @@
   }
   .day-tab-btn.day-tab-today:not(.dc-center) .day-date-num { opacity: 1; }
 
+  .day-tab-btn.day-tab-done:not(.dc-center) {
+    border-color: rgba(200,245,66,0.4);
+  }
+  .day-tab-check {
+    position: absolute; top: 4px; right: 4px;
+    font-size: 8px; color: var(--lime); font-weight: 900; line-height: 1;
+  }
+
   .day-tab-btn.dc-center {
     background: var(--lime);
     border-color: var(--lime);
