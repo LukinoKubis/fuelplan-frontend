@@ -1182,7 +1182,13 @@ function renderDayPanel(day, summary, isActive) {
       </div>
       ${renderWaterTracker(dayId)}
       <div class="day-eaten-bar" id="eaten-bar-${dayId}">
-        <span id="eaten-count-${dayId}">${eatenCount}/${mealCount} eaten</span>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span id="eaten-count-${dayId}" style="font-size:12px;color:var(--muted)">${eatenCount}/${mealCount} meals eaten</span>
+          <span id="eaten-kcal-${dayId}" style="font-size:12px;font-weight:700;color:var(--lime)">${(function(){
+            var ek = (day.meals||[]).reduce(function(s,m,i){return s+(eaten[dayId+'-'+i]?(parseInt(m.kcal)||0):0);},0);
+            return ek > 0 ? ek + ' kcal logged' : '';
+          })()}</span>
+        </div>
         <div class="day-eaten-track"><div class="day-eaten-fill" id="eaten-fill-${dayId}" style="width:${eatenPct}%"></div></div>
       </div>
       <div class="meals-grid">
@@ -3978,8 +3984,13 @@ function toggleMealEaten(dayId, mealIdx) {
   const eatenPct = mealCount ? Math.round(eatenCount / mealCount * 100) : 0;
   const countEl = document.getElementById('eaten-count-' + dayId);
   const fillEl = document.getElementById('eaten-fill-' + dayId);
-  if (countEl) countEl.textContent = eatenCount + '/' + mealCount + ' eaten';
+  const kcalEl = document.getElementById('eaten-kcal-' + dayId);
+  if (countEl) countEl.textContent = eatenCount + '/' + mealCount + ' meals eaten';
   if (fillEl) fillEl.style.width = eatenPct + '%';
+  if (kcalEl) {
+    var eatenKcal = dayObj.meals.reduce(function(s, m, i) { return s + (eaten[dayId+'-'+i] ? (parseInt(m.kcal)||0) : 0); }, 0);
+    kcalEl.textContent = eatenKcal > 0 ? eatenKcal + ' kcal logged' : '';
+  }
 
   // Celebrate when all meals eaten
   if (!wasEaten && eatenCount === mealCount) {
