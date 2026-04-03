@@ -3522,6 +3522,14 @@ function renderWeekStats() {
     if (ec === mc) completeDayCount++;
   });
 
+  // Weekly water total
+  const waterData = MEM.load('fp_water') || {};
+  var weeklyWater = 0;
+  days.forEach(function(dayObj) {
+    weeklyWater += (waterData[dayObj.day.toLowerCase()] || 0);
+  });
+  var waterGoalWeek = (WATER_GOAL || 8) * days.length;
+
   // Week stats row
   const statsEl = document.createElement('div');
   statsEl.id = 'week-stats';
@@ -3531,12 +3539,12 @@ function renderWeekStats() {
       <span class="wstat-label">avg kcal/day</span>
     </div>
     <div class="wstat-item">
-      <span class="wstat-val" style="color:var(--blue)">${Math.round(totalProtein / days.length)}g</span>
-      <span class="wstat-label">avg protein/day</span>
-    </div>
-    <div class="wstat-item">
       <span class="wstat-val" style="color:${completeDayCount > 0 ? 'var(--lime)' : 'var(--muted)'}">${completeDayCount}/${days.length}</span>
       <span class="wstat-label">days logged</span>
+    </div>
+    <div class="wstat-item">
+      <span class="wstat-val" style="color:var(--blue)">${weeklyWater}</span>
+      <span class="wstat-label">glasses water</span>
     </div>
   `;
 
