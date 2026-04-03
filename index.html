@@ -713,12 +713,23 @@
 
     <!-- SECTION: STATS (week summary, goal, insights, weight — rendered by JS) -->
     <div class="section-panel" id="section-stats">
-      <div id="stats-header" style="padding:14px 16px 0;display:flex;align-items:center;justify-content:space-between">
-        <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:18px">Progress</div>
-        <button onclick="openCalendar()" style="background:var(--card);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-size:12px;font-family:'Syne',sans-serif;font-weight:700;padding:6px 12px;cursor:pointer;display:flex;align-items:center;gap:6px">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          Calendar
-        </button>
+      <div id="stats-header" style="padding:14px 16px 0;display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div>
+          <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:18px">Progress</div>
+          <div id="sync-badge" style="display:none;font-size:10px;color:var(--muted);font-weight:600;margin-top:1px;align-items:center;gap:4px">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <span></span>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button onclick="refreshStats()" style="background:var(--card);border:1.5px solid var(--border);border-radius:10px;color:var(--muted);padding:6px 8px;cursor:pointer;display:flex;align-items:center" title="Refresh stats">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.36"/></svg>
+          </button>
+          <button onclick="openCalendar()" style="background:var(--card);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-size:12px;font-family:'Syne',sans-serif;font-weight:700;padding:6px 12px;cursor:pointer;display:flex;align-items:center;gap:6px">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Calendar
+          </button>
+        </div>
       </div>
     </div>
 
@@ -786,7 +797,7 @@
     <!-- VERSION FOOTER -->
     <div class="version-footer">
     <svg width="10" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-1px;opacity:0.5"><path d="M13 2L4.5 13.5H11L9 22L19.5 10H13L15 2H13z"/></svg>
-    FUELPLAN &nbsp;·&nbsp; v2.23.0
+    FUELPLAN &nbsp;·&nbsp; v2.24.0
   </div>
   </div><!-- /plan-wrap -->
 

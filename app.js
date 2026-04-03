@@ -49,7 +49,32 @@ async function pushTrackingData() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ activationCode: code, data })
     });
+    localStorage.setItem('fp_lastSynced', Date.now());
+    updateSyncBadge();
   } catch(e) {}
+}
+
+function updateSyncBadge() {
+  var badge = document.getElementById('sync-badge');
+  if (!badge) return;
+  var ts = parseInt(localStorage.getItem('fp_lastSynced') || '0');
+  if (!ts) { badge.style.display = 'none'; return; }
+  var mins = Math.floor((Date.now() - ts) / 60000);
+  badge.style.display = 'flex';
+  var span = badge.querySelector('span');
+  var txt = mins < 1 ? 'Synced' : mins < 60 ? 'Synced ' + mins + 'm ago' : 'Synced ' + Math.floor(mins / 60) + 'h ago';
+  if (span) span.textContent = txt; else badge.childNodes[badge.childNodes.length-1].textContent = txt;
+}
+
+async function refreshStats() {
+  haptic('light');
+  var btn = document.querySelector('#stats-header button[onclick="refreshStats()"]');
+  if (btn) btn.style.opacity = '0.4';
+  await pullTrackingData();
+  renderWeekGlance();
+  renderWeekStats();
+  if (btn) { btn.style.opacity = ''; }
+  updateSyncBadge();
 }
 
 async function pullTrackingData() {
@@ -1741,6 +1766,7 @@ function switchSection(id, skipSave) {
   if (id === 'stats') {
     renderWeekGlance();
     renderWeekStats();
+    updateSyncBadge();
   }
   if (id === 'haul') {
     renderCustomShopItems();
