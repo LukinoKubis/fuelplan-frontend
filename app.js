@@ -3709,6 +3709,17 @@ function renderWeekStats() {
       <div class="streak-emoji">${streakEmoji}</div>
       <div class="streak-num">${streak}</div>
       <div class="streak-label">day streak</div>
+      <div style="display:flex;gap:3px;margin-top:8px;justify-content:center">
+        ${days.map(function(dayObj) {
+          var dId = dayObj.day.toLowerCase();
+          var mc = (dayObj.meals || []).length;
+          var ec = mc ? dayObj.meals.filter(function(_, i) { return eatenAll[dId + '-' + i]; }).length : 0;
+          var pct2 = mc ? Math.round(ec / mc * 100) : 0;
+          var col = pct2 === 100 ? 'var(--lime)' : pct2 > 0 ? 'rgba(200,245,66,0.35)' : 'var(--bg2)';
+          var abbr = dayObj.day.charAt(0).toUpperCase();
+          return '<div title="' + dayObj.day + ': ' + ec + '/' + mc + ' meals" style="width:20px;height:20px;border-radius:4px;background:' + col + ';display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:' + (pct2 === 100 ? '#0e0f11' : 'var(--muted)') + '">' + abbr + '</div>';
+        }).join('')}
+      </div>
     </div>
     </div>
   `;
