@@ -1466,7 +1466,26 @@ function updateShopProgress() {
   if (fill) fill.style.width = pct + '%';
   if (text) text.textContent = checked + ' / ' + total + ' items';
   if (pctEl) { pctEl.textContent = pct + '%'; pctEl.style.color = pct === 100 ? 'var(--lime)' : 'var(--muted)'; }
-  if (pct === 100 && checked > 0) showToast('Shopping complete!');
+  if (pct === 100 && checked > 0) showToast('Shopping complete! 🛒');
+  // Show search bar when there are items
+  var sw = document.getElementById('shop-search-wrap');
+  if (sw) sw.style.display = total > 0 ? 'block' : 'none';
+}
+
+function filterShopList(query) {
+  var q = (query || '').toLowerCase().trim();
+  var items = document.querySelectorAll('#shopping-content .shop-item');
+  var cats = document.querySelectorAll('#shopping-content .shop-category');
+  items.forEach(function(item) {
+    var name = (item.querySelector('.shop-item-name') || {}).textContent || '';
+    var match = !q || name.toLowerCase().includes(q);
+    item.style.display = match ? '' : 'none';
+  });
+  // Hide category headers if all items hidden
+  cats.forEach(function(cat) {
+    var visible = Array.from(cat.querySelectorAll('.shop-item')).some(function(i) { return i.style.display !== 'none'; });
+    cat.style.display = visible ? '' : 'none';
+  });
 }
 
 // Keep old names as aliases so any remaining inline references still work
@@ -2292,7 +2311,35 @@ function renderWeightLog() {
     return;
   }
   var sparkline = buildWeightSparkline(entries);
-  container.innerHTML = sparkline + entries.map(function(e, i) {
+
+  // Trend projection towards goal weight
+  var projectionHtml = '';
+  if (entries.length >= 2) {
+    var profile3 = MEM.load('fp_profile') || {};
+    var goalW = parseFloat(profile3.goalWeight);
+    var first = entries[entries.length - 1]; // oldest
+    var last  = entries[0];                   // newest
+    var daysDiff = (new Date(last.date).getTime() - new Date(first.date).getTime()) / (1000 * 86400);
+    var ratePerDay = daysDiff > 0 ? (last.weight - first.weight) / daysDiff : 0; // kg per day (negative = losing)
+    if (goalW && ratePerDay !== 0 && ((ratePerDay < 0 && last.weight > goalW) || (ratePerDay > 0 && last.weight < goalW))) {
+      var daysToGoal = Math.ceil((goalW - last.weight) / ratePerDay);
+      var goalDate2 = new Date();
+      goalDate2.setDate(goalDate2.getDate() + daysToGoal);
+      var goalDateStr = goalDate2.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+      var rateStr = (ratePerDay < 0 ? '' : '+') + (ratePerDay * 7).toFixed(2) + 'kg/week';
+      projectionHtml = '<div style="background:var(--bg2);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px">'
+        + '<div style="color:var(--muted);margin-bottom:4px">Current rate: <strong style="color:var(--text)">' + rateStr + '</strong></div>'
+        + '<div style="color:var(--muted)">Projected to reach <strong style="color:var(--lime)">' + goalW + 'kg</strong> by <strong style="color:var(--text)">' + goalDateStr + '</strong></div>'
+      + '</div>';
+    } else if (!goalW && entries.length >= 2) {
+      var rateStr2 = (ratePerDay < 0 ? '' : '+') + (ratePerDay * 7).toFixed(2) + 'kg/week';
+      projectionHtml = '<div style="background:var(--bg2);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px">'
+        + '<div style="color:var(--muted)">Current rate: <strong style="color:var(--text)">' + rateStr2 + '</strong></div>'
+      + '</div>';
+    }
+  }
+
+  container.innerHTML = sparkline + projectionHtml + entries.map(function(e, i) {
     var prev = entries[i + 1];
     var deltaHtml = '';
     if (prev) {
