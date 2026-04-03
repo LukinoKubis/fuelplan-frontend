@@ -2834,7 +2834,7 @@ body.light .training-day-pill.active { border-color: #7ab800; color: #3a6600; ba
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.12);
   border-radius: 8px;
-  color: var(--fg);
+  color: var(--text);
   font-size: 12px;
   font-family: inherit;
   padding: 6px 8px;
@@ -2900,7 +2900,7 @@ body.light .meal-note-input { background: rgba(0,0,0,0.04); border-color: rgba(0
 .wstat-val {
   font-size: 15px;
   font-weight: 700;
-  color: var(--fg);
+  color: var(--text);
   line-height: 1.1;
 }
 .wstat-label {
@@ -2946,7 +2946,7 @@ body.light .haul-action-btn { background: var(--bg2); border-color: var(--border
   transform: translateX(-50%) translateY(20px);
   background: var(--card);
   border: 1px solid var(--border2);
-  color: var(--fg);
+  color: var(--text);
   padding: 10px 10px 10px 16px;
   border-radius: 40px;
   font-size: 13px;
@@ -2962,7 +2962,7 @@ body.light .haul-action-btn { background: var(--bg2); border-color: var(--border
   white-space: nowrap;
 }
 .action-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: all; }
-.action-toast-msg { color: var(--fg); }
+.action-toast-msg { color: var(--text); }
 .action-toast-btn {
   background: var(--lime);
   border: none;
@@ -3077,7 +3077,7 @@ body.light .action-toast { background: #fff; border-color: #e0e4ef; box-shadow: 
   font-family: inherit;
   opacity: 0.7;
 }
-.water-reset:hover { opacity: 1; color: var(--fg); }
+.water-reset:hover { opacity: 1; color: var(--text); }
 
 /* ═══════════════════════════════════════════════════
    REGENERATE DAY BUTTON
@@ -3230,7 +3230,7 @@ body.light .day-eaten-track { background: rgba(0,0,0,0.08); }
   gap: 6px;
   font-size: 11px;
   font-weight: 600;
-  color: var(--fg);
+  color: var(--text);
 }
 .donut-leg-dot {
   width: 8px;

@@ -61,9 +61,11 @@ function initOnboarding() {
     }
   } catch(e) {}
 
-  // Already seen onboarding — skip
+  // Already seen onboarding, or returning user with existing data — skip
   const seen = (() => { try { return localStorage.getItem('fp_onboarded'); } catch(e) { return null; } })();
-  if (seen) {
+  const hasCode = (() => { try { return localStorage.getItem('fp_apikey'); } catch(e) { return null; } })();
+  const hasPlan = (() => { try { return localStorage.getItem('fp_plan'); } catch(e) { return null; } })();
+  if (seen || hasCode || hasPlan) {
     overlay.classList.add('hidden');
     return;
   }
