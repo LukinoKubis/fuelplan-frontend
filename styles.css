@@ -3673,6 +3673,24 @@ body.light .topup-plan-btn { background: var(--bg2); }
 body.light #weight-log-modal { background: var(--card); }
 body.light .goal-mode-tab.active { background: var(--bg); }
 
+/* ── TRAINING DAY CALLOUT ── */
+.training-day-callout {
+  margin: 0 16px 10px;
+  padding: 8px 14px;
+  background: rgba(87,169,255,0.1);
+  border: 1px solid rgba(87,169,255,0.25);
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--blue);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.training-day-callout-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--blue); flex-shrink: 0;
+}
+
 /* ── NEXT MEAL BADGE ── */
 .meal-card-next {
   border-color: rgba(200,245,66,0.4) !important;

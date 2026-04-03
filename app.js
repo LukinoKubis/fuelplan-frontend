@@ -1172,6 +1172,10 @@ function renderDayPanel(day, summary, isActive) {
   var todayDow = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][new Date().getDay()];
   var nextMealIdx = (dayId === todayDow && eatenCount < mealCount) ? getNextMealIdx(day.meals) : -1;
 
+  // Training day check
+  var _profile = MEM.load('fp_profile') || {};
+  var isTrainingDay = (_profile.trainingDayIds || []).includes(dayId);
+
   function ringHtml(value, maxVal, color, label) {
     const p = pct(value, maxVal);
     return `<div class="ring-col">
@@ -1198,6 +1202,7 @@ function renderDayPanel(day, summary, isActive) {
           ${ringHtml(day.fat, summary.fat, 'var(--red)', 'Fat')}
         </div>
       </div>
+      ${isTrainingDay ? '<div class="training-day-callout"><span class="training-day-callout-dot"></span>Training Day — fuel up well!</div>' : ''}
       ${renderWaterTracker(dayId)}
       <div class="day-eaten-bar" id="eaten-bar-${dayId}">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
