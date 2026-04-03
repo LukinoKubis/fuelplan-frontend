@@ -2564,10 +2564,12 @@ body.light .swap-alt-card { background: var(--bg2); border-color: var(--border);
 .meal-card-top {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   margin-bottom: 4px;
+  min-width: 0;
 }
-.meal-card-top .meal-time { flex: 1; }
+.meal-card-top .meal-time { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.eat-btn, .meal-swap-btn { flex-shrink: 0; }
 .meal-swap-btn {
   background: none;
   border: 1px solid var(--border);
@@ -2821,6 +2823,8 @@ body.light .training-day-pill.active { border-color: #7ab800; color: #3a6600; ba
   line-height: 1.4;
   white-space: pre-wrap;
   word-break: break-word;
+  max-height: 80px;
+  overflow-y: auto;
 }
 .meal-note-editor {
   margin: 6px 0 2px;

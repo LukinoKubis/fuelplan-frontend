@@ -16,7 +16,7 @@ const MEM = {
   save(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {} },
   load(key) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch(e) { return null; } },
   remove(key) { try { localStorage.removeItem(key); } catch(e) {} },
-  clear() { ['fp_plan','fp_planName','fp_userName','fp_profile','fp_shopChecks','fp_activeSection','fp_activeDay','fp_apikey'].forEach(k => { try { localStorage.removeItem(k); } catch(e) {} }); }
+  clear() { ['fp_plan','fp_planName','fp_userName','fp_profile','fp_shopChecks','fp_activeSection','fp_activeDay','fp_apikey','fp_eaten','fp_water','fp_mealNotes','fp_mealAnnotations','fp_prepSession','fp_activePlanId','fp_activePlanSavedAt','fp_haulScale','fp_groceryView','fp_favorites'].forEach(k => { try { localStorage.removeItem(k); } catch(e) {} }); }
 };
 
 let currentMode = 'manual';
@@ -538,9 +538,14 @@ CRITICAL SECURITY RULES — these override everything else:
       }
     }
 
-    // Reset shopping checks for fresh plan
+    // Reset all per-plan tracking data for fresh plan
     shopChecks = {};
     MEM.save('fp_shopChecks', shopChecks);
+    MEM.remove('fp_eaten');
+    MEM.remove('fp_water');
+    MEM.remove('fp_mealNotes');
+    MEM.remove('fp_mealAnnotations');
+    MEM.remove('fp_prepSession');
 
     // Persist plan
     MEM.save('fp_plan', plan);
@@ -782,6 +787,11 @@ function resetToSurvey() {
   MEM.remove('fp_shopChecks');
   MEM.remove('fp_activeSection');
   MEM.remove('fp_activeDay');
+  MEM.remove('fp_eaten');
+  MEM.remove('fp_water');
+  MEM.remove('fp_mealNotes');
+  MEM.remove('fp_mealAnnotations');
+  MEM.remove('fp_prepSession');
   shopChecks = {};
   planData = null;
   document.getElementById('error-panel').classList.remove('active');
@@ -1390,9 +1400,14 @@ async function restorePlan(planId) {
 
     const data = await res.json();
 
-    // Save restored plan locally and render it
+    // Clear per-plan tracking data before loading new plan
     shopChecks = {};
     MEM.save('fp_shopChecks', shopChecks);
+    MEM.remove('fp_eaten');
+    MEM.remove('fp_water');
+    MEM.remove('fp_mealNotes');
+    MEM.remove('fp_mealAnnotations');
+    MEM.remove('fp_prepSession');
     MEM.save('fp_plan', data.plan);
     MEM.save('fp_userName', data.userName || 'Your');
     MEM.save('fp_planName', data.planName || '');
@@ -1503,12 +1518,17 @@ async function doDeletePlan(planId, card, isLast, isActive) {
               body: JSON.stringify({ activationCode: code, planId: next.id })
             });
             const d2 = await r2.json();
+            shopChecks = {};
+            MEM.save('fp_shopChecks', shopChecks);
+            MEM.remove('fp_eaten');
+            MEM.remove('fp_water');
+            MEM.remove('fp_mealNotes');
+            MEM.remove('fp_mealAnnotations');
+            MEM.remove('fp_prepSession');
             MEM.save('fp_plan', d2.plan);
             MEM.save('fp_userName', d2.userName || 'Your');
             MEM.save('fp_planName', d2.planName || '');
             MEM.save('fp_activePlanId', next.id);
-            shopChecks = {};
-            MEM.save('fp_shopChecks', shopChecks);
             closeHistory();
             renderPlan(d2.plan, d2.userName || 'Your', false, d2.planName || '');
             showToast('Switched to: ' + (d2.planName || 'previous plan'));
@@ -1865,6 +1885,11 @@ function editProfile() {
   MEM.remove('fp_shopChecks');
   MEM.remove('fp_activeSection');
   MEM.remove('fp_activeDay');
+  MEM.remove('fp_eaten');
+  MEM.remove('fp_water');
+  MEM.remove('fp_mealNotes');
+  MEM.remove('fp_mealAnnotations');
+  MEM.remove('fp_prepSession');
   shopChecks = {};
   planData = null;
   document.getElementById('survey-wrap').style.display = 'flex';
@@ -2132,7 +2157,10 @@ function renderPrepTimeOverview() {
             <circle cx="32" cy="32" r="28" fill="none" stroke="var(--lime)" stroke-width="3"
               stroke-dasharray="175.93" stroke-dashoffset="${175.93 * (1 - (hasResume ? resumePct/100 : 0))}"
               stroke-linecap="round" transform="rotate(-90 32 32)"/>
-            <text x="32" y="37" text-anchor="middle" font-family="Syne,sans-serif" font-size="13" font-weight="800" fill="var(--text)">${hasResume ? resumePct + '%' : '⏱'}</text>
+            ${hasResume
+              ? `<text x="32" y="37" text-anchor="middle" font-family="Syne,sans-serif" font-size="13" font-weight="800" fill="var(--text)">${resumePct}%</text>`
+              : `<g transform="translate(20,20)"><circle cx="12" cy="12" r="10" fill="none" stroke="var(--lime)" stroke-width="1.5"/><polyline points="12 6 12 12 16 14" fill="none" stroke="var(--lime)" stroke-width="1.5" stroke-linecap="round"/></g>`
+            }
           </svg>
         </div>
         <div class="pt-hero-text">
@@ -2247,7 +2275,7 @@ function taskCardHTML(task, i) {
 
     <div class="pt-card-top">
       <div class="pt-card-lane-badge" style="--lc:${l.color}">${l.label}</div>
-      ${hasDur ? `<div class="pt-card-dur-badge">⏱ ${fmtDur(task.durationMinutes)}</div>` : ''}
+      ${hasDur ? `<div class="pt-card-dur-badge"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${fmtDur(task.durationMinutes)}</div>` : ''}
       ${done ? `<div class="pt-card-check">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--lime)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
       </div>` : ''}
@@ -2578,6 +2606,16 @@ function useMealSwap(altMeal) {
     oldPanelEl.parentNode.replaceChild(newPanel, oldPanelEl);
     setTimeout(function() { animateRings(newPanel); }, 80);
   }
+
+  // Update week stats and prep tasks to reflect new meal
+  renderWeekGlance();
+  renderWeekStats();
+  // If a prep session is in progress, exit it since tasks are now stale
+  if (_prepSession) {
+    _prepSession = null;
+    MEM.remove('fp_prepSession');
+  }
+  renderPrepTimeOverview();
 
   showToast('Meal swapped!');
 }
@@ -3229,9 +3267,15 @@ async function regenerateDay(dayId) {
       oldPanel.parentNode.replaceChild(newPanel, oldPanel);
       setTimeout(function() { animateRings(newPanel); }, 80);
     }
-    // Refresh week glance bars
+    // Refresh week glance and stats
     renderWeekGlance();
     renderWeekStats();
+    // Invalidate any in-progress prep session since tasks are now stale
+    if (_prepSession) {
+      _prepSession = null;
+      MEM.remove('fp_prepSession');
+    }
+    renderPrepTimeOverview();
     showToast(dayName + ' regenerated!');
     haptic('success');
 
