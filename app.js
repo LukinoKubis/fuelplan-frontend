@@ -1047,6 +1047,9 @@ function renderPlan(plan, userName, isRestoring, planName) {
     return renderDayPanel(d, s, d.day.toLowerCase() === savedDayTab);
   }).join('');
 
+  // Touch swipe on the day panels to navigate days
+  initDaySwipe(dayTabsContent);
+
   // Shopping section — restore scale and view mode
   var haulScale = MEM.load('fp_haulScale') || 1;
   var groceryView = MEM.load('fp_groceryView') || 'list';
@@ -1348,13 +1351,39 @@ function renderCarousel(slideDir) {
   if (!track) return;
   const _trainDays = (MEM.load('fp_profile') || {}).trainingDayIds || [];
 
+  // Compute actual calendar dates for each day button
+  var planDates = {};
+  var savedAt = MEM.load('fp_activePlanSavedAt');
+  if (savedAt) {
+    var planBase = new Date(savedAt);
+    // Find the Monday of the week containing planBase
+    var dow = planBase.getDay(); // 0=Sun,1=Mon...
+    var diffToMon = (dow === 0) ? -6 : 1 - dow;
+    var monday = new Date(planBase);
+    monday.setDate(planBase.getDate() + diffToMon);
+    var dayOrder = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+    days.forEach(function(dayId) {
+      var di = dayOrder.indexOf(dayId.toLowerCase());
+      if (di !== -1) {
+        var d = new Date(monday);
+        d.setDate(monday.getDate() + di);
+        planDates[dayId] = d.getDate(); // just the number e.g. 7
+      }
+    });
+  }
+
+  var todayDate = new Date().getDate();
+
   track.innerHTML = days.map(function(dayId, di) {
     const abbr = dayId.charAt(0).toUpperCase() + dayId.slice(1, 3);
     const isTrain = _trainDays.includes(dayId);
     const isActive = di === idx;
-    return '<button class="day-tab-btn' + (isActive ? ' dc-center' : '') + '" id="day-tab-btn-' + dayId + '" onclick="switchDayTab(\'' + dayId + '\')">'
+    const dateNum = planDates[dayId];
+    const isToday = dateNum === todayDate && savedAt;
+    return '<button class="day-tab-btn' + (isActive ? ' dc-center' : '') + (isToday ? ' day-tab-today' : '') + '" id="day-tab-btn-' + dayId + '" onclick="switchDayTab(\'' + dayId + '\')">'
       + (isTrain ? '<div class="day-tab-train-dot"></div>' : '')
       + '<span class="day-letter">' + abbr + '</span>'
+      + (dateNum ? '<span class="day-date-num">' + dateNum + '</span>' : '')
       + '</button>';
   }).join('');
 
@@ -1409,6 +1438,37 @@ function switchDayTab(id) {
 
   renderCarousel(slideDir);
   MEM.save('fp_activeDay', id);
+}
+
+/* ═══════════════ DAY SWIPE GESTURE ═══════════════ */
+
+function initDaySwipe(el) {
+  if (!el) return;
+  // Remove any previous listener by replacing with clone — but since we rebuild
+  // dayTabsContent innerHTML, we attach fresh each time renderPlan runs.
+  var startX = 0, startY = 0, moved = false;
+  el.addEventListener('touchstart', function(e) {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    moved = false;
+  }, { passive: true });
+  el.addEventListener('touchmove', function(e) {
+    moved = true;
+  }, { passive: true });
+  el.addEventListener('touchend', function(e) {
+    if (!moved) return;
+    var dx = e.changedTouches[0].clientX - startX;
+    var dy = e.changedTouches[0].clientY - startY;
+    // Only act on mainly horizontal swipes (dx > dy)
+    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    var days = window._carouselDays || [];
+    var idx = window._carouselIndex || 0;
+    if (dx < 0 && idx < days.length - 1) {
+      switchDayTab(days[idx + 1]); // swipe left → next day
+    } else if (dx > 0 && idx > 0) {
+      switchDayTab(days[idx - 1]); // swipe right → prev day
+    }
+  }, { passive: true });
 }
 
 /* ═══════════════ TOAST ═══════════════ */
@@ -1935,6 +1995,12 @@ function openSettings() {
       ${s ? `<div class="profile-row"><span class="profile-row-label">Daily Calories</span><span class="profile-row-val" style="color:var(--lime)">${s.kcal} kcal</span></div>` : ''}
       ${s ? `<div class="profile-row"><span class="profile-row-label">Protein / Carbs / Fat</span><span class="profile-row-val">${s.protein}g · ${s.carbs}g · ${s.fat}g</span></div>` : ''}
       ${profile?.mode === 'calc' && profile?.weight ? `<div class="profile-row"><span class="profile-row-label">Weight</span><span class="profile-row-val">${profile.weight} kg</span></div>` : ''}
+      ${(profile?.mode === 'calc' && profile?.weight && profile?.height) ? (() => {
+        const bmi = Math.round((profile.weight / Math.pow(profile.height / 100, 2)) * 10) / 10;
+        const bmiCat = bmi < 18.5 ? 'Underweight' : bmi < 25 ? 'Normal' : bmi < 30 ? 'Overweight' : 'Obese';
+        const bmiColor = bmi < 18.5 ? 'var(--blue)' : bmi < 25 ? '#4caf50' : bmi < 30 ? 'var(--orange)' : 'var(--red)';
+        return `<div class="profile-row"><span class="profile-row-label">BMI</span><span class="profile-row-val" style="color:${bmiColor}">${bmi} <span style="font-size:11px;color:var(--muted)">${bmiCat}</span></span></div>`;
+      })() : ''}
       ${profile?.dietPref ? `<div class="profile-row"><span class="profile-row-label">Diet prefs</span><span class="profile-row-val">${escHtml(profile.dietPref)}</span></div>` : ''}
       <div class="profile-row"><span class="profile-row-label">Goal</span><span class="profile-row-val">${goalLabel}</span></div>
     `;
@@ -2005,6 +2071,52 @@ function deleteWeighIn(date) {
   renderWeightLogPreview();
 }
 
+function buildWeightSparkline(entries) {
+  if (entries.length < 2) return '';
+  var pts = entries.slice().reverse(); // oldest first for chart
+  var weights = pts.map(function(e) { return e.weight; });
+  var minW = Math.min.apply(null, weights);
+  var maxW = Math.max.apply(null, weights);
+  var range = maxW - minW || 1;
+  var W = 280, H = 60, PAD = 8;
+  var xStep = (W - PAD * 2) / (pts.length - 1);
+  var yScale = (H - PAD * 2) / range;
+  var points = weights.map(function(w, i) {
+    var x = PAD + i * xStep;
+    var y = H - PAD - (w - minW) * yScale;
+    return x.toFixed(1) + ',' + y.toFixed(1);
+  }).join(' ');
+  // gradient fill area
+  var areaPoints = 'M' + PAD.toFixed(1) + ',' + (H - PAD) + ' L'
+    + weights.map(function(w, i) {
+        var x = PAD + i * xStep;
+        var y = H - PAD - (w - minW) * yScale;
+        return x.toFixed(1) + ',' + y.toFixed(1);
+      }).join(' L')
+    + ' L' + (PAD + (pts.length - 1) * xStep).toFixed(1) + ',' + (H - PAD) + ' Z';
+
+  // Trend: first vs last
+  var trend = weights[weights.length - 1] - weights[0];
+  var trendColor = trend > 0 ? 'var(--red)' : trend < 0 ? '#4caf50' : 'var(--lime)';
+  var trendSign = trend > 0 ? '+' : '';
+  var trendLabel = trendSign + trend.toFixed(1) + 'kg';
+
+  return '<div style="margin-bottom:16px">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+      + '<span style="font-size:12px;color:var(--muted)">Weight trend (' + pts.length + ' entries)</span>'
+      + '<span style="font-size:12px;font-weight:700;color:' + trendColor + '">' + trendLabel + '</span>'
+    + '</div>'
+    + '<svg width="100%" viewBox="0 0 ' + W + ' ' + H + '" style="overflow:visible">'
+      + '<defs><linearGradient id="wg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--lime)" stop-opacity="0.25"/><stop offset="100%" stop-color="var(--lime)" stop-opacity="0"/></linearGradient></defs>'
+      + '<path d="' + areaPoints + '" fill="url(#wg)"/>'
+      + '<polyline points="' + points + '" fill="none" stroke="var(--lime)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'
+      + '<circle cx="' + (PAD + (pts.length - 1) * xStep).toFixed(1) + '" cy="' + (H - PAD - (weights[weights.length-1] - minW) * yScale).toFixed(1) + '" r="3.5" fill="var(--lime)"/>'
+      + '<text x="4" y="' + (H - PAD - (maxW - minW) * yScale - 4).toFixed(1) + '" font-family="Figtree,sans-serif" font-size="9" fill="var(--muted)">' + maxW + '</text>'
+      + '<text x="4" y="' + (H - 2) + '" font-family="Figtree,sans-serif" font-size="9" fill="var(--muted)">' + minW + '</text>'
+    + '</svg>'
+  + '</div>';
+}
+
 function renderWeightLog() {
   var container = document.getElementById('wl-history');
   if (!container) return;
@@ -2013,7 +2125,8 @@ function renderWeightLog() {
     container.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:24px 0">No weigh-ins yet. Log your first one above!</div>';
     return;
   }
-  container.innerHTML = entries.map(function(e, i) {
+  var sparkline = buildWeightSparkline(entries);
+  container.innerHTML = sparkline + entries.map(function(e, i) {
     var prev = entries[i + 1];
     var deltaHtml = '';
     if (prev) {
