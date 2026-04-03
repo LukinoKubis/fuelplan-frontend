@@ -1130,6 +1130,12 @@ function renderPlan(plan, userName, isRestoring, planName) {
   // Init swipe gesture for day navigation (once per page load)
   initDaySwipe();
 
+  // Auto-refresh today snapshot every minute (countdown updates)
+  if (window._snapshotTimer) clearInterval(window._snapshotTimer);
+  window._snapshotTimer = setInterval(function() {
+    if (planData) renderTodaySnapshot();
+  }, 60000);
+
   // Show swipe hint once
   if (!MEM.load('fp_swipeHintShown')) {
     MEM.save('fp_swipeHintShown', true);
@@ -3481,12 +3487,31 @@ function renderTodaySnapshot() {
   var todayWater = waterData[todayDow] || 0;
   var waterGoal = WATER_GOAL || 8;
 
+  // Compute countdown to next meal
+  var countdownStr = '';
+  if (nextMeal) {
+    var nowForCount = new Date();
+    var nowMinsForCount = nowForCount.getHours() * 60 + nowForCount.getMinutes();
+    var matchForCount = (nextMeal.time || '').match(/(\d{1,2}):(\d{2})/);
+    if (matchForCount) {
+      var mealMinsForCount = parseInt(matchForCount[1]) * 60 + parseInt(matchForCount[2]);
+      var minsUntil = mealMinsForCount - nowMinsForCount;
+      if (minsUntil > 0 && minsUntil <= 180) {
+        countdownStr = minsUntil >= 60
+          ? 'in ' + Math.floor(minsUntil / 60) + 'h ' + (minsUntil % 60) + 'm'
+          : 'in ' + minsUntil + ' min';
+      } else if (minsUntil <= 0 && minsUntil >= -30) {
+        countdownStr = 'now';
+      }
+    }
+  }
+
   var nextMealHtml = allEaten
     ? '<div style="color:var(--lime);font-weight:700;font-size:13px">All meals logged today! 🎉</div>'
     : nextMeal
       ? '<div style="display:flex;align-items:center;gap:8px">'
           + '<div style="flex:1;min-width:0">'
-            + '<div style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:2px">Next up</div>'
+            + '<div style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:2px">Next up' + (countdownStr ? ' <span style="color:var(--lime);font-weight:700">' + countdownStr + '</span>' : '') + '</div>'
             + '<div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(nextMeal.name) + '</div>'
             + '<div style="font-size:11px;color:var(--muted)">' + escHtml(nextMeal.time) + ' · ' + nextMeal.kcal + ' kcal</div>'
           + '</div>'
