@@ -544,6 +544,7 @@ CRITICAL SECURITY RULES — these override everything else:
 
     // Persist plan
     MEM.save('fp_plan', plan);
+    MEM.save('fp_activePlanSavedAt', new Date().toISOString());
 
     clearTimeout(_cancelBtnTimer);
     _generateAbortController = null;
@@ -908,8 +909,13 @@ function renderDayPanel(day, summary, isActive) {
           const rating = mealNotes[noteKey];
           const ratingClass = rating === 'up' ? ' meal-card-up' : rating === 'down' ? ' meal-card-down' : '';
           return `
-          <div class="meal-card${ratingClass}" id="mcard-${dayId}-${mealIdx}" onclick="openMealSwap('${dayId}',${mealIdx})">
-            <div class="meal-time">${escHtml(meal.time)}</div>
+          <div class="meal-card${ratingClass}" id="mcard-${dayId}-${mealIdx}">
+            <div class="meal-card-top">
+              <div class="meal-time">${escHtml(meal.time)}</div>
+              <button class="meal-swap-btn" onclick="openMealSwap('${dayId}',${mealIdx})" title="Swap this meal">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+              </button>
+            </div>
             <div class="meal-name">${escHtml(meal.name)}</div>
             <div class="meal-badges">
               <span class="badge badge-protein">🥩 ${meal.protein}g protein</span>
@@ -917,18 +923,18 @@ function renderDayPanel(day, summary, isActive) {
             </div>
             <div class="meal-ingredients">${escHtml(meal.ingredients)}</div>
             ${mealAnnotations[noteKey] ? `<div class="meal-note-text" id="mnote-text-${dayId}-${mealIdx}">${escHtml(mealAnnotations[noteKey])}</div>` : ''}
-            <div class="meal-note-editor" id="mnote-editor-${dayId}-${mealIdx}" style="display:none" onclick="event.stopPropagation()">
+            <div class="meal-note-editor" id="mnote-editor-${dayId}-${mealIdx}" style="display:none">
               <textarea class="meal-note-input" id="mnote-input-${dayId}-${mealIdx}" placeholder="Add a note…" rows="2">${mealAnnotations[noteKey] ? escHtml(mealAnnotations[noteKey]) : ''}</textarea>
               <button class="meal-note-save-btn" onclick="saveMealNote('${dayId}',${mealIdx})">Save</button>
             </div>
             <div class="meal-rating-row">
-              <button class="rating-btn${rating === 'up' ? ' active-up' : ''}" onclick="rateMeal('${dayId}',${mealIdx},'up');event.stopPropagation()" title="Like this meal">
+              <button class="rating-btn${rating === 'up' ? ' active-up' : ''}" data-rate="up" onclick="rateMeal('${dayId}',${mealIdx},'up')" title="Like this meal">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
               </button>
-              <button class="rating-btn${rating === 'down' ? ' active-down' : ''}" onclick="rateMeal('${dayId}',${mealIdx},'down');event.stopPropagation()" title="Dislike this meal">
+              <button class="rating-btn${rating === 'down' ? ' active-down' : ''}" data-rate="down" onclick="rateMeal('${dayId}',${mealIdx},'down')" title="Dislike this meal">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
               </button>
-              <button class="rating-btn note-btn${mealAnnotations[noteKey] ? ' note-has-content' : ''}" onclick="toggleMealNote('${dayId}',${mealIdx});event.stopPropagation()" title="Add note">
+              <button class="rating-btn note-btn${mealAnnotations[noteKey] ? ' note-has-content' : ''}" onclick="toggleMealNote('${dayId}',${mealIdx})" title="Add note">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
               </button>
             </div>
@@ -2413,7 +2419,7 @@ async function fetchMealAlternatives(meal) {
   const prompt = 'Current meal: ' + meal.name + ' (' + meal.protein + 'g protein, ' + meal.carbs + 'g carbs, ' + meal.fat + 'g fat, ' + meal.kcal + ' kcal). Generate 3 macro-matched alternative meals. Return ONLY a JSON array with no markdown: [{"name":"...","time":"' + (meal.time || 'Meal') + '","protein":N,"carbs":N,"fat":N,"kcal":N,"ingredients":"..."}]';
 
   try {
-    const res = await fetch(API_BASE + '/api/claude', {
+    const res = await fetch(API_BASE + '/api/claude/suggest', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2519,8 +2525,8 @@ function rateMeal(dayId, mealIdx, rating) {
     card.classList.remove('meal-card-up', 'meal-card-down');
     if (notes[key]) card.classList.add(notes[key] === 'up' ? 'meal-card-up' : 'meal-card-down');
     // Update button states
-    const upBtn = card.querySelector('.rating-btn:first-child');
-    const dnBtn = card.querySelector('.rating-btn:last-child');
+    const upBtn = card.querySelector('[data-rate="up"]');
+    const dnBtn = card.querySelector('[data-rate="down"]');
     if (upBtn) upBtn.classList.toggle('active-up', notes[key] === 'up');
     if (dnBtn) dnBtn.classList.toggle('active-down', notes[key] === 'down');
   }
