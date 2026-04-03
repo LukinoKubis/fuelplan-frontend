@@ -216,6 +216,9 @@ function saveProfile() {
     variety: getChipValue('variety-group'),
     cuisines: getChipValues('cuisine-group'),
     goalOffset: getGoalOffset(),
+    goalMode: _goalMode,
+    goalWeight: (document.getElementById('c-goal-weight') || {}).value || '',
+    goalDate: (document.getElementById('c-goal-date') || {}).value || '',
     weight: document.getElementById('c-weight').value,
     height: document.getElementById('c-height').value,
     age: document.getElementById('c-age').value,
@@ -268,8 +271,17 @@ function restoreProfile() {
     }
   }
 
-  // recalc if in calc mode
-  if (p.mode === 'calc') calcMacros();
+  // goal mode and target weight
+  if (p.goalMode === 'target') {
+    _goalMode = p.goalMode;
+    var gwEl = document.getElementById('c-goal-weight');
+    var gdEl = document.getElementById('c-goal-date');
+    if (gwEl && p.goalWeight) gwEl.value = p.goalWeight;
+    if (gdEl && p.goalDate) gdEl.value = p.goalDate;
+    setGoalMode('target');
+  } else if (p.mode === 'calc') {
+    calcMacros();
+  }
 }
 
 /* ═══════════════ CHIP TOGGLES ═══════════════ */
@@ -1047,9 +1059,6 @@ function renderPlan(plan, userName, isRestoring, planName) {
     return renderDayPanel(d, s, d.day.toLowerCase() === savedDayTab);
   }).join('');
 
-  // Touch swipe on the day panels to navigate days
-  initDaySwipe(dayTabsContent);
-
   // Shopping section — restore scale and view mode
   var haulScale = MEM.load('fp_haulScale') || 1;
   var groceryView = MEM.load('fp_groceryView') || 'list';
@@ -1438,37 +1447,6 @@ function switchDayTab(id) {
 
   renderCarousel(slideDir);
   MEM.save('fp_activeDay', id);
-}
-
-/* ═══════════════ DAY SWIPE GESTURE ═══════════════ */
-
-function initDaySwipe(el) {
-  if (!el) return;
-  // Remove any previous listener by replacing with clone — but since we rebuild
-  // dayTabsContent innerHTML, we attach fresh each time renderPlan runs.
-  var startX = 0, startY = 0, moved = false;
-  el.addEventListener('touchstart', function(e) {
-    startX = e.touches[0].clientX;
-    startY = e.touches[0].clientY;
-    moved = false;
-  }, { passive: true });
-  el.addEventListener('touchmove', function(e) {
-    moved = true;
-  }, { passive: true });
-  el.addEventListener('touchend', function(e) {
-    if (!moved) return;
-    var dx = e.changedTouches[0].clientX - startX;
-    var dy = e.changedTouches[0].clientY - startY;
-    // Only act on mainly horizontal swipes (dx > dy)
-    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-    var days = window._carouselDays || [];
-    var idx = window._carouselIndex || 0;
-    if (dx < 0 && idx < days.length - 1) {
-      switchDayTab(days[idx + 1]); // swipe left → next day
-    } else if (dx > 0 && idx > 0) {
-      switchDayTab(days[idx - 1]); // swipe right → prev day
-    }
-  }, { passive: true });
 }
 
 /* ═══════════════ TOAST ═══════════════ */
@@ -3486,6 +3464,56 @@ function renderWeekStats() {
       macroRow.insertAdjacentElement('afterend', statsEl);
     }
   }
+
+  // Goal progress card
+  var oldGoalCard = document.getElementById('goal-progress-card');
+  if (oldGoalCard) oldGoalCard.remove();
+  var goalProgressHtml = buildGoalProgressCard();
+  if (goalProgressHtml) {
+    var goalCardEl = document.createElement('div');
+    goalCardEl.id = 'goal-progress-card';
+    goalCardEl.innerHTML = goalProgressHtml;
+    statsEl.insertAdjacentElement('afterend', goalCardEl);
+  }
+}
+
+function buildGoalProgressCard() {
+  var profile = MEM.load('fp_profile') || {};
+  var weights = MEM.load('fp_weights') || [];
+  var goalWeight = parseFloat(profile.goalWeight);
+  var goalDate = profile.goalDate;
+  if (!goalWeight || !goalDate || !weights.length) return '';
+
+  var currentWeight = weights[0].weight; // latest logged weight
+  var startWeight = weights[weights.length - 1].weight; // oldest logged weight
+  var totalChange = startWeight - goalWeight; // total kg to change (positive = lose)
+  var achieved = startWeight - currentWeight; // how much changed so far (positive = lost)
+  var pct = totalChange !== 0 ? Math.max(0, Math.min(100, Math.round(achieved / totalChange * 100))) : 100;
+
+  var weeksLeft = (new Date(goalDate).getTime() - Date.now()) / (7 * 24 * 3600 * 1000);
+  var isLosing = totalChange > 0;
+  var direction = isLosing ? 'to lose' : 'to gain';
+  var remaining = Math.abs(goalWeight - currentWeight).toFixed(1);
+  var onTrack = weeksLeft > 0 && (isLosing ? currentWeight > goalWeight : currentWeight < goalWeight);
+
+  var barColor = pct >= 80 ? 'var(--lime)' : pct >= 40 ? 'var(--orange)' : 'var(--blue)';
+  var statusText = weeksLeft <= 0 ? '🏁 Target date reached!'
+    : pct >= 100 ? '🎉 Goal achieved!'
+    : remaining + 'kg left · ' + Math.ceil(weeksLeft) + ' weeks';
+
+  return '<div style="margin:0 16px 20px;background:var(--card);border:1.5px solid var(--border);border-radius:16px;padding:16px">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
+      + '<div style="font-family:\'Syne\',sans-serif;font-weight:800;font-size:14px">Goal Progress</div>'
+      + '<div style="font-size:12px;color:var(--muted)">' + currentWeight + ' → ' + goalWeight + 'kg</div>'
+    + '</div>'
+    + '<div style="height:8px;background:var(--bg2);border-radius:4px;margin-bottom:8px;overflow:hidden">'
+      + '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:4px;transition:width 0.6s ease"></div>'
+    + '</div>'
+    + '<div style="display:flex;justify-content:space-between;align-items:center">'
+      + '<span style="font-size:12px;color:var(--muted)">' + statusText + '</span>'
+      + '<span style="font-size:13px;font-weight:700;color:' + barColor + '">' + pct + '%</span>'
+    + '</div>'
+  + '</div>';
 }
 
 /* ═══════════════════════════════════════════════════
