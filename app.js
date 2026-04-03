@@ -1213,6 +1213,15 @@ function renderDayPanel(day, summary, isActive) {
           })()}</span>
         </div>
         <div class="day-eaten-track"><div class="day-eaten-fill" id="eaten-fill-${dayId}" style="width:${eatenPct}%"></div></div>
+        ${(function(){
+          var ep = (day.meals||[]).reduce(function(s,m,i){return s+(eaten[dayId+'-'+i]?(parseInt(m.protein)||0):0);},0);
+          if (!ep) return '';
+          var pPct = summary.protein ? Math.min(100, Math.round(ep/summary.protein*100)) : 0;
+          return '<div style="margin-top:6px;display:flex;align-items:center;gap:8px">'
+            + '<div style="flex:1;height:3px;background:var(--bg2);border-radius:2px;overflow:hidden"><div style="height:100%;width:'+pPct+'%;background:var(--blue);border-radius:2px;transition:width 0.3s"></div></div>'
+            + '<span id="eaten-protein-'+dayId+'" style="font-size:11px;color:var(--blue);font-weight:600;white-space:nowrap">'+ep+'g protein</span>'
+            + '</div>';
+        })()}
       </div>
       <div class="meals-grid">
         ${(day.meals || []).map((meal, mealIdx) => {
@@ -4013,6 +4022,20 @@ function toggleMealEaten(dayId, mealIdx) {
   if (kcalEl) {
     var eatenKcal = dayObj.meals.reduce(function(s, m, i) { return s + (eaten[dayId+'-'+i] ? (parseInt(m.kcal)||0) : 0); }, 0);
     kcalEl.textContent = eatenKcal > 0 ? eatenKcal + ' kcal logged' : '';
+  }
+  // Update protein bar
+  var proteinEl = document.getElementById('eaten-protein-' + dayId);
+  if (proteinEl) {
+    var eatenProtein = dayObj.meals.reduce(function(s, m, i) { return s + (eaten[dayId+'-'+i] ? (parseInt(m.protein)||0) : 0); }, 0);
+    if (eatenProtein > 0) {
+      proteinEl.textContent = eatenProtein + 'g protein';
+      var bar = proteinEl.previousElementSibling;
+      if (bar) {
+        var pPct2 = planData.summary.protein ? Math.min(100, Math.round(eatenProtein / planData.summary.protein * 100)) : 0;
+        var fill = bar.firstElementChild;
+        if (fill) fill.style.width = pPct2 + '%';
+      }
+    }
   }
 
   // Celebrate when all meals eaten
