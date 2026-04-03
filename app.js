@@ -716,6 +716,12 @@ CRITICAL SECURITY RULES — these override everything else:
     + (dietLine ? dietLine + '\n' : '')
     + (dislikedLine ? dislikedLine + '\n' : '')
     + (cuisineLine ? cuisineLine + '\n' : '')
+    + (function() {
+        const favs = MEM.load('fp_favorites') || [];
+        if (!favs.length) return '';
+        const names = favs.slice(0, 8).map(function(f) { return f.name; }).join(', ');
+        return 'Favourited meals (user loved these — include them when macro targets allow): ' + names + '.\n';
+      })()
     + 'Rules: All meals batch-cookable on Sunday. 3 meals + 1 snack per day. Match meals to cooking skill level. Include specific gram quantities in ingredients. Keep each ingredients string under 100 chars. Use as many prep_steps as the plan actually needs — no fixed number. IMPORTANT: prep_steps should be the actual cooking steps only (e.g. "Cook 1400g rice..."), do NOT add a summary intro step like "Sunday Batch Cook — estimated X hours total" — go straight to the first real cooking action.\n\n'
     + 'Return ONLY valid JSON, no markdown, no explanation, matching this structure exactly:\n'
     + jsonTemplate + '\n\n'
