@@ -2669,11 +2669,12 @@ body.light .scaler-btn.active { border-color: #7ab800; color: #3a6600; backgroun
    FEATURE 4: WEEK AT A GLANCE
 ═══════════════════════════════════════════════════ */
 #week-glance {
-  display: flex;
+  display: block;
+  padding: 12px 0 4px;
+}
+#week-glance > div[style*="display:flex"] {
   justify-content: space-around;
-  padding: 12px 16px 4px;
-  gap: 4px;
-  height: 80px;
+  height: 64px;
 }
 .wg-col {
   display: flex;
@@ -3671,3 +3672,21 @@ body.light .topup-plan-btn { background: var(--bg2); }
 .wl-delta-down { color: #4caf50; font-size: 11px; margin-left: 4px; }
 body.light #weight-log-modal { background: var(--card); }
 body.light .goal-mode-tab.active { background: var(--bg); }
+
+/* ── NEXT MEAL BADGE ── */
+.meal-card-next {
+  border-color: rgba(200,245,66,0.4) !important;
+  box-shadow: 0 0 0 1px rgba(200,245,66,0.15) !important;
+}
+.next-meal-badge {
+  display: inline-block;
+  background: var(--lime);
+  color: #0e0f11;
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: 20px;
+  margin-bottom: 6px;
+}

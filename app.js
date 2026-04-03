@@ -1107,6 +1107,35 @@ function renderPlan(plan, userName, isRestoring, planName) {
 
 /* ═══════════════ DAY PANEL ═══════════════ */
 
+function getNextMealIdx(meals) {
+  // Find the meal whose time is closest to now (current or next upcoming)
+  var now = new Date();
+  var nowMins = now.getHours() * 60 + now.getMinutes();
+  var bestIdx = -1, bestDiff = Infinity;
+  (meals || []).forEach(function(meal, i) {
+    // Parse time from strings like "Breakfast 7:00", "Lunch 13:00"
+    var match = (meal.time || '').match(/(\d{1,2}):(\d{2})/);
+    if (!match) return;
+    var mealMins = parseInt(match[1]) * 60 + parseInt(match[2]);
+    var diff = mealMins - nowMins;
+    if (diff >= -30 && diff < bestDiff) { // within 30min past or upcoming
+      bestDiff = diff;
+      bestIdx = i;
+    }
+  });
+  // If no upcoming meal found, find the soonest in the future
+  if (bestIdx === -1) {
+    (meals || []).forEach(function(meal, i) {
+      var match = (meal.time || '').match(/(\d{1,2}):(\d{2})/);
+      if (!match) return;
+      var mealMins = parseInt(match[1]) * 60 + parseInt(match[2]);
+      var diff = mealMins - nowMins;
+      if (diff > 0 && diff < bestDiff) { bestDiff = diff; bestIdx = i; }
+    });
+  }
+  return bestIdx;
+}
+
 function renderDayPanel(day, summary, isActive) {
   const dayId = day.day.toLowerCase();
   const circ = 2 * Math.PI * 26; // ≈163.4
@@ -1120,6 +1149,10 @@ function renderDayPanel(day, summary, isActive) {
   const mealCount = (day.meals || []).length;
   const eatenCount = (day.meals || []).filter((_, i) => eaten[dayId + '-' + i]).length;
   const eatenPct = mealCount ? Math.round(eatenCount / mealCount * 100) : 0;
+
+  // Only show next-meal indicator for today
+  var todayDow = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][new Date().getDay()];
+  var nextMealIdx = (dayId === todayDow && eatenCount < mealCount) ? getNextMealIdx(day.meals) : -1;
 
   function ringHtml(value, maxVal, color, label) {
     const p = pct(value, maxVal);
@@ -1157,8 +1190,10 @@ function renderDayPanel(day, summary, isActive) {
           const noteKey = dayId + '-' + mealIdx;
           const rating = mealNotes[noteKey];
           const ratingClass = rating === 'up' ? ' meal-card-up' : rating === 'down' ? ' meal-card-down' : '';
+          const isNextMeal = mealIdx === nextMealIdx && !eaten[dayId+'-'+mealIdx];
           return `
-          <div class="meal-card${ratingClass}${eaten[dayId+'-'+mealIdx] ? ' meal-card-eaten' : ''}" id="mcard-${dayId}-${mealIdx}">
+          <div class="meal-card${ratingClass}${eaten[dayId+'-'+mealIdx] ? ' meal-card-eaten' : ''}${isNextMeal ? ' meal-card-next' : ''}" id="mcard-${dayId}-${mealIdx}">
+            ${isNextMeal ? '<div class="next-meal-badge">NEXT UP</div>' : ''}
             <div class="meal-card-top">
               <div class="meal-time">${escHtml(meal.time)}</div>
               <button class="eat-btn${eaten[dayId+'-'+mealIdx] ? ' eaten' : ''}" onclick="toggleMealEaten('${dayId}',${mealIdx})" id="eatbtn-${dayId}-${mealIdx}">
@@ -3210,9 +3245,25 @@ function renderWeekGlance() {
   const targetKcal = planData.summary.kcal || 1;
   const dayAbbrs = { monday:'Mo', tuesday:'Tu', wednesday:'We', thursday:'Th', friday:'Fr', saturday:'Sa', sunday:'Su' };
 
+  // Build "Week of Apr 7–13" header
+  var weekHeader = '';
+  var savedAt = MEM.load('fp_activePlanSavedAt');
+  if (savedAt) {
+    var planBase = new Date(savedAt);
+    var dow = planBase.getDay();
+    var diffToMon = (dow === 0) ? -6 : 1 - dow;
+    var monday = new Date(planBase);
+    monday.setDate(planBase.getDate() + diffToMon);
+    var sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    var monStr = monday.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    var sunStr = sunday.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    weekHeader = '<div style="font-size:11px;color:var(--muted);margin:0 16px 4px;font-weight:600">Week of ' + monStr + ' – ' + sunStr + '</div>';
+  }
+
   const glance = document.createElement('div');
   glance.id = 'week-glance';
-  glance.innerHTML = days.map(function(d) {
+  glance.innerHTML = weekHeader + '<div style="display:flex;gap:4px;padding:0 16px">' + days.map(function(d) {
     const dayId = d.day.toLowerCase();
     const pct = Math.min(100, Math.round((d.kcal / targetKcal) * 100));
     const diff = Math.abs(d.kcal - targetKcal) / targetKcal;
@@ -3226,10 +3277,10 @@ function renderWeekGlance() {
       </div>
       <span class="wg-label">${abbr}</span>
     </div>`;
-  }).join('');
+  }).join('') + '</div>';
 
-  const carousel = section.querySelector('.day-carousel');
-  if (carousel) section.insertBefore(glance, carousel);
+  const stripWrap = document.getElementById('day-strip-wrap');
+  if (stripWrap) section.insertBefore(glance, stripWrap);
 }
 
 /* ═══════════════════════════════════════════════════
