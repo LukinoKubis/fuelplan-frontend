@@ -862,13 +862,13 @@
         <div id="favorites-preview"></div>
       </div>
 
-      <!-- Weight Log -->
-      <div class="profile-card" id="weight-log-card">
-        <div class="profile-card-label" style="display:flex;align-items:center;justify-content:space-between">
-          <span>Weight Log</span>
-          <button onclick="openWeightLog()" style="background:var(--lime);color:#0e0f11;border:none;border-radius:8px;font-family:'Syne',sans-serif;font-weight:800;font-size:11px;padding:4px 12px;cursor:pointer;letter-spacing:0.05em">+ Log</button>
+      <!-- Weight Log shortcut (full card lives in Stats tab) -->
+      <div class="profile-card" id="weight-log-card" style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div class="profile-card-label" style="margin-bottom:0">Weight Log</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Full history in Stats tab</div>
         </div>
-        <div id="weight-log-preview" style="padding-top:4px"><div class="profile-row"><span class="profile-row-label" style="color:var(--muted)">No weigh-ins yet</span></div></div>
+        <button onclick="openWeightLog()" style="background:var(--lime);color:#0e0f11;border:none;border-radius:8px;font-family:'Syne',sans-serif;font-weight:800;font-size:11px;padding:6px 14px;cursor:pointer;letter-spacing:0.05em;flex-shrink:0">+ Log</button>
       </div>
 
       <!-- Water Goal -->

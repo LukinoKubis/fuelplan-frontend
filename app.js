@@ -3910,7 +3910,8 @@ function renderTodaySnapshot() {
           + (remaining > 0 ? '<div style="text-align:right;flex-shrink:0">'
             + '<div style="font-size:11px;color:var(--muted)">remaining</div>'
             + '<div style="font-size:13px;font-weight:700;color:var(--lime)">' + remaining + ' kcal</div>'
-            + '<div style="font-size:11px;color:var(--blue);font-weight:600">' + remainingProtein + 'g protein</div>'
+            + '<div style="font-size:11px;color:var(--blue);font-weight:600">' + remainingProtein + 'g P</div>'
+            + '<div style="font-size:11px;color:var(--muted)">' + Math.max(0, (planData.summary.carbs||0) - eatenCarbs) + 'g C &middot; ' + Math.max(0, (planData.summary.fat||0) - eatenFat) + 'g F</div>'
           + '</div>' : '')
         + '</div>'
       : '<div style="font-size:12px;color:var(--muted)">No upcoming meals today</div>';
