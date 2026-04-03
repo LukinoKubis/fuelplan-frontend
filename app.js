@@ -1122,6 +1122,25 @@ function renderPlan(plan, userName, isRestoring, planName) {
 
   // Init swipe gesture for day navigation (once per page load)
   initDaySwipe();
+
+  // Show swipe hint once
+  if (!MEM.load('fp_swipeHintShown')) {
+    MEM.save('fp_swipeHintShown', true);
+    setTimeout(function() {
+      var hint = document.createElement('div');
+      hint.style.cssText = 'position:fixed;bottom:calc(80px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.75);color:#fff;font-size:12px;padding:7px 16px;border-radius:20px;pointer-events:none;z-index:9999;display:flex;align-items:center;gap:8px;white-space:nowrap;opacity:0;transition:opacity 0.3s';
+      hint.innerHTML = '← Swipe to change day →';
+      document.body.appendChild(hint);
+      requestAnimationFrame(function() {
+        hint.style.opacity = '1';
+        setTimeout(function() {
+          hint.style.opacity = '0';
+          hint.style.transition = 'opacity 0.5s';
+          setTimeout(function() { hint.remove(); }, 500);
+        }, 2500);
+      });
+    }, 1000);
+  }
 }
 
 /* ═══════════════ DAY PANEL ═══════════════ */
@@ -1289,6 +1308,24 @@ function renderDayPanel(day, summary, isActive) {
           Regenerate ${day.day}
         </button>
       </div>
+      ${(function() {
+        var dayNotes = MEM.load('fp_dayNotes') || {};
+        var note = dayNotes[dayId] || '';
+        return '<div class="day-journal-wrap" id="day-journal-' + dayId + '">'
+          + '<button class="day-journal-toggle" onclick="toggleDayJournal(\'' + dayId + '\')">'
+            + '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>'
+            + (note ? ' Edit day note' : ' Add day note')
+          + '</button>'
+          + (note ? '<div class="day-journal-preview" id="day-journal-preview-' + dayId + '">' + escHtml(note) + '</div>' : '')
+          + '<div class="day-journal-editor" id="day-journal-editor-' + dayId + '" style="display:none">'
+            + '<textarea class="day-journal-input" id="day-journal-input-' + dayId + '" placeholder="How did today go? Energy, mood, notes…" rows="3">' + escHtml(note) + '</textarea>'
+            + '<div style="display:flex;gap:8px;margin-top:6px">'
+              + '<button class="meal-note-save-btn" onclick="saveDayJournal(\'' + dayId + '\')">Save</button>'
+              + (note ? '<button class="meal-note-save-btn" style="background:var(--bg2);color:var(--muted)" onclick="deleteDayJournal(\'' + dayId + '\')">Delete</button>' : '')
+            + '</div>'
+          + '</div>'
+        + '</div>';
+      })()}
     </div>
   `;
 }
@@ -3348,31 +3385,48 @@ function renderTodaySnapshot() {
     nextMeal = meals[nextIdx];
   }
 
+  var eatenProtein = meals.reduce(function(s, m, i) { return s + (eaten[todayDow + '-' + i] ? (parseInt(m.protein) || 0) : 0); }, 0);
+  var targetProtein = planData.summary.protein || 1;
+  var remainingProtein = Math.max(0, targetProtein - eatenProtein);
+  var proteinPct = Math.min(100, Math.round(eatenProtein / targetProtein * 100));
+
   var allEaten = eatenCount === meals.length && meals.length > 0;
-  var dateStr = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
 
   var nextMealHtml = allEaten
-    ? '<div style="color:var(--lime);font-weight:700;font-size:13px">All meals logged today!</div>'
+    ? '<div style="color:var(--lime);font-weight:700;font-size:13px">All meals logged today! 🎉</div>'
     : nextMeal
-      ? '<div style="font-size:11px;color:var(--muted);margin-bottom:2px">Next up</div><div style="font-weight:700;font-size:13px;margin-bottom:1px">' + escHtml(nextMeal.name) + '</div><div style="font-size:11px;color:var(--muted)">' + escHtml(nextMeal.time) + ' · ' + nextMeal.kcal + ' kcal</div>'
+      ? '<div style="display:flex;align-items:center;gap:8px">'
+          + '<div style="flex:1;min-width:0">'
+            + '<div style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:2px">Next up</div>'
+            + '<div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(nextMeal.name) + '</div>'
+            + '<div style="font-size:11px;color:var(--muted)">' + escHtml(nextMeal.time) + ' · ' + nextMeal.kcal + ' kcal</div>'
+          + '</div>'
+          + (remaining > 0 ? '<div style="text-align:right;flex-shrink:0">'
+            + '<div style="font-size:11px;color:var(--muted)">remaining</div>'
+            + '<div style="font-size:13px;font-weight:700;color:var(--lime)">' + remaining + ' kcal</div>'
+            + '<div style="font-size:11px;color:var(--blue);font-weight:600">' + remainingProtein + 'g protein</div>'
+          + '</div>' : '')
+        + '</div>'
       : '<div style="font-size:12px;color:var(--muted)">No upcoming meals today</div>';
 
   var card = document.createElement('div');
   card.id = 'today-snapshot';
   card.onclick = function() { switchDayTab(todayDow); };
   card.style.cssText = 'margin:8px 16px 0;background:var(--card);border:1.5px solid var(--border);border-radius:16px;padding:14px 16px;cursor:pointer;';
-  card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">'
+  card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">'
     + '<div>'
       + '<div style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:0.06em;text-transform:uppercase">Today</div>'
       + '<div style="font-family:\'Syne\',sans-serif;font-weight:800;font-size:15px">' + escHtml(new Date().toLocaleDateString(undefined, { weekday: 'long' })) + '</div>'
+      + '<div style="font-size:11px;color:var(--muted);margin-top:1px">' + eatenCount + '/' + meals.length + ' meals eaten</div>'
     + '</div>'
     + '<div style="text-align:right">'
-      + '<div style="font-size:18px;font-family:\'Syne\',sans-serif;font-weight:800;color:var(--lime)">' + pct + '%</div>'
+      + '<div style="font-size:20px;font-family:\'Syne\',sans-serif;font-weight:800;color:' + (pct === 100 ? 'var(--lime)' : 'var(--text)') + '">' + pct + '%</div>'
       + '<div style="font-size:10px;color:var(--muted)">' + eatenKcal + '/' + target + ' kcal</div>'
     + '</div>'
   + '</div>'
-  + '<div style="height:4px;background:var(--bg2);border-radius:2px;margin-bottom:12px;overflow:hidden">'
-    + '<div style="height:100%;width:' + pct + '%;background:var(--lime);border-radius:2px;transition:width 0.4s ease"></div>'
+  + '<div style="display:flex;gap:4px;margin-bottom:10px">'
+    + '<div style="flex:1;height:4px;background:var(--bg2);border-radius:2px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:var(--lime);border-radius:2px;transition:width 0.4s ease"></div></div>'
+    + '<div style="flex:1;height:4px;background:var(--bg2);border-radius:2px;overflow:hidden"><div style="height:100%;width:' + proteinPct + '%;background:var(--blue);border-radius:2px;transition:width 0.4s ease"></div></div>'
   + '</div>'
   + nextMealHtml;
 
@@ -4332,6 +4386,54 @@ function logAllMeals(dayId) {
   renderCarousel();
   renderWeekStats();
   renderTodaySnapshot();
+}
+
+function toggleDayJournal(dayId) {
+  var editor = document.getElementById('day-journal-editor-' + dayId);
+  if (!editor) return;
+  var isOpen = editor.style.display !== 'none';
+  editor.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen) {
+    var input = document.getElementById('day-journal-input-' + dayId);
+    if (input) { input.focus(); }
+  }
+}
+
+function saveDayJournal(dayId) {
+  var input = document.getElementById('day-journal-input-' + dayId);
+  if (!input) return;
+  var val = input.value.trim();
+  var notes = MEM.load('fp_dayNotes') || {};
+  if (val) {
+    notes[dayId] = val;
+  } else {
+    delete notes[dayId];
+  }
+  MEM.save('fp_dayNotes', notes);
+  // Update preview
+  var preview = document.getElementById('day-journal-preview-' + dayId);
+  var toggle = document.querySelector('#day-journal-' + dayId + ' .day-journal-toggle');
+  if (val) {
+    if (!preview) {
+      preview = document.createElement('div');
+      preview.className = 'day-journal-preview';
+      preview.id = 'day-journal-preview-' + dayId;
+      var editor = document.getElementById('day-journal-editor-' + dayId);
+      if (editor) editor.before(preview);
+    }
+    preview.textContent = val;
+  } else {
+    if (preview) preview.remove();
+  }
+  if (toggle) toggle.textContent = val ? ' Edit day note' : ' Add day note';
+  document.getElementById('day-journal-editor-' + dayId).style.display = 'none';
+  showToast(val ? 'Day note saved' : 'Note removed');
+}
+
+function deleteDayJournal(dayId) {
+  var input = document.getElementById('day-journal-input-' + dayId);
+  if (input) input.value = '';
+  saveDayJournal(dayId);
 }
 
 /* ═══════════════════════════════════════════════════

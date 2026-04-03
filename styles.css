@@ -3138,6 +3138,56 @@ body.light .action-toast { background: #fff; border-color: #e0e4ef; box-shadow: 
 .day-regen-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ═══════════════════════════════════════════════════
+   DAY JOURNAL
+═══════════════════════════════════════════════════ */
+.day-journal-wrap {
+  padding: 0 16px 20px;
+}
+.day-journal-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--muted);
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 6px;
+  transition: color 0.15s;
+}
+.day-journal-toggle:hover { color: var(--text); }
+.day-journal-preview {
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bg2);
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.day-journal-editor { margin-top: 4px; }
+.day-journal-input {
+  width: 100%;
+  background: var(--bg2);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 13px;
+  padding: 10px 12px;
+  resize: none;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+.day-journal-input:focus {
+  outline: none;
+  border-color: var(--lime);
+}
+body.light .day-journal-input { background: var(--card); }
+body.light .day-journal-preview { background: var(--bg2); }
+
+/* ═══════════════════════════════════════════════════
    MEAL FAVORITES
 ═══════════════════════════════════════════════════ */
 .fav-btn { margin-left: 2px; }
