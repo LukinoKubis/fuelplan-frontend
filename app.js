@@ -2292,6 +2292,7 @@ function addWeighIn() {
   document.getElementById('wl-input').value = '';
   renderWeightLog();
   renderWeightLogPreview();
+  refreshStatsWeightCard();
   haptic('light');
 }
 
@@ -2301,6 +2302,12 @@ function deleteWeighIn(date) {
   MEM.save('fp_weights', entries);
   renderWeightLog();
   renderWeightLogPreview();
+  refreshStatsWeightCard();
+}
+
+function refreshStatsWeightCard() {
+  var el = document.getElementById('stats-weight-card');
+  if (el) el.innerHTML = buildStatsWeightCard();
 }
 
 function buildWeightSparkline(entries) {
@@ -4033,7 +4040,16 @@ function renderWeekStats() {
     insightsEl.id = 'plan-insights-card';
     insightsEl.innerHTML = insightsHtml;
     lastInserted.insertAdjacentElement('afterend', insightsEl);
+    lastInserted = insightsEl;
   }
+
+  // Weight card in stats
+  var oldWeightCard = document.getElementById('stats-weight-card');
+  if (oldWeightCard) oldWeightCard.remove();
+  var weightCardEl = document.createElement('div');
+  weightCardEl.id = 'stats-weight-card';
+  weightCardEl.innerHTML = buildStatsWeightCard();
+  lastInserted.insertAdjacentElement('afterend', weightCardEl);
 }
 
 function buildGoalProgressCard() {
@@ -4147,6 +4163,67 @@ function buildNutritionalInsightsCard() {
   return '<div style="margin:0 16px 20px;background:var(--card);border:1.5px solid var(--border);border-radius:16px;padding:16px">'
     + '<div style="font-family:\'Syne\',sans-serif;font-weight:800;font-size:14px;margin-bottom:4px">Plan Insights</div>'
     + '<div style="margin-top:4px">' + rows + '</div>'
+  + '</div>';
+}
+
+/* ═══════════════════════════════════════════════════
+   STATS SECTION — WEIGHT CARD
+═══════════════════════════════════════════════════ */
+function buildStatsWeightCard() {
+  var entries = MEM.load('fp_weights') || [];
+  var profile = MEM.load('fp_profile') || {};
+  var unit = profile.weightUnit === 'lbs' ? 'lbs' : 'kg';
+
+  var logBtnHtml = '<button onclick="openWeightLog()" style="background:var(--lime);color:#0e0f11;border:none;border-radius:8px;font-family:\'Syne\',sans-serif;font-weight:800;font-size:11px;padding:5px 14px;cursor:pointer;letter-spacing:0.05em">+ Log</button>';
+
+  if (!entries.length) {
+    return '<div style="margin:0 16px 20px;background:var(--card);border:1.5px solid var(--border);border-radius:16px;padding:16px">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+        + '<div style="font-family:\'Syne\',sans-serif;font-weight:800;font-size:14px">Weight Log</div>'
+        + logBtnHtml
+      + '</div>'
+      + '<div style="font-size:13px;color:var(--muted)">No weigh-ins yet. Tap + Log to start tracking your progress.</div>'
+    + '</div>';
+  }
+
+  var latest = entries[0];
+  var displayVal = latest.displayVal || latest.weight;
+  var sparkline = buildWeightSparkline(entries);
+  var goalWeight = parseFloat(profile.goalWeight);
+  var trendHtml = '';
+  if (entries.length >= 2) {
+    var oldest = entries[entries.length - 1];
+    var change = latest.weight - oldest.weight;
+    var days = Math.max(1, (new Date(latest.date) - new Date(oldest.date)) / 86400000);
+    var kgPerWeek = (change / days * 7).toFixed(2);
+    var direction = change < -0.05 ? 'losing' : change > 0.05 ? 'gaining' : 'maintaining';
+    var rateColor = direction === 'losing' ? 'var(--lime)' : direction === 'gaining' ? 'var(--orange)' : 'var(--muted)';
+    trendHtml = '<div style="font-size:11px;color:var(--muted);margin-bottom:8px">Current rate: <span style="color:' + rateColor + ';font-weight:700">'
+      + (change > 0 ? '+' : '') + parseFloat(kgPerWeek) + 'kg/wk</span> (' + direction + ')';
+    if (goalWeight && direction !== 'maintaining') {
+      var remaining = Math.abs(goalWeight - latest.weight);
+      var weeksToGoal = remaining / Math.abs(parseFloat(kgPerWeek));
+      if (isFinite(weeksToGoal) && weeksToGoal < 200) {
+        var projDate = new Date();
+        projDate.setDate(projDate.getDate() + Math.ceil(weeksToGoal * 7));
+        trendHtml += ' · reach ' + goalWeight + 'kg by ' + projDate.toLocaleDateString(undefined, { month:'short', day:'numeric' });
+      }
+    }
+    trendHtml += '</div>';
+  }
+
+  return '<div style="margin:0 16px 20px;background:var(--card);border:1.5px solid var(--border);border-radius:16px;padding:16px">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">'
+      + '<div style="font-family:\'Syne\',sans-serif;font-weight:800;font-size:14px">Weight Log</div>'
+      + '<div style="display:flex;align-items:center;gap:8px">'
+        + '<span style="font-size:20px;font-weight:800;font-family:\'Syne\',sans-serif">' + displayVal + ' ' + unit + '</span>'
+        + logBtnHtml
+      + '</div>'
+    + '</div>'
+    + (goalWeight ? '<div style="font-size:11px;color:var(--muted);margin-bottom:10px">Goal: ' + goalWeight + ' ' + unit + '</div>' : '<div style="margin-bottom:10px"></div>')
+    + trendHtml
+    + sparkline
+    + '<div style="text-align:right;margin-top:2px"><button onclick="openWeightLog()" style="background:none;border:none;font-size:11px;color:var(--muted);cursor:pointer;padding:0">View full log →</button></div>'
   + '</div>';
 }
 
