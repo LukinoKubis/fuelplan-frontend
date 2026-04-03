@@ -2905,3 +2905,68 @@ body.light .meal-note-input { background: rgba(0,0,0,0.04); border-color: rgba(0
 }
 body.light #week-stats { background: var(--bg2); }
 body.light .wstat-item { border-color: rgba(0,0,0,0.06); }
+
+/* ═══════════════════════════════════════════════════
+   HAUL ACTIONS (copy / clear)
+═══════════════════════════════════════════════════ */
+#haul-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.haul-action-btn {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 7px 9px;
+  cursor: pointer;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, color 0.15s;
+}
+.haul-action-btn:hover { border-color: var(--lime); color: var(--lime); }
+body.light .haul-action-btn { background: var(--bg2); border-color: var(--border); }
+
+/* ═══════════════════════════════════════════════════
+   ACTION TOAST (with button)
+═══════════════════════════════════════════════════ */
+.action-toast {
+  position: fixed;
+  bottom: calc(env(safe-area-inset-bottom) + 84px);
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--card);
+  border: 1px solid var(--border2);
+  color: var(--fg);
+  padding: 10px 10px 10px 16px;
+  border-radius: 40px;
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 9998;
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(.22,1,.36,1);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.action-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: all; }
+.action-toast-msg { color: var(--fg); }
+.action-toast-btn {
+  background: var(--lime);
+  border: none;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #0e0f11;
+  cursor: pointer;
+  font-family: 'Syne', sans-serif;
+  transition: background 0.15s;
+}
+.action-toast-btn:hover { background: #d8ff5a; }
+body.light .action-toast { background: #fff; border-color: #e0e4ef; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
