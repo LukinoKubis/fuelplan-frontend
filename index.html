@@ -504,6 +504,7 @@
           <span id="plan-name-text">Your 7-Day Plan</span>
           <svg id="plan-name-edit-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted);flex-shrink:0;opacity:0.6"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </div>
+        <div id="plan-freshness" style="display:none"></div>
         <div style="display:flex;align-items:center;gap:6px;margin-top:1px">
           <div id="plans-remaining" style="font-size:11px;color:var(--muted);letter-spacing:0.04em"></div>
         </div>
@@ -530,6 +531,11 @@
 
     <!-- SECTION: SHOPPING HAUL -->
     <div class="section-panel" id="section-haul">
+      <div id="haul-scaler">
+        <button class="scaler-btn active" data-scale="1" onclick="setHaulScale(1)">×1</button>
+        <button class="scaler-btn" data-scale="2" onclick="setHaulScale(2)">×2</button>
+        <button class="scaler-btn" data-scale="3" onclick="setHaulScale(3)">×3</button>
+      </div>
       <div id="shopping-content"></div>
     </div>
 
@@ -647,6 +653,9 @@
         <div class="action-arrow">›</div>
       </button>
 
+      <div class="settings-section-label">Training Days</div>
+      <div id="training-day-pills" class="training-day-pill-group"></div>
+
       <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:8px;line-height:1.6">
         All data is stored locally on this device only.<br>Your activation code is saved on this device for convenience.
       </p>
@@ -709,6 +718,26 @@
       <div id="plan-name-counter" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted);pointer-events:none">0/40</div>
     </div>
     <button onclick="savePlanName()" style="width:100%;background:var(--lime);color:#0e0f11;border:none;border-radius:12px;font-family:'Syne',sans-serif;font-weight:800;font-size:14px;padding:14px;cursor:pointer">Save Plan</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ MEAL SWAP DRAWER ════════════════════════ -->
+<div id="meal-swap-overlay" onclick="closeMealSwap()"></div>
+<div id="meal-swap-drawer">
+  <div class="swap-sticky-header" id="meal-swap-drag-handle">
+    <div class="drawer-handle"></div>
+    <div class="drawer-header">
+      <div class="drawer-title" style="display:flex;align-items:center;gap:10px">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+        Swap This Meal
+      </div>
+      <button class="drawer-close" onclick="closeMealSwap()">✕</button>
+    </div>
+  </div>
+  <div id="meal-swap-body-wrap">
+    <div id="swap-current-info"></div>
+    <div id="swap-spinner" class="swap-spinner" style="display:none"></div>
+    <div id="swap-results"></div>
   </div>
 </div>
 

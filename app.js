@@ -857,35 +857,45 @@ function renderPlan(plan, userName, isRestoring, planName) {
 /* ═══════════════ DAY PANEL ═══════════════ */
 
 function renderDayPanel(day, summary, isActive) {
-  const pct = (v, max) => Math.min(100, Math.round((v / max) * 100));
+  const dayId = day.day.toLowerCase();
+  const circ = 2 * Math.PI * 26; // ≈163.4
+  const pct = (v, max) => Math.min(100, Math.round((v / (max || 1)) * 100));
+  const ringOffset = (v, max) => circ * (1 - pct(v, max) / 100);
+  const mealNotes = MEM.load('fp_mealNotes') || {};
+
+  function ringHtml(value, maxVal, color, label) {
+    const p = pct(value, maxVal);
+    return `<div class="ring-col">
+      <svg viewBox="0 0 64 64" width="64" height="64">
+        <circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5"/>
+        <circle cx="32" cy="32" r="26" fill="none" stroke="${color}" stroke-width="5"
+          stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${circ.toFixed(1)}"
+          stroke-linecap="round" transform="rotate(-90 32 32)"
+          class="ring-fill" data-pct="${p}"/>
+        <text x="32" y="36" text-anchor="middle" font-family="Figtree,sans-serif" font-size="12" font-weight="700" fill="${color}">${value}g</text>
+      </svg>
+      <span class="ring-label">${label}</span>
+    </div>`;
+  }
+
   return `
-    <div class="tab-panel${isActive ? ' active' : ''}" id="panel-${day.day.toLowerCase()}">
-      <div class="day-macro-bar">
-        <div class="bar-item">
-          <div class="bar-val" style="color:var(--lime)">${day.kcal}</div>
-          <div class="bar-label">kcal</div>
-        </div>
-        <div class="bar-progress-wrap">
-          <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">
-            <span style="font-size:11px;color:var(--blue);font-weight:600;width:56px">Protein</span>
-            <div class="bar-track" style="flex:1"><div class="bar-fill" style="background:var(--blue);width:0" data-pct="${pct(day.protein,summary.protein)}"></div></div>
-            <span style="font-size:12px;color:var(--blue);font-weight:700;width:36px;text-align:right">${day.protein}g</span>
-          </div>
-          <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">
-            <span style="font-size:11px;color:var(--orange);font-weight:600;width:56px">Carbs</span>
-            <div class="bar-track" style="flex:1"><div class="bar-fill" style="background:var(--orange);width:0" data-pct="${pct(day.carbs,summary.carbs)}"></div></div>
-            <span style="font-size:12px;color:var(--orange);font-weight:700;width:36px;text-align:right">${day.carbs}g</span>
-          </div>
-          <div style="display:flex;gap:6px;align-items:center">
-            <span style="font-size:11px;color:var(--red);font-weight:600;width:56px">Fat</span>
-            <div class="bar-track" style="flex:1"><div class="bar-fill" style="background:var(--red);width:0" data-pct="${pct(day.fat,summary.fat)}"></div></div>
-            <span style="font-size:12px;color:var(--red);font-weight:700;width:36px;text-align:right">${day.fat}g</span>
-          </div>
+    <div class="tab-panel${isActive ? ' active' : ''}" id="panel-${dayId}">
+      <div class="day-macro-header">
+        <div class="day-kcal-display">${day.kcal}</div>
+        <div class="day-kcal-label">kcal</div>
+        <div class="day-macro-rings">
+          ${ringHtml(day.protein, summary.protein, 'var(--blue)', 'Protein')}
+          ${ringHtml(day.carbs, summary.carbs, 'var(--orange)', 'Carbs')}
+          ${ringHtml(day.fat, summary.fat, 'var(--red)', 'Fat')}
         </div>
       </div>
       <div class="meals-grid">
-        ${(day.meals || []).map(meal => `
-          <div class="meal-card">
+        ${(day.meals || []).map((meal, mealIdx) => {
+          const noteKey = dayId + '-' + mealIdx;
+          const rating = mealNotes[noteKey];
+          const ratingClass = rating === 'up' ? ' meal-card-up' : rating === 'down' ? ' meal-card-down' : '';
+          return `
+          <div class="meal-card${ratingClass}" id="mcard-${dayId}-${mealIdx}" onclick="openMealSwap('${dayId}',${mealIdx})">
             <div class="meal-time">${escHtml(meal.time)}</div>
             <div class="meal-name">${escHtml(meal.name)}</div>
             <div class="meal-badges">
@@ -893,8 +903,17 @@ function renderDayPanel(day, summary, isActive) {
               <span class="badge badge-kcal">🔥 ${meal.kcal} kcal</span>
             </div>
             <div class="meal-ingredients">${escHtml(meal.ingredients)}</div>
+            <div class="meal-rating-row">
+              <button class="rating-btn${rating === 'up' ? ' active-up' : ''}" onclick="rateMeal('${dayId}',${mealIdx},'up');event.stopPropagation()" title="Like this meal">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+              </button>
+              <button class="rating-btn${rating === 'down' ? ' active-down' : ''}" onclick="rateMeal('${dayId}',${mealIdx},'down');event.stopPropagation()" title="Dislike this meal">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
+              </button>
+            </div>
           </div>
-        `).join('')}
+          `;
+        }).join('')}
       </div>
     </div>
   `;
@@ -902,7 +921,20 @@ function renderDayPanel(day, summary, isActive) {
 
 /* ═══════════════ SHOPPING PANEL ═══════════════ */
 
-function renderShoppingPanel(shoppingList, isActive) {
+function scaleQty(qtyStr, scale) {
+  if (!scale || scale === 1) return qtyStr;
+  const s = String(qtyStr || '');
+  const match = s.match(/^(\d+\.?\d*)(.*)/);
+  if (!match) return s;
+  const num = parseFloat(match[1]) * scale;
+  const suffix = match[2];
+  // Round to reasonable precision
+  const rounded = Number.isInteger(num) ? num : parseFloat(num.toFixed(1));
+  return rounded + suffix;
+}
+
+function renderShoppingPanel(shoppingList, isActive, scale) {
+  scale = scale || 1;
   const catIcons = { 'Proteins':'🥩','Carbohydrates':'🌾','Vegetables':'🥦','Dairy & Eggs':'🥚','Pantry & Spices':'🧂','Fruits':'🍎' };
 
   const itemsHtml = (shoppingList || []).map((cat, ci) => `
@@ -916,7 +948,7 @@ function renderShoppingPanel(shoppingList, isActive) {
           <div class="shop-item${shopChecks[ci+'-'+ii] ? ' checked' : ''}" id="shop-${ci}-${ii}" onclick="toggleShop(${ci},${ii})">
             <input type="checkbox" id="chk-${ci}-${ii}" ${shopChecks[ci+'-'+ii] ? 'checked' : ''} onclick="event.stopPropagation();toggleShop(${ci},${ii})">
             <span class="shop-item-name">${escHtml(item.name)}</span>
-            <span class="shop-item-qty">${escHtml(item.qty)}</span>
+            <span class="shop-item-qty">${escHtml(scaleQty(item.qty, scale))}</span>
           </div>
         `).join('')}
       </div>
@@ -967,11 +999,7 @@ function switchSection(id, skipSave) {
   if (id === 'week') {
     setTimeout(function() {
       var activeDay = document.querySelector('.tab-panel.active');
-      if (activeDay) {
-        activeDay.querySelectorAll('.bar-fill[data-pct]').forEach(function(el) {
-          el.style.width = el.dataset.pct + '%';
-        });
-      }
+      if (activeDay) animateRings(activeDay);
     }, 60);
   }
 }
@@ -1046,20 +1074,13 @@ function switchDayTab(id) {
       newPanel.classList.add('active', inClass);
       newPanel.addEventListener('animationend', () => {
         newPanel.classList.remove(inClass);
-        // Animate bars
-        newPanel.querySelectorAll('.bar-fill[data-pct]').forEach(el => {
-          el.style.width = el.dataset.pct + '%';
-        });
+        animateRings(newPanel);
       }, { once: true });
     }, 40);
   } else if (newPanel) {
     allPanels.forEach(p => p.classList.remove('active'));
     newPanel.classList.add('active');
-    setTimeout(() => {
-      newPanel.querySelectorAll('.bar-fill[data-pct]').forEach(el => {
-        el.style.width = el.dataset.pct + '%';
-      });
-    }, 50);
+    setTimeout(() => { animateRings(newPanel); }, 50);
   }
 
   renderCarousel(slideDir);
