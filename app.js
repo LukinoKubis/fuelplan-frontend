@@ -1153,82 +1153,90 @@ function renderShoppingPanel(shoppingList, isActive, scale, groceryView) {
   const catIcons = { 'Proteins':'🥩','Carbohydrates':'🌾','Vegetables':'🥦','Dairy & Eggs':'🥚','Pantry & Spices':'🧂','Fruits':'🍎',
     'Grains & Legumes':'🌾','Pantry & Condiments':'🧂','Produce & Other':'🥦','Frozen':'🧊' };
 
-  if (groceryView === 'aisle') {
-    // Flatten all items and group by aisle category
-    const aisleMap = {};
-    let globalIdx = 0;
-    (shoppingList || []).forEach((cat) => {
-      (cat.items || []).forEach((item) => {
-        const aisle = categorizeForAisle(item.name);
-        if (!aisleMap[aisle]) aisleMap[aisle] = [];
-        aisleMap[aisle].push({ item, globalIdx });
-        globalIdx++;
-      });
+  // Build a flat index: globalIdx is the unified key used by BOTH modes
+  // so checkboxes survive a List ↔ By Aisle toggle
+  const flatItems = [];
+  (shoppingList || []).forEach(function(cat) {
+    (cat.items || []).forEach(function(item) {
+      flatItems.push(item);
     });
+  });
+
+  if (groceryView === 'aisle') {
+    const aisleMap = {};
+    flatItems.forEach(function(item, gi) {
+      const aisle = categorizeForAisle(item.name);
+      if (!aisleMap[aisle]) aisleMap[aisle] = [];
+      aisleMap[aisle].push({ item, gi });
+    });
+
     const aisleOrder = ['Proteins','Dairy & Eggs','Grains & Legumes','Pantry & Condiments','Produce & Other','Frozen'];
-    const itemsHtml = aisleOrder.filter(a => aisleMap[a]).map(aisle => {
+    let aisleNum = 0;
+    const itemsHtml = aisleOrder.filter(function(a) { return aisleMap[a]; }).map(function(aisle) {
+      aisleNum++;
       const entries = aisleMap[aisle];
-      return `<div class="shop-category">
-        <div class="shop-cat-header">${catIcons[aisle] || '📦'} ${escHtml(aisle)}
+      return `<div class="shop-category shop-category-aisle">
+        <div class="shop-cat-header shop-cat-header-aisle">
+          <span class="aisle-num">AISLE ${aisleNum}</span>
+          <span class="aisle-name">${escHtml(aisle)}</span>
           <span style="color:var(--muted);font-size:11px;font-weight:400;margin-left:auto">${entries.length} items</span>
         </div>
         <div class="shop-items">
-          ${entries.map(({ item, globalIdx: gi }) => `
-            <div class="shop-item${shopChecks['a-'+gi] ? ' checked' : ''}" id="shop-a-${gi}" onclick="toggleShopAisle(${gi})">
-              <input type="checkbox" id="chk-a-${gi}" ${shopChecks['a-'+gi] ? 'checked' : ''} onclick="event.stopPropagation();toggleShopAisle(${gi})">
+          ${entries.map(function({ item, gi }) {
+            return `<div class="shop-item${shopChecks[gi] ? ' checked' : ''}" id="shop-a-${gi}" onclick="toggleShopItem(${gi})">
+              <input type="checkbox" id="chk-a-${gi}" ${shopChecks[gi] ? 'checked' : ''} onclick="event.stopPropagation();toggleShopItem(${gi})">
               <span class="shop-item-name">${escHtml(item.name)}</span>
               <span class="shop-item-qty">${escHtml(scaleQty(item.qty, scale))}</span>
-            </div>
-          `).join('')}
+            </div>`;
+          }).join('')}
         </div>
       </div>`;
     }).join('');
-    return `<div class="shop-section">${itemsHtml}</div>`;
+    return `<div class="shop-section shop-section-aisle">${itemsHtml}</div>`;
   }
 
-  const itemsHtml = (shoppingList || []).map((cat, ci) => `
-    <div class="shop-category">
+  // List mode — group by original plan categories, use globalIdx keys
+  let gi = 0;
+  const itemsHtml = (shoppingList || []).map(function(cat) {
+    const catHtml = `<div class="shop-category">
       <div class="shop-cat-header">
         ${catIcons[cat.category] || '📦'} ${escHtml(cat.category)}
         <span style="color:var(--muted);font-size:11px;font-weight:400;margin-left:auto">${cat.items?.length || 0} items</span>
       </div>
       <div class="shop-items">
-        ${(cat.items || []).map((item, ii) => `
-          <div class="shop-item${shopChecks[ci+'-'+ii] ? ' checked' : ''}" id="shop-${ci}-${ii}" onclick="toggleShop(${ci},${ii})">
-            <input type="checkbox" id="chk-${ci}-${ii}" ${shopChecks[ci+'-'+ii] ? 'checked' : ''} onclick="event.stopPropagation();toggleShop(${ci},${ii})">
+        ${(cat.items || []).map(function(item) {
+          const idx = gi++;
+          return `<div class="shop-item${shopChecks[idx] ? ' checked' : ''}" id="shop-a-${idx}" onclick="toggleShopItem(${idx})">
+            <input type="checkbox" id="chk-a-${idx}" ${shopChecks[idx] ? 'checked' : ''} onclick="event.stopPropagation();toggleShopItem(${idx})">
             <span class="shop-item-name">${escHtml(item.name)}</span>
             <span class="shop-item-qty">${escHtml(scaleQty(item.qty, scale))}</span>
-          </div>
-        `).join('')}
+          </div>`;
+        }).join('')}
       </div>
-    </div>
-  `).join('');
+    </div>`;
+    return catHtml;
+  }).join('');
 
   return `<div class="shop-section">${itemsHtml}</div>`;
 }
 
 function restoreShopChecks() {
-  Object.entries(shopChecks).forEach(([key, checked]) => {
-    const [ci, ii] = key.split('-');
-    const el = document.getElementById(`shop-${ci}-${ii}`);
-    const chk = document.getElementById(`chk-${ci}-${ii}`);
-    if (el && chk) {
-      chk.checked = checked;
-      el.classList.toggle('checked', checked);
-    }
-  });
+  // No-op — checks are now rendered directly from shopChecks state in renderShoppingPanel
 }
 
-function toggleShop(ci, ii) {
+function toggleShopItem(gi) {
   haptic('light');
-  const el = document.getElementById(`shop-${ci}-${ii}`);
-  const chk = document.getElementById(`chk-${ci}-${ii}`);
+  const el = document.getElementById('shop-a-' + gi);
+  const chk = document.getElementById('chk-a-' + gi);
+  if (!el || !chk) return;
   chk.checked = !chk.checked;
   el.classList.toggle('checked', chk.checked);
-  // Persist
-  shopChecks[`${ci}-${ii}`] = chk.checked;
+  shopChecks[gi] = chk.checked;
   MEM.save('fp_shopChecks', shopChecks);
 }
+
+// Keep old names as aliases so any remaining inline references still work
+function toggleShop(ci, ii) { toggleShopItem(ci + '-' + ii); }
 
 /* ═══════════════ SECTION & DAY TAB SWITCHING ═══════════════ */
 
@@ -2871,7 +2879,6 @@ function setHaulScale(n) {
   if (planData) {
     var groceryView = MEM.load('fp_groceryView') || 'list';
     document.getElementById('shopping-content').innerHTML = renderShoppingPanel(planData.shopping_list, true, n, groceryView);
-    restoreShopChecks();
   }
 }
 
@@ -2885,20 +2892,10 @@ function setGroceryView(mode) {
   if (planData) {
     var scale = MEM.load('fp_haulScale') || 1;
     document.getElementById('shopping-content').innerHTML = renderShoppingPanel(planData.shopping_list, true, scale, mode);
-    if (mode === 'list') restoreShopChecks();
   }
 }
 
-function toggleShopAisle(gi) {
-  haptic('light');
-  const el = document.getElementById('shop-a-' + gi);
-  const chk = document.getElementById('chk-a-' + gi);
-  if (!el || !chk) return;
-  chk.checked = !chk.checked;
-  el.classList.toggle('checked', chk.checked);
-  shopChecks['a-' + gi] = chk.checked;
-  MEM.save('fp_shopChecks', shopChecks);
-}
+function toggleShopAisle(gi) { toggleShopItem(gi); }
 
 /* ═══════════════════════════════════════════════════
    FEATURE 4: WEEK AT A GLANCE
@@ -3177,7 +3174,8 @@ function renderWeekStats() {
 
   const macroRow = document.createElement('div');
   macroRow.id = 'week-macro-row';
-  macroRow.innerHTML = `
+  macroRow.innerHTML = `<div class="week-stats-section-label">Weekly Stats</div>
+    <div style="display:flex;gap:10px;margin:0 16px 8px;align-items:stretch">
     <div id="week-donut-card">
       ${donutSvg}
       <div class="donut-legend">
@@ -3191,18 +3189,21 @@ function renderWeekStats() {
       <div class="streak-num">${streak}</div>
       <div class="streak-label">day streak</div>
     </div>
+    </div>
   `;
 
-  // Insert after week-glance
-  const glance = document.getElementById('week-glance');
-  if (glance) {
-    glance.insertAdjacentElement('afterend', macroRow);
+  // Insert AFTER the day panels content — stats live below the carousel, not above it
+  const dayContent = document.getElementById('day-tabs-content');
+  if (dayContent) {
+    // Insert order: dayContent → macroRow → statsEl (macroRow first so statsEl ends up last)
+    dayContent.insertAdjacentElement('afterend', macroRow);
     macroRow.insertAdjacentElement('afterend', statsEl);
   } else {
-    const carousel = section.querySelector('.day-carousel');
-    if (carousel) {
-      section.insertBefore(statsEl, carousel);
-      section.insertBefore(macroRow, statsEl);
+    // fallback — after glance
+    const glance = document.getElementById('week-glance');
+    if (glance) {
+      glance.insertAdjacentElement('afterend', macroRow);
+      macroRow.insertAdjacentElement('afterend', statsEl);
     }
   }
 }

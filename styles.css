@@ -1696,7 +1696,7 @@
   }
 
   /* ── SHOPPING LIST ── */
-  .shop-section { display: flex; flex-direction: column; gap: 20px; }
+  .shop-section { display: flex; flex-direction: column; gap: 12px; padding-bottom: 16px; }
 
   .shop-category {
     background: var(--card);
@@ -1706,7 +1706,7 @@
   }
 
   .shop-cat-header {
-    padding: 16px 20px;
+    padding: 12px 16px;
     background: var(--card2);
     border-bottom: 1px solid var(--border);
     font-family: 'Syne', sans-serif;
@@ -1719,6 +1719,39 @@
     align-items: center;
     gap: 10px;
   }
+
+  /* ── Aisle view — distinct store-style look ── */
+  .shop-section-aisle { gap: 8px; }
+  .shop-category-aisle {
+    border-color: rgba(87,169,255,0.2);
+  }
+  .shop-cat-header-aisle {
+    background: rgba(87,169,255,0.07);
+    border-bottom-color: rgba(87,169,255,0.15);
+    color: var(--blue);
+    padding: 10px 16px;
+    gap: 8px;
+  }
+  .aisle-num {
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    color: var(--blue);
+    background: rgba(87,169,255,0.15);
+    border-radius: 20px;
+    padding: 2px 8px;
+    flex-shrink: 0;
+  }
+  .aisle-name {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--text);
+  }
+  body.light .shop-cat-header-aisle {
+    background: rgba(87,169,255,0.1);
+    border-bottom-color: rgba(87,169,255,0.2);
+  }
+  body.light .aisle-num { color: #2a76d4; background: rgba(87,169,255,0.12); }
 
   .shop-items { padding: 8px 0; }
 
@@ -2865,8 +2898,9 @@ body.light .meal-note-input { background: rgba(0,0,0,0.04); border-color: rgba(0
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 16px 0;
+  padding: 12px 16px 4px;
   gap: 8px;
+  flex-wrap: wrap;
 }
 #haul-controls #haul-scaler,
 #haul-view-toggle {
@@ -2874,7 +2908,17 @@ body.light .meal-note-input { background: rgba(0,0,0,0.04); border-color: rgba(0
   gap: 4px;
 }
 #haul-view-toggle .scaler-btn {
-  min-width: 68px;
+  min-width: 72px;
+  font-size: 12px;
+}
+/* Aisle button gets a blue tint when active */
+#hv-aisle.active {
+  background: rgba(87,169,255,0.15);
+  border-color: rgba(87,169,255,0.5);
+  color: var(--blue);
+}
+#shopping-content {
+  padding: 12px 16px 0;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -2883,7 +2927,7 @@ body.light .meal-note-input { background: rgba(0,0,0,0.04); border-color: rgba(0
 #week-stats {
   display: flex;
   gap: 0;
-  margin: 0 16px 8px;
+  margin: 0 16px 24px;
   background: var(--card);
   border-radius: 12px;
   overflow: hidden;
@@ -3177,11 +3221,17 @@ body.light .day-eaten-track { background: rgba(0,0,0,0.08); }
 /* ═══════════════════════════════════════════════════
    MACRO DONUT + STREAK
 ═══════════════════════════════════════════════════ */
+.week-stats-section-label {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 20px 16px 8px;
+}
 #week-macro-row {
-  display: flex;
-  gap: 10px;
-  margin: 0 16px 8px;
-  align-items: stretch;
+  /* The section label is inside here; the flex row is an inner div */
 }
 #week-donut-card {
   background: var(--card);
@@ -3559,7 +3609,7 @@ body.light #week-streak-card { background: var(--bg2); }
   transition: border-color 0.2s, background 0.2s;
 }
 .topup-plan-btn:hover { border-color: var(--lime); background: rgba(200,245,66,0.04); }
-.topup-plan-popular { border-color: var(--lime) !important; background: rgba(200,245,66,0.06) !important; }
+.topup-plan-popular { border-color: var(--lime) !important; background: rgba(200,245,66,0.06) !important; margin-top: 14px !important; }
 .topup-popular-badge {
   position: absolute;
   top: -10px; left: 14px;
