@@ -1551,6 +1551,10 @@ function switchSection(id, skipSave) {
       if (activeDay) animateRings(activeDay);
     }, 60);
   }
+  if (id === 'stats') {
+    renderWeekGlance();
+    renderWeekStats();
+  }
 }
 
 function renderCarousel(slideDir) {
@@ -3587,12 +3591,9 @@ function renderTodaySnapshot() {
     + (todayWater > 0 ? '<button onclick="snapshotRemoveWater(\'' + todayDow + '\')" style="background:none;border:none;font-size:12px;color:var(--muted);cursor:pointer;padding:3px 4px">−</button>' : '')
   + '</div>';
 
-  // Insert before day-strip-wrap (first child of section-week), after week-glance
-  var glance = document.getElementById('week-glance');
+  // Insert before day-strip-wrap (at top of section-week)
   var stripWrap = document.getElementById('day-strip-wrap');
-  if (glance && glance.nextSibling) {
-    section.insertBefore(card, glance.nextSibling);
-  } else if (stripWrap) {
+  if (stripWrap) {
     section.insertBefore(card, stripWrap);
   }
 }
@@ -3628,7 +3629,7 @@ function snapshotRemoveWater(dayId) {
    FEATURE 4: WEEK AT A GLANCE
 ═══════════════════════════════════════════════════ */
 function renderWeekGlance() {
-  const section = document.getElementById('section-week');
+  const section = document.getElementById('section-stats');
   if (!section || !planData) return;
 
   // Remove existing glance
@@ -3674,7 +3675,7 @@ function renderWeekGlance() {
       return s + (eatenAll[dayId + '-' + i] ? (parseInt(m.kcal) || 0) : 0);
     }, 0);
     var eatenPctDay = d.kcal > 0 ? Math.min(100, Math.round(eatenKcalDay / d.kcal * 100)) : 0;
-    return `<div class="wg-col" onclick="switchDayTab('${dayId}')" title="${d.day}: ${eatenKcalDay > 0 ? eatenKcalDay + '/' : ''}${d.kcal} kcal">
+    return `<div class="wg-col" onclick="switchSection('week');switchDayTab('${dayId}')" title="${d.day}: ${eatenKcalDay > 0 ? eatenKcalDay + '/' : ''}${d.kcal} kcal">
       ${isTrain ? '<div class="wg-train-dot"></div>' : '<div style="width:4px;height:4px"></div>'}
       <div class="wg-bar-wrap">
         <div class="wg-bar" style="height:${pct}%;background:${color};position:relative;overflow:hidden">
@@ -3685,8 +3686,12 @@ function renderWeekGlance() {
     </div>`;
   }).join('') + '</div>';
 
-  const stripWrap = document.getElementById('day-strip-wrap');
-  if (stripWrap) section.insertBefore(glance, stripWrap);
+  const statsHeader = document.getElementById('stats-header');
+  if (statsHeader) {
+    statsHeader.insertAdjacentElement('afterend', glance);
+  } else {
+    section.appendChild(glance);
+  }
 }
 
 /* ═══════════════════════════════════════════════════
@@ -3851,7 +3856,7 @@ function saveMealNote(dayId, mealIdx) {
    FEATURE 12: WEEKLY STATS SUMMARY
 ═══════════════════════════════════════════════════ */
 function renderWeekStats() {
-  const section = document.getElementById('section-week');
+  const section = document.getElementById('section-stats');
   if (!section || !planData) return;
 
   // Remove old
@@ -3993,21 +3998,16 @@ function renderWeekStats() {
     + '</div>';
   }
 
-  // Insert AFTER the day panels content — stats live below the carousel, not above it
-  const dayContent = document.getElementById('day-tabs-content');
-  if (dayContent) {
-    // Insert order: dayContent → [banner] → macroRow → statsEl
-    dayContent.insertAdjacentElement('afterend', macroRow);
+  // Insert after week glance (or append to stats section)
+  const glance = document.getElementById('week-glance');
+  if (glance) {
+    glance.insertAdjacentElement('afterend', macroRow);
     macroRow.insertAdjacentElement('afterend', statsEl);
     if (weekBanner) macroRow.insertAdjacentElement('beforebegin', weekBanner);
   } else {
-    // fallback — after glance
-    const glance = document.getElementById('week-glance');
-    if (glance) {
-      glance.insertAdjacentElement('afterend', macroRow);
-      macroRow.insertAdjacentElement('afterend', statsEl);
-      if (weekBanner) macroRow.insertAdjacentElement('beforebegin', weekBanner);
-    }
+    section.appendChild(macroRow);
+    section.appendChild(statsEl);
+    if (weekBanner) macroRow.insertAdjacentElement('beforebegin', weekBanner);
   }
 
   // Goal progress card
