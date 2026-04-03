@@ -879,6 +879,8 @@ function renderDayPanel(day, summary, isActive) {
   const ringOffset = (v, max) => circ * (1 - pct(v, max) / 100);
   const mealNotes = MEM.load('fp_mealNotes') || {};
   const mealAnnotations = MEM.load('fp_mealAnnotations') || {};
+  const favorites = MEM.load('fp_favorites') || [];
+  const favKeys = favorites.map(f => f.name + '|' + f.kcal);
 
   function ringHtml(value, maxVal, color, label) {
     const p = pct(value, maxVal);
@@ -948,6 +950,9 @@ function renderDayPanel(day, summary, isActive) {
               </button>
               <button class="rating-btn note-btn${mealAnnotations[noteKey] ? ' note-has-content' : ''}" onclick="toggleMealNote('${dayId}',${mealIdx})" title="Add note">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              </button>
+              <button class="rating-btn fav-btn${favKeys.includes(meal.name + '|' + meal.kcal) ? ' fav-active' : ''}" onclick="toggleFavorite('${dayId}',${mealIdx})" title="Save to favorites">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="${favKeys.includes(meal.name + '|' + meal.kcal) ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
               </button>
             </div>
           </div>
@@ -2401,7 +2406,27 @@ function openMealSwap(dayId, mealIdx) {
       </div>
     </div>
   `;
-  document.getElementById('swap-results').innerHTML = '';
+  // Show favorites section if any exist
+  const favs = MEM.load('fp_favorites') || [];
+  const currentKey = meal.name + '|' + meal.kcal;
+  const otherFavs = favs.filter(f => (f.name + '|' + f.kcal) !== currentKey);
+  const favsHtml = otherFavs.length > 0
+    ? `<div class="swap-section-label">From Favorites</div>` + otherFavs.slice(0, 3).map(function(fav, i) {
+        return `<div class="swap-alt-card swap-fav-card">
+          <div class="swap-alt-name">${escHtml(fav.name)} <span style="font-size:11px;color:var(--lime)">★</span></div>
+          <div class="swap-alt-macros">
+            <span class="swap-macro-pill" style="color:var(--lime)">${fav.kcal} kcal</span>
+            <span class="swap-macro-pill" style="color:var(--blue)">${fav.protein}g P</span>
+            <span class="swap-macro-pill" style="color:var(--orange)">${fav.carbs}g C</span>
+            <span class="swap-macro-pill" style="color:var(--red)">${fav.fat}g F</span>
+          </div>
+          <button class="swap-use-btn" onclick="useMealSwap(window._swapFavs[${i}])">Use this meal</button>
+        </div>`;
+      }).join('')
+    : '';
+  if (otherFavs.length) window._swapFavs = otherFavs.slice(0, 3);
+
+  document.getElementById('swap-results').innerHTML = favsHtml;
   document.getElementById('swap-spinner').style.display = 'flex';
 
   document.getElementById('meal-swap-overlay').classList.add('open');
@@ -2488,7 +2513,7 @@ async function fetchMealAlternatives(meal) {
     }
 
     window._swapAlts = alts.slice(0, 3);
-    results.innerHTML = window._swapAlts.map(function(alt, i) {
+    const aiHtml = '<div class="swap-section-label">AI Suggestions</div>' + window._swapAlts.map(function(alt, i) {
       return `<div class="swap-alt-card">
         <div class="swap-alt-name">${escHtml(alt.name)}</div>
         <div class="swap-alt-macros">
@@ -2500,10 +2525,13 @@ async function fetchMealAlternatives(meal) {
         <button class="swap-use-btn" onclick="useMealSwap(window._swapAlts[${i}])">Use this meal</button>
       </div>`;
     }).join('');
+    // Append AI results after favorites (if any)
+    results.innerHTML = results.innerHTML + aiHtml;
 
   } catch (err) {
     spinner.style.display = 'none';
-    results.innerHTML = '<p style="color:var(--red);text-align:center;padding:20px">Failed to load alternatives. Try again.</p>';
+    // Don't clear favorites on error, just append error message
+    results.innerHTML = results.innerHTML + '<p style="color:var(--red);text-align:center;padding:16px 20px">Failed to load AI alternatives. Try again.</p>';
   }
 }
 
@@ -3144,5 +3172,45 @@ async function regenerateDay(dayId) {
   } catch (err) {
     if (btn) { btn.disabled = false; btn.textContent = 'Regenerate ' + dayName; }
     showToast('Failed to regenerate — try again');
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   MEAL FAVORITES
+═══════════════════════════════════════════════════ */
+function toggleFavorite(dayId, mealIdx) {
+  haptic('light');
+  if (!planData) return;
+  const dayObj = planData.days.find(d => d.day.toLowerCase() === dayId);
+  if (!dayObj) return;
+  const meal = dayObj.meals[mealIdx];
+  if (!meal) return;
+
+  const favs = MEM.load('fp_favorites') || [];
+  const mealKey = meal.name + '|' + meal.kcal;
+  const existingIdx = favs.findIndex(f => (f.name + '|' + f.kcal) === mealKey);
+
+  if (existingIdx !== -1) {
+    favs.splice(existingIdx, 1);
+    MEM.save('fp_favorites', favs);
+    showToast('Removed from favorites');
+  } else {
+    // Keep max 20 favorites
+    if (favs.length >= 20) favs.shift();
+    favs.push({ name: meal.name, time: meal.time, protein: meal.protein, carbs: meal.carbs, fat: meal.fat, kcal: meal.kcal, ingredients: meal.ingredients });
+    MEM.save('fp_favorites', favs);
+    showToast('Saved to favorites!');
+  }
+
+  // Update star button in-place without full re-render
+  const card = document.getElementById('mcard-' + dayId + '-' + mealIdx);
+  if (card) {
+    const favBtn = card.querySelector('.fav-btn');
+    const isFav = favs.some(f => (f.name + '|' + f.kcal) === mealKey);
+    if (favBtn) {
+      favBtn.classList.toggle('fav-active', isFav);
+      const svg = favBtn.querySelector('svg');
+      if (svg) svg.setAttribute('fill', isFav ? 'currentColor' : 'none');
+    }
   }
 }

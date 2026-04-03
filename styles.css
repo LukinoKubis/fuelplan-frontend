@@ -3097,3 +3097,19 @@ body.light .action-toast { background: #fff; border-color: #e0e4ef; box-shadow: 
 }
 .day-regen-btn:hover { border-color: var(--lime); color: var(--lime); }
 .day-regen-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ═══════════════════════════════════════════════════
+   MEAL FAVORITES
+═══════════════════════════════════════════════════ */
+.fav-btn { margin-left: 2px; }
+.fav-active { color: var(--lime) !important; border-color: var(--lime) !important; }
+.swap-fav-card { border-color: rgba(200,245,66,0.25); background: rgba(200,245,66,0.04); }
+.swap-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 12px 20px 4px;
+}
+body.light .swap-fav-card { background: rgba(200,245,66,0.06); }
