@@ -24,11 +24,140 @@ let planData = null;
 let calcMacroState = null;
 let shopChecks = {};  // { "ci-ii": bool }
 
+/* ═══════════════════════════════════════════════════
+   ONBOARDING / INSTALL TUTORIAL
+═══════════════════════════════════════════════════ */
+
+// Capture Android install prompt event early
+let _androidInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault();
+  _androidInstallPrompt = e;
+  // If android guide is already open, show the one-tap button
+  const promptEl = document.getElementById('ob-android-prompt');
+  if (promptEl) promptEl.style.display = 'block';
+});
+
+function initOnboarding() {
+  const overlay = document.getElementById('onboarding-overlay');
+  if (!overlay) return;
+
+  // Already running as installed PWA — skip onboarding
+  const isStandalone = window.navigator.standalone === true
+    || window.matchMedia('(display-mode: standalone)').matches;
+  if (isStandalone) {
+    overlay.classList.add('hidden');
+    try { localStorage.setItem('fp_installed', '1'); } catch(e) {}
+    // Hide "Add to Home Screen" in settings — already installed
+    const installBtn = document.getElementById('install-app-btn');
+    if (installBtn) installBtn.style.display = 'none';
+    return;
+  }
+  // Also hide if user previously installed
+  try {
+    if (localStorage.getItem('fp_installed')) {
+      const installBtn = document.getElementById('install-app-btn');
+      if (installBtn) installBtn.style.display = 'none';
+    }
+  } catch(e) {}
+
+  // Already seen onboarding — skip
+  const seen = (() => { try { return localStorage.getItem('fp_onboarded'); } catch(e) { return null; } })();
+  if (seen) {
+    overlay.classList.add('hidden');
+    return;
+  }
+
+  // Detect platform to pre-select a guide
+  const ua = navigator.userAgent || '';
+  const isIOS = /iP(hone|ad|od)/.test(ua);
+  const isAndroid = /Android/.test(ua);
+
+  // Show iOS/Android button as highlighted if on that platform
+  if (isIOS) {
+    const btn = document.getElementById('ob-ios-btn');
+    if (btn) btn.style.borderColor = 'var(--lime)';
+  } else if (isAndroid) {
+    const btn = document.getElementById('ob-android-btn');
+    if (btn) btn.style.borderColor = 'var(--lime)';
+  }
+
+  // Show overlay
+  overlay.classList.remove('hidden');
+}
+
+function showObScreen(id) {
+  document.querySelectorAll('.ob-screen').forEach(function(s) {
+    s.classList.remove('active');
+  });
+  const target = document.getElementById(id);
+  if (target) {
+    target.classList.add('active');
+    target.scrollTop = 0;
+  }
+
+  // Show Android one-tap button if prompt available
+  if (id === 'ob-android' && _androidInstallPrompt) {
+    const promptEl = document.getElementById('ob-android-prompt');
+    if (promptEl) promptEl.style.display = 'block';
+  }
+
+  // Check if running as standalone when navigating to iOS guide
+  if (id === 'ob-ios') {
+    const isStandalone = window.navigator.standalone === true
+      || window.matchMedia('(display-mode: standalone)').matches;
+    if (isStandalone) {
+      const checkEl = document.getElementById('ob-ios-check');
+      if (checkEl) checkEl.classList.add('visible');
+    }
+  }
+}
+
+function dismissOnboarding() {
+  try { localStorage.setItem('fp_onboarded', '1'); } catch(e) {}
+  const overlay = document.getElementById('onboarding-overlay');
+  if (overlay) {
+    overlay.style.transition = 'opacity 0.35s ease';
+    overlay.style.opacity = '0';
+    setTimeout(function() { overlay.classList.add('hidden'); overlay.style.opacity = ''; overlay.style.transition = ''; }, 350);
+  }
+}
+
+function openInstallGuide() {
+  const overlay = document.getElementById('onboarding-overlay');
+  if (!overlay) return;
+  overlay.classList.remove('hidden');
+  // Detect platform
+  const ua = navigator.userAgent || '';
+  const isIOS = /iP(hone|ad|od)/.test(ua);
+  showObScreen(isIOS ? 'ob-ios' : 'ob-android');
+}
+
+async function triggerAndroidInstall() {
+  if (!_androidInstallPrompt) return;
+  const btn = document.getElementById('ob-android-install-btn');
+  if (btn) btn.disabled = true;
+  try {
+    await _androidInstallPrompt.prompt();
+    const choice = await _androidInstallPrompt.userChoice;
+    _androidInstallPrompt = null;
+    if (choice.outcome === 'accepted') {
+      try { localStorage.setItem('fp_installed', '1'); } catch(e) {}
+      setTimeout(dismissOnboarding, 600);
+    } else {
+      if (btn) btn.disabled = false;
+    }
+  } catch(e) {
+    if (btn) btn.disabled = false;
+  }
+}
+
 /* ── BOOT: restore state on load ── */
 window.addEventListener('DOMContentLoaded', () => {
   loadTheme();
   initChips();
   surveyUpdateUI(); // init step dots, progress, buttons
+  initOnboarding();
 
   // Pre-warm Railway — keep pinging until server responds, so it's ready by Generate
   (function warmUp() {
