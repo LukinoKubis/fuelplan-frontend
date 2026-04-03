@@ -906,6 +906,7 @@ function renderDayPanel(day, summary, isActive) {
           ${ringHtml(day.fat, summary.fat, 'var(--red)', 'Fat')}
         </div>
       </div>
+      ${renderWaterTracker(dayId)}
       <div class="meals-grid">
         ${(day.meals || []).map((meal, mealIdx) => {
           const noteKey = dayId + '-' + mealIdx;
@@ -924,6 +925,14 @@ function renderDayPanel(day, summary, isActive) {
               <span class="badge badge-protein">🥩 ${meal.protein}g protein</span>
               <span class="badge badge-kcal">🔥 ${meal.kcal} kcal</span>
             </div>
+            ${(function() {
+              const p = (meal.protein || 0) * 4;
+              const c = (meal.carbs || 0) * 4;
+              const f = (meal.fat || 0) * 9;
+              const tot = p + c + f || 1;
+              const pp = Math.round(p/tot*100), cp = Math.round(c/tot*100), fp = 100 - pp - cp;
+              return `<div class="meal-macro-bar"><div class="mmb-p" style="width:${pp}%"></div><div class="mmb-c" style="width:${cp}%"></div><div class="mmb-f" style="width:${fp}%"></div></div>`;
+            })()}
             <div class="meal-ingredients">${escHtml(meal.ingredients)}</div>
             ${mealAnnotations[noteKey] ? `<div class="meal-note-text" id="mnote-text-${dayId}-${mealIdx}">${escHtml(mealAnnotations[noteKey])}</div>` : ''}
             <div class="meal-note-editor" id="mnote-editor-${dayId}-${mealIdx}" style="display:none">
@@ -944,6 +953,12 @@ function renderDayPanel(day, summary, isActive) {
           </div>
           `;
         }).join('')}
+      </div>
+      <div class="day-regen-row">
+        <button class="day-regen-btn" onclick="regenerateDay('${dayId}')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.36"/></svg>
+          Regenerate ${day.day}
+        </button>
       </div>
     </div>
   `;
@@ -2616,7 +2631,7 @@ function renderWeekGlance() {
   const trainingDays = profile.trainingDayIds || [];
   const days = planData.days || [];
   const targetKcal = planData.summary.kcal || 1;
-  const dayAbbrs = { monday:'M', tuesday:'T', wednesday:'W', thursday:'T', friday:'F', saturday:'S', sunday:'S' };
+  const dayAbbrs = { monday:'Mo', tuesday:'Tu', wednesday:'We', thursday:'Th', friday:'Fr', saturday:'Sa', sunday:'Su' };
 
   const glance = document.createElement('div');
   glance.id = 'week-glance';
@@ -3011,4 +3026,123 @@ function cancelPrepTimer(i) {
   var label = document.getElementById('ptimer-label-' + i);
   if (btn) btn.classList.remove('pt-timer-running', 'pt-timer-done');
   if (label) label.textContent = 'Start timer';
+}
+
+/* ═══════════════════════════════════════════════════
+   WATER TRACKER
+═══════════════════════════════════════════════════ */
+var WATER_GOAL = 8; // glasses per day
+
+function renderWaterTracker(dayId) {
+  var water = (MEM.load('fp_water') || {})[dayId] || 0;
+  var glasses = [];
+  for (var i = 0; i < WATER_GOAL; i++) {
+    var filled = i < water;
+    glasses.push(`<button class="water-glass${filled ? ' filled' : ''}" onclick="setWater('${dayId}',${i + 1})" title="${i + 1} glass${i ? 'es' : ''}">
+      <svg width="16" height="20" viewBox="0 0 16 20" fill="${filled ? 'var(--blue)' : 'none'}" stroke="${filled ? 'var(--blue)' : 'var(--border2)'}" stroke-width="1.5">
+        <path d="M3 2 L1 6 L1 17 Q1 19 3 19 L13 19 Q15 19 15 17 L15 6 L13 2 Z"/>
+        <line x1="1" y1="8" x2="15" y2="8" stroke-width="1" opacity="0.4"/>
+      </svg>
+    </button>`);
+  }
+  return `<div class="water-tracker" id="water-${dayId}">
+    <span class="water-label">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--blue)" stroke="none"><path d="M12 2C6 8 4 12 4 15a8 8 0 0 0 16 0c0-3-2-7-8-13z"/></svg>
+      ${water}/${WATER_GOAL} glasses
+    </span>
+    <div class="water-glasses">${glasses.join('')}</div>
+    ${water > 0 ? `<button class="water-reset" onclick="setWater('${dayId}',0)">reset</button>` : ''}
+  </div>`;
+}
+
+function setWater(dayId, count) {
+  haptic('light');
+  var water = MEM.load('fp_water') || {};
+  // Toggle: if tapping the last filled glass, reduce by 1
+  if (count === water[dayId]) count = count - 1;
+  if (count <= 0) delete water[dayId]; else water[dayId] = count;
+  MEM.save('fp_water', water);
+  // Re-render just the water tracker
+  var el = document.getElementById('water-' + dayId);
+  if (el) {
+    var tmp = document.createElement('div');
+    tmp.innerHTML = renderWaterTracker(dayId);
+    el.parentNode.replaceChild(tmp.firstElementChild, el);
+  }
+  if (count >= WATER_GOAL) showToast('Daily water goal hit!');
+}
+
+/* ═══════════════════════════════════════════════════
+   REGENERATE SINGLE DAY
+═══════════════════════════════════════════════════ */
+async function regenerateDay(dayId) {
+  if (!planData) return;
+  const code = (localStorage.getItem('fp_apikey') || '').toUpperCase();
+  if (!code) { showToast('No activation code found'); return; }
+
+  haptic('medium');
+  const btn = document.querySelector(`#panel-${dayId} .day-regen-btn`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Regenerating…'; }
+
+  const s = planData.summary;
+  const dayName = dayId.charAt(0).toUpperCase() + dayId.slice(1);
+  const profile = MEM.load('fp_profile') || {};
+  const dietLine = profile.dietPref && profile.dietPref !== 'none' ? 'Diet: ' + profile.dietPref + '.' : '';
+  const dislikedLine = profile.dislikedFoods ? 'Avoid: ' + profile.dislikedFoods + '.' : '';
+
+  const prompt = `Regenerate ${dayName}'s meals only. Daily targets: ${s.kcal} kcal, ${s.protein}g protein, ${s.carbs}g carbs, ${s.fat}g fat. ${dietLine} ${dislikedLine} Return ONLY a JSON object for one day (no markdown): {"day":"${dayName}","kcal":${s.kcal},"protein":${s.protein},"carbs":${s.carbs},"fat":${s.fat},"meals":[{"time":"Breakfast 7:00","name":"...","protein":0,"carbs":0,"fat":0,"kcal":0,"ingredients":"..."},{"time":"Lunch 13:00","name":"...","protein":0,"carbs":0,"fat":0,"kcal":0,"ingredients":"..."},{"time":"Dinner 19:30","name":"...","protein":0,"carbs":0,"fat":0,"kcal":0,"ingredients":"..."},{"time":"Snack 16:00","name":"...","protein":0,"carbs":0,"fat":0,"kcal":0,"ingredients":"..."}]}`;
+
+  try {
+    const res = await fetch(API_BASE + '/api/claude/suggest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        activationCode: code,
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1200,
+        system: 'You are a sports nutritionist. Return ONLY valid JSON, no markdown.',
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!res.ok) throw new Error('API error ' + res.status);
+    const data = await res.json();
+    const rawText = (data.content && data.content[0]) ? data.content[0].text : '';
+    const cleaned = rawText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+    let dayObj;
+    try {
+      dayObj = JSON.parse(cleaned);
+    } catch {
+      const m = cleaned.match(/\{[\s\S]*\}/);
+      if (m) dayObj = JSON.parse(m[0]); else throw new Error('No JSON found');
+    }
+
+    if (!dayObj.meals || !Array.isArray(dayObj.meals)) throw new Error('Invalid day JSON');
+
+    // Update planData
+    const idx = planData.days.findIndex(d => d.day.toLowerCase() === dayId);
+    if (idx !== -1) {
+      planData.days[idx] = { ...planData.days[idx], ...dayObj };
+      MEM.save('fp_plan', planData);
+    }
+
+    // Re-render just this day panel
+    const oldPanel = document.getElementById('panel-' + dayId);
+    if (oldPanel) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = renderDayPanel(planData.days[idx], planData.summary, true);
+      const newPanel = tmp.firstElementChild;
+      oldPanel.parentNode.replaceChild(newPanel, oldPanel);
+      setTimeout(function() { animateRings(newPanel); }, 80);
+    }
+    // Refresh week glance bars
+    renderWeekGlance();
+    renderWeekStats();
+    showToast(dayName + ' regenerated!');
+    haptic('success');
+
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Regenerate ' + dayName; }
+    showToast('Failed to regenerate — try again');
+  }
 }

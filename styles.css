@@ -3008,3 +3008,92 @@ body.light .action-toast { background: #fff; border-color: #e0e4ef; box-shadow: 
   color: var(--lime);
   background: rgba(200,245,66,0.1);
 }
+
+/* ═══════════════════════════════════════════════════
+   MACRO COMPOSITION BAR
+═══════════════════════════════════════════════════ */
+.meal-macro-bar {
+  display: flex;
+  height: 3px;
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 6px 0 4px;
+  gap: 1px;
+}
+.mmb-p { background: var(--blue); }
+.mmb-c { background: var(--orange); }
+.mmb-f { background: var(--red); }
+
+/* ═══════════════════════════════════════════════════
+   WATER TRACKER
+═══════════════════════════════════════════════════ */
+.water-tracker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px 4px;
+  flex-wrap: wrap;
+}
+.water-label {
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 72px;
+  font-weight: 600;
+}
+.water-glasses {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+.water-glass {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  transition: transform 0.1s;
+  display: flex;
+  align-items: center;
+}
+.water-glass:active { transform: scale(0.9); }
+.water-glass.filled svg { filter: drop-shadow(0 0 4px rgba(87,169,255,0.4)); }
+.water-reset {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 10px;
+  cursor: pointer;
+  padding: 2px 4px;
+  font-family: inherit;
+  opacity: 0.7;
+}
+.water-reset:hover { opacity: 1; color: var(--fg); }
+
+/* ═══════════════════════════════════════════════════
+   REGENERATE DAY BUTTON
+═══════════════════════════════════════════════════ */
+.day-regen-row {
+  display: flex;
+  justify-content: center;
+  padding: 8px 16px 16px;
+}
+.day-regen-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Figtree', sans-serif;
+  padding: 8px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: border-color 0.15s, color 0.15s;
+}
+.day-regen-btn:hover { border-color: var(--lime); color: var(--lime); }
+.day-regen-btn:disabled { opacity: 0.5; cursor: not-allowed; }
