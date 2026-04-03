@@ -1070,6 +1070,7 @@ function renderPlan(plan, userName, isRestoring, planName) {
   window._carouselIndex = Math.max(0, window._carouselDays.indexOf(savedDayTab));
 
   renderWeekGlance();
+  renderTodaySnapshot();
   renderWeekStats();
   renderCarousel();
 
@@ -3267,6 +3268,71 @@ function setGroceryView(mode) {
 function toggleShopAisle(gi) { toggleShopItem(gi); }
 
 /* ═══════════════════════════════════════════════════
+   TODAY SNAPSHOT CARD
+═══════════════════════════════════════════════════ */
+function renderTodaySnapshot() {
+  var section = document.getElementById('section-week');
+  if (!section || !planData) return;
+  var old = document.getElementById('today-snapshot');
+  if (old) old.remove();
+
+  var todayDow = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][new Date().getDay()];
+  var todayObj = planData.days.find(function(d) { return d.day.toLowerCase() === todayDow; });
+  if (!todayObj) return; // plan doesn't include today
+
+  var eaten = MEM.load('fp_eaten') || {};
+  var meals = todayObj.meals || [];
+  var eatenCount = meals.filter(function(_, i) { return eaten[todayDow + '-' + i]; }).length;
+  var eatenKcal = meals.reduce(function(s, m, i) { return s + (eaten[todayDow + '-' + i] ? (parseInt(m.kcal) || 0) : 0); }, 0);
+  var target = planData.summary.kcal || 1;
+  var remaining = Math.max(0, target - eatenKcal);
+  var pct = Math.min(100, Math.round(eatenKcal / target * 100));
+
+  var nextMeal = null;
+  var nextIdx = getNextMealIdx(meals);
+  if (nextIdx !== -1 && !eaten[todayDow + '-' + nextIdx]) {
+    nextMeal = meals[nextIdx];
+  }
+
+  var allEaten = eatenCount === meals.length && meals.length > 0;
+  var dateStr = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+
+  var nextMealHtml = allEaten
+    ? '<div style="color:var(--lime);font-weight:700;font-size:13px">All meals logged today!</div>'
+    : nextMeal
+      ? '<div style="font-size:11px;color:var(--muted);margin-bottom:2px">Next up</div><div style="font-weight:700;font-size:13px;margin-bottom:1px">' + escHtml(nextMeal.name) + '</div><div style="font-size:11px;color:var(--muted)">' + escHtml(nextMeal.time) + ' · ' + nextMeal.kcal + ' kcal</div>'
+      : '<div style="font-size:12px;color:var(--muted)">No upcoming meals today</div>';
+
+  var card = document.createElement('div');
+  card.id = 'today-snapshot';
+  card.onclick = function() { switchDayTab(todayDow); };
+  card.style.cssText = 'margin:8px 16px 0;background:var(--card);border:1.5px solid var(--border);border-radius:16px;padding:14px 16px;cursor:pointer;';
+  card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">'
+    + '<div>'
+      + '<div style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:0.06em;text-transform:uppercase">Today</div>'
+      + '<div style="font-family:\'Syne\',sans-serif;font-weight:800;font-size:15px">' + escHtml(new Date().toLocaleDateString(undefined, { weekday: 'long' })) + '</div>'
+    + '</div>'
+    + '<div style="text-align:right">'
+      + '<div style="font-size:18px;font-family:\'Syne\',sans-serif;font-weight:800;color:var(--lime)">' + pct + '%</div>'
+      + '<div style="font-size:10px;color:var(--muted)">' + eatenKcal + '/' + target + ' kcal</div>'
+    + '</div>'
+  + '</div>'
+  + '<div style="height:4px;background:var(--bg2);border-radius:2px;margin-bottom:12px;overflow:hidden">'
+    + '<div style="height:100%;width:' + pct + '%;background:var(--lime);border-radius:2px;transition:width 0.4s ease"></div>'
+  + '</div>'
+  + nextMealHtml;
+
+  // Insert before day-strip-wrap (first child of section-week), after week-glance
+  var glance = document.getElementById('week-glance');
+  var stripWrap = document.getElementById('day-strip-wrap');
+  if (glance && glance.nextSibling) {
+    section.insertBefore(card, glance.nextSibling);
+  } else if (stripWrap) {
+    section.insertBefore(card, stripWrap);
+  }
+}
+
+/* ═══════════════════════════════════════════════════
    FEATURE 4: WEEK AT A GLANCE
 ═══════════════════════════════════════════════════ */
 function renderWeekGlance() {
@@ -4052,8 +4118,9 @@ function toggleMealEaten(dayId, mealIdx) {
     showToast('All meals logged for ' + dayObj.day + '!');
   }
 
-  // Refresh week stats (streak might change)
+  // Refresh week stats (streak might change) and today snapshot
   renderWeekStats();
+  renderTodaySnapshot();
 }
 
 /* ═══════════════════════════════════════════════════
