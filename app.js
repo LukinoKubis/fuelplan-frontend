@@ -160,6 +160,7 @@ window.addEventListener('DOMContentLoaded', () => {
   initChips();
   surveyUpdateUI(); // init step dots, progress, buttons
   initOnboarding();
+  handlePaymentReturn();
 
   // Pre-warm Railway — keep pinging until server responds, so it's ready by Generate
   (function warmUp() {
@@ -742,9 +743,9 @@ async function fetchPlansRemaining(code) {
     }
 
     // Low plan warnings — only when count first drops to that level
-    if (prev > 3 && remaining === 3) showToast('Only 3 plan generations left on your code');
-    if (prev > 1 && remaining === 1) showToast('Last plan generation remaining!');
-    if (prev > 0 && remaining === 0) showToast('No generations left — contact us to top up');
+    if (prev > 3 && remaining === 3) showToastWithAction('Only 3 plans left', 'Top up', openTopup);
+    if (prev > 1 && remaining === 1) showToastWithAction('Last plan left!', 'Top up', openTopup);
+    if (prev > 0 && remaining === 0) showToastWithAction('No plans left', 'Top up', openTopup);
   } catch (e) { /* non-critical */ }
 }
 
@@ -1937,6 +1938,84 @@ function initSettingsDrag() {
   handle.addEventListener('mousedown', onStart);
   window.addEventListener('mousemove', onMove);
   window.addEventListener('mouseup', onEnd);
+}
+
+/* ═══════════════════════════════════════════════════
+   TOP-UP / STRIPE CHECKOUT
+═══════════════════════════════════════════════════ */
+const TOPUP_PRICES = {
+  PRICE_5:  'price_1TI6wY2HAJ60ePPMTSjsd0Gw',
+  PRICE_10: 'price_1TI6x72HAJ60ePPMMOAjkxNL',
+  PRICE_20: 'price_1TI6xp2HAJ60ePPMMb6SgLUt',
+};
+
+function openTopup() {
+  const overlay = document.getElementById('topup-overlay');
+  const modal = document.getElementById('topup-modal');
+  if (!overlay || !modal) return;
+  // Reset state
+  document.getElementById('topup-plans').style.display = '';
+  document.getElementById('topup-loading').style.display = 'none';
+  overlay.classList.add('open');
+  modal.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeTopup() {
+  const overlay = document.getElementById('topup-overlay');
+  const modal = document.getElementById('topup-modal');
+  if (overlay) overlay.classList.remove('open');
+  if (modal) modal.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+async function startCheckout(planKey) {
+  const priceId = TOPUP_PRICES[planKey];
+  if (!priceId) return;
+  const code = (localStorage.getItem('fp_apikey') || '').toUpperCase();
+  if (!code) { showToast('No activation code found'); return; }
+
+  // Show loading state
+  document.getElementById('topup-plans').style.display = 'none';
+  document.getElementById('topup-loading').style.display = 'block';
+
+  try {
+    const res = await fetch(API_BASE + '/api/create-checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ activationCode: code, priceId })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.url) throw new Error(data.error || 'Checkout failed');
+    window.location.href = data.url;
+  } catch (err) {
+    document.getElementById('topup-plans').style.display = '';
+    document.getElementById('topup-loading').style.display = 'none';
+    showToast('Could not start checkout — try again');
+  }
+}
+
+// Handle return from Stripe (success or cancel)
+function handlePaymentReturn() {
+  const params = new URLSearchParams(window.location.search);
+  const status = params.get('payment');
+  if (!status) return;
+
+  // Clean URL without reload
+  window.history.replaceState({}, '', window.location.pathname);
+
+  if (status === 'success') {
+    haptic('success');
+    // Poll for updated credit count (webhook fires async)
+    const code = localStorage.getItem('fp_apikey');
+    if (code) {
+      setTimeout(function() { fetchPlansRemaining(code); }, 1500);
+      setTimeout(function() { fetchPlansRemaining(code); }, 4000);
+    }
+    showToast('Payment successful — credits being added!');
+  } else if (status === 'cancelled') {
+    showToast('Checkout cancelled');
+  }
 }
 
 /* ═══════════════ CONFIRM MODAL ═══════════════ */
