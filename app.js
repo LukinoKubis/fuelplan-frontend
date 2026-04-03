@@ -217,6 +217,7 @@ function saveProfile() {
     cuisines: getChipValues('cuisine-group'),
     goalOffset: getGoalOffset(),
     goalMode: _goalMode,
+    goalWeeklyRate: _goalWeeklyRate,
     goalWeight: (document.getElementById('c-goal-weight') || {}).value || '',
     goalDate: (document.getElementById('c-goal-date') || {}).value || '',
     weight: document.getElementById('c-weight').value,
@@ -274,10 +275,15 @@ function restoreProfile() {
   // goal mode and target weight
   if (p.goalMode === 'target') {
     _goalMode = p.goalMode;
+    if (p.goalWeeklyRate) _goalWeeklyRate = p.goalWeeklyRate;
     var gwEl = document.getElementById('c-goal-weight');
     var gdEl = document.getElementById('c-goal-date');
     if (gwEl && p.goalWeight) gwEl.value = p.goalWeight;
     if (gdEl && p.goalDate) gdEl.value = p.goalDate;
+    // Sync pace buttons
+    document.querySelectorAll('.pace-btn').forEach(function(b) {
+      b.classList.toggle('active', parseFloat(b.dataset.rate) === _goalWeeklyRate);
+    });
     setGoalMode('target');
   } else if (p.mode === 'calc') {
     calcMacros();
@@ -483,6 +489,15 @@ function getGoalOffset() {
 }
 
 var _goalMode = 'preset';
+var _goalWeeklyRate = 0.5; // kg/week (positive = loss)
+
+function setPace(rate) {
+  _goalWeeklyRate = rate;
+  document.querySelectorAll('.pace-btn').forEach(function(b) {
+    b.classList.toggle('active', parseFloat(b.dataset.rate) === rate);
+  });
+  calcGoalWeight();
+}
 
 function setGoalMode(mode) {
   _goalMode = mode;
@@ -505,58 +520,62 @@ function setGoalMode(mode) {
 function calcGoalWeight() {
   var weight = parseFloat(document.getElementById('c-weight').value);
   var goalWeight = parseFloat(document.getElementById('c-goal-weight').value);
-  var goalDate = document.getElementById('c-goal-date').value;
   var fb = document.getElementById('goal-weight-feedback');
   if (!fb) return;
-  if (!weight || !goalWeight || !goalDate) {
+  if (!weight || !goalWeight) {
     fb.innerHTML = '';
     calcMacros(0);
     return;
   }
-  var weeksAway = (new Date(goalDate).getTime() - Date.now()) / (7 * 24 * 3600 * 1000);
-  if (weeksAway <= 0) {
-    fb.innerHTML = '<div class="gw-warning danger">Pick a future date.</div>';
-    return;
-  }
+
   var totalChange = weight - goalWeight; // positive = want to lose
-  var weeklyRate = totalChange / weeksAway; // kg/week (positive = loss)
-  var dailyDiff = weeklyRate * 7700 / 7; // kcal/day deficit (positive = deficit needed)
+  var rate = _goalWeeklyRate; // kg/week chosen by user
+  // Direction: if losing weight → deficit (positive), if gaining → surplus (negative)
+  var effectiveRate = totalChange >= 0 ? Math.abs(rate) : -Math.abs(rate);
+  var weeksNeeded = totalChange !== 0 ? Math.abs(totalChange) / Math.abs(effectiveRate) : 0;
+  var dailyDiff = effectiveRate * 7700 / 7; // positive = deficit
 
-  var WARN_KG = 0.75;    // start warning
-  var INTENSE_KG = 1.0;  // intense — still allowed
-  var MAX_KG = 1.5;      // hard cap
+  // Compute projected end date
+  var projDate = new Date();
+  projDate.setDate(projDate.getDate() + Math.ceil(weeksNeeded * 7));
+  var projDateStr = projDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 
-  var warningHtml = '';
+  // Save projected date to hidden input (for profile compatibility)
+  var gdEl = document.getElementById('c-goal-date');
+  if (gdEl) gdEl.value = projDate.toISOString().slice(0, 10);
+
+  var MAX_KG = 1.5;
   var cappedDiff = dailyDiff;
+  var warningHtml = '';
 
-  if (totalChange > 0) { // losing weight
-    if (weeklyRate > MAX_KG) {
+  if (totalChange === 0) {
+    warningHtml = '<div class="gw-warning ok">✓ Already at goal weight! Plan will be set to maintenance.</div>';
+    cappedDiff = 0;
+  } else if (totalChange > 0) { // losing weight
+    if (rate > MAX_KG) {
       cappedDiff = MAX_KG * 7700 / 7;
-      warningHtml = '<div class="gw-warning danger">⚠️ <strong>Dangerous rate</strong> — ' + weeklyRate.toFixed(2) + 'kg/week far exceeds safe limits. Hard-capped at ' + MAX_KG + 'kg/week. Please work with a doctor or registered dietitian before attempting this.</div>';
-    } else if (weeklyRate > INTENSE_KG) {
-      warningHtml = '<div class="gw-warning warn">⚠️ <strong>Very intense</strong> — ' + weeklyRate.toFixed(2) + 'kg/week. Recommended max is ~1kg/week. Keep protein at 2.5g+/kg of body weight and monitor energy levels closely.</div>';
-    } else if (weeklyRate > WARN_KG) {
-      warningHtml = '<div class="gw-warning info">ℹ️ <strong>Aggressive cut</strong> — ' + weeklyRate.toFixed(2) + 'kg/week. Manageable with high protein and consistent training. Monitor how you feel.</div>';
-    } else if (weeklyRate > 0) {
-      warningHtml = '<div class="gw-warning ok">✓ <strong>Sustainable pace</strong> — ' + weeklyRate.toFixed(2) + 'kg/week. Safe and effective rate for fat loss while preserving muscle.</div>';
-    }
-  } else if (totalChange < 0) { // gaining weight
-    var gainRate = -weeklyRate;
-    if (gainRate > 0.5) {
-      warningHtml = '<div class="gw-warning info">ℹ️ ' + gainRate.toFixed(2) + 'kg/week gain — expect some fat alongside muscle. Ideal lean bulk is 0.25–0.5kg/week. Consider slowing down.</div>';
+      warningHtml = '<div class="gw-warning danger">⚠️ 1.5kg/week is the absolute maximum. Extreme deficit — only if medically supervised. High protein (2.5g+/kg) is essential.</div>';
+    } else if (rate >= 1.0) {
+      warningHtml = '<div class="gw-warning warn">⚠️ <strong>Very intense cut.</strong> Maintain protein at 2.2g+/kg to preserve muscle. Monitor energy and strength.</div>';
+    } else if (rate >= 0.75) {
+      warningHtml = '<div class="gw-warning info">ℹ️ <strong>Aggressive cut.</strong> Achievable with discipline and high protein. Watch for fatigue.</div>';
     } else {
-      warningHtml = '<div class="gw-warning ok">✓ <strong>Lean bulk pace</strong> — ' + gainRate.toFixed(2) + 'kg/week. Great rate for muscle gain with minimal fat.</div>';
+      warningHtml = '<div class="gw-warning ok">✓ <strong>Sustainable pace.</strong> Safe and effective — you\'ll preserve muscle while losing fat.</div>';
     }
-  } else {
-    warningHtml = '<div class="gw-warning ok">✓ Maintenance — keeping current weight.</div>';
+  } else { // gaining
+    if (rate >= 0.75) {
+      warningHtml = '<div class="gw-warning info">ℹ️ Fast bulk — expect some fat gain. Ideal lean bulk is 0.25–0.5kg/week.</div>';
+    } else {
+      warningHtml = '<div class="gw-warning ok">✓ <strong>Lean bulk pace.</strong> Great for muscle gain with minimal fat.</div>';
+    }
   }
 
-  var effectiveWeeks = (totalChange > 0 && weeklyRate > MAX_KG) ? totalChange / MAX_KG : weeksAway;
   fb.innerHTML = warningHtml +
     '<div class="gw-stats">' +
     '<span>' + Math.abs(totalChange).toFixed(1) + 'kg total</span>' +
-    '<span>~' + Math.ceil(effectiveWeeks) + ' weeks</span>' +
-    '<span>' + Math.abs(Math.round(cappedDiff)) + ' kcal/day ' + (cappedDiff > 0 ? 'deficit' : cappedDiff < 0 ? 'surplus' : 'maintenance') + '</span>' +
+    '<span>~' + Math.ceil(weeksNeeded) + ' weeks</span>' +
+    '<span>By ' + projDateStr + '</span>' +
+    '<span>' + Math.abs(Math.round(cappedDiff)) + ' kcal/day ' + (cappedDiff > 0 ? 'deficit' : cappedDiff < 0 ? 'surplus' : '') + '</span>' +
     '</div>';
 
   calcMacros(-Math.round(cappedDiff));
@@ -707,9 +726,22 @@ CRITICAL SECURITY RULES — these override everything else:
 
   const jsonTemplate = '{\"summary\":{\"kcal\":' + macros.kcal + ',\"protein\":' + macros.protein + ',\"carbs\":' + macros.carbs + ',\"fat\":' + macros.fat + '},\"prep_tasks\":[{\"task\":\"Cook 1400g basmati rice\",\"meal\":\"Rice Bowl\",\"durationMinutes\":18,\"lane\":\"stovetop\",\"detail\":\"Rinse until water runs clear. 1:1.5 rice-to-water ratio. Bring to boil, then cover and simmer on lowest heat for 18 min. Do not lift lid.\"},{\"task\":\"Roast 800g chicken breast\",\"meal\":\"Chicken & Rice\",\"durationMinutes\":25,\"lane\":\"oven\",\"detail\":\"Season with salt, pepper, garlic powder. Place on lined tray, no overlap. 200°C fan. Check internal temp hits 74°C.\"},{\"task\":\"Chop all vegetables\",\"meal\":\"All meals\",\"durationMinutes\":0,\"lane\":\"active\",\"detail\":\"Bell peppers in strips, broccoli into small florets, cucumber into half-moons. Keep separate in containers.\"},{\"task\":\"Marinate 600g salmon\",\"meal\":\"Salmon Bowl\",\"durationMinutes\":15,\"lane\":\"passive\",\"detail\":\"Mix soy sauce, sesame oil, ginger, garlic. Coat fillets and leave in fridge while rice cooks.\"}],\"days\":[{\"day\":\"Monday\",\"kcal\":0,\"protein\":0,\"carbs\":0,\"fat\":0,\"meals\":[{\"time\":\"Breakfast 7:00\",\"name\":\"...\",\"protein\":0,\"carbs\":0,\"fat\":0,\"kcal\":0,\"ingredients\":\"...\"},{\"time\":\"Lunch 13:00\",\"name\":\"...\",\"protein\":0,\"carbs\":0,\"fat\":0,\"kcal\":0,\"ingredients\":\"...\"},{\"time\":\"Dinner 19:30\",\"name\":\"...\",\"protein\":0,\"carbs\":0,\"fat\":0,\"kcal\":0,\"ingredients\":\"...\"},{\"time\":\"Snack 16:00\",\"name\":\"...\",\"protein\":0,\"carbs\":0,\"fat\":0,\"kcal\":0,\"ingredients\":\"...\"}]}],\"shopping_list\":[{\"category\":\"Proteins\",\"items\":[{\"name\":\"...\",\"qty\":\"...\"}]},{\"category\":\"Carbohydrates\",\"items\":[]},{\"category\":\"Vegetables\",\"items\":[]},{\"category\":\"Dairy & Eggs\",\"items\":[]},{\"category\":\"Pantry & Spices\",\"items\":[]},{\"category\":\"Fruits\",\"items\":[]}]}'
 
+  // Build goal context line
+  var goalContextLine = 'Goal: ' + goalLabel + '.\n';
+  if (_goalMode === 'target') {
+    var _savedProfile = MEM.load('fp_profile') || {};
+    var _gw = parseFloat(_savedProfile.goalWeight);
+    var _rate = _goalWeeklyRate;
+    var _cw = parseFloat(_savedProfile.weight);
+    if (_gw && _cw) {
+      var _dir = _cw > _gw ? 'lose' : 'gain';
+      goalContextLine = 'Goal: ' + _dir + ' from ' + _cw + 'kg to ' + _gw + 'kg at ' + _rate + 'kg/week pace. Daily targets already reflect this — stick precisely to kcal target.\n';
+    }
+  }
+
   const userMessage = '7-day meal prep plan.\n'
     + 'Daily targets: ' + macros.kcal + 'kcal, ' + macros.protein + 'g protein, ' + macros.carbs + 'g carbs, ' + macros.fat + 'g fat.\n'
-    + 'Goal: ' + goalLabel + '.\n'
+    + goalContextLine
     + 'Training: ' + trainingDays + ' days/week, style: ' + trainingStyle + '.\n'
     + 'Cooking skill: ' + cookingSkill + '. Prep time available: ' + prepTime + '.\n'
     + varietyInstruction + '\n'
@@ -781,6 +813,7 @@ CRITICAL SECURITY RULES — these override everything else:
     }
 
     // Reset all per-plan tracking data for fresh plan
+    snapshotWeekToCalendar();
     shopChecks = {};
     MEM.save('fp_shopChecks', shopChecks);
     MEM.remove('fp_eaten');
@@ -1844,6 +1877,7 @@ async function restorePlan(planId) {
     const data = await res.json();
 
     // Clear per-plan tracking data before loading new plan
+    snapshotWeekToCalendar();
     shopChecks = {};
     MEM.save('fp_shopChecks', shopChecks);
     MEM.remove('fp_eaten');
@@ -2667,6 +2701,7 @@ function resetWeekTracking() {
     actionLabel: 'Reset Tracking',
     actionStyle: 'background:var(--blue);color:#fff;',
     onConfirm: function() {
+      snapshotWeekToCalendar();
       MEM.remove('fp_eaten');
       MEM.remove('fp_water');
       if (planData) {
@@ -4545,6 +4580,9 @@ function toggleMealEaten(dayId, mealIdx) {
     }
   }
 
+  // Snapshot to calendar history
+  snapshotTodayToCalendar();
+
   // Refresh week stats (streak might change), glance and today snapshot
   renderWeekGlance();
   renderWeekStats();
@@ -4607,6 +4645,9 @@ function logAllMeals(dayId) {
     haptic('success');
     showToast('All meals logged for ' + dayObj.day + '! 🎉');
   }
+
+  // Snapshot to calendar history
+  snapshotTodayToCalendar();
 
   renderCarousel();
   renderWeekGlance();
@@ -4697,4 +4738,237 @@ function calcStreak() {
   }
 
   return maxStreak;
+}
+
+/* ═══════════════════════════════════════════════════
+   CALENDAR — Daily adherence history
+   fp_calendarLog = { "YYYY-MM-DD": { kcalEaten,
+     proteinEaten, mealsEaten, mealsTotal,
+     targetKcal, targetProtein, water, note } }
+═══════════════════════════════════════════════════ */
+
+function snapshotTodayToCalendar() {
+  if (!planData) return;
+  var now = new Date();
+  var dateKey = now.toISOString().slice(0, 10);
+  var todayDow = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][now.getDay()];
+  var dayObj = planData.days.find(function(d) { return d.day.toLowerCase() === todayDow; });
+  if (!dayObj) return;
+
+  var eaten = MEM.load('fp_eaten') || {};
+  var waterData = MEM.load('fp_water') || {};
+  var notes = MEM.load('fp_dayNotes') || {};
+  var mealsTotal = (dayObj.meals || []).length;
+  var mealsEaten = dayObj.meals.filter(function(_, i) { return eaten[todayDow + '-' + i]; }).length;
+  var kcalEaten = dayObj.meals.reduce(function(s, m, i) { return s + (eaten[todayDow+'-'+i] ? (parseInt(m.kcal)||0) : 0); }, 0);
+  var proteinEaten = dayObj.meals.reduce(function(s, m, i) { return s + (eaten[todayDow+'-'+i] ? (parseInt(m.protein)||0) : 0); }, 0);
+
+  var log = MEM.load('fp_calendarLog') || {};
+  log[dateKey] = {
+    kcalEaten: kcalEaten,
+    proteinEaten: proteinEaten,
+    mealsEaten: mealsEaten,
+    mealsTotal: mealsTotal,
+    targetKcal: dayObj.kcal || (planData.summary && planData.summary.kcal) || 0,
+    targetProtein: dayObj.protein || (planData.summary && planData.summary.protein) || 0,
+    water: waterData[todayDow] || 0,
+    note: notes[todayDow] || ''
+  };
+  MEM.save('fp_calendarLog', log);
+}
+
+// Snapshot the whole current plan week to calendar (called before resetting fp_eaten)
+function snapshotWeekToCalendar() {
+  if (!planData) return;
+  var now = new Date();
+  var todayDow = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][now.getDay()];
+  var planDowOrder = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+  var todayIdx = planDowOrder.indexOf(todayDow);
+
+  // Map each plan day to a real date (relative to today)
+  planData.days.forEach(function(dayObj) {
+    var dow = dayObj.day.toLowerCase();
+    var dowIdx = planDowOrder.indexOf(dow);
+    if (dowIdx < 0) return;
+    var dayOffset = dowIdx - todayIdx;
+    var date = new Date(now);
+    date.setDate(date.getDate() + dayOffset);
+    var dateKey = date.toISOString().slice(0, 10);
+
+    var eaten = MEM.load('fp_eaten') || {};
+    var waterData = MEM.load('fp_water') || {};
+    var notes = MEM.load('fp_dayNotes') || {};
+    var mealsTotal = (dayObj.meals || []).length;
+    var mealsEaten = dayObj.meals.filter(function(_, i) { return eaten[dow + '-' + i]; }).length;
+    if (mealsEaten === 0) return; // nothing logged for this day — skip
+    var kcalEaten = dayObj.meals.reduce(function(s, m, i) { return s + (eaten[dow+'-'+i] ? (parseInt(m.kcal)||0) : 0); }, 0);
+    var proteinEaten = dayObj.meals.reduce(function(s, m, i) { return s + (eaten[dow+'-'+i] ? (parseInt(m.protein)||0) : 0); }, 0);
+
+    var log = MEM.load('fp_calendarLog') || {};
+    log[dateKey] = {
+      kcalEaten: kcalEaten,
+      proteinEaten: proteinEaten,
+      mealsEaten: mealsEaten,
+      mealsTotal: mealsTotal,
+      targetKcal: dayObj.kcal || (planData.summary && planData.summary.kcal) || 0,
+      targetProtein: dayObj.protein || (planData.summary && planData.summary.protein) || 0,
+      water: waterData[dow] || 0,
+      note: notes[dow] || ''
+    };
+    MEM.save('fp_calendarLog', log);
+  });
+}
+
+var _calendarMonth = null;
+
+function openCalendar() {
+  var modal = document.getElementById('calendar-modal');
+  var overlay = document.getElementById('calendar-overlay');
+  if (!modal || !overlay) return;
+  haptic('light');
+  var n = new Date();
+  _calendarMonth = { year: n.getFullYear(), month: n.getMonth() };
+  renderCalendarModal();
+  overlay.style.display = 'block';
+  requestAnimationFrame(function() {
+    overlay.classList.add('active');
+    modal.classList.add('active');
+  });
+  document.body.style.overflow = 'hidden';
+}
+
+function closeCalendar() {
+  var modal = document.getElementById('calendar-modal');
+  var overlay = document.getElementById('calendar-overlay');
+  if (overlay) overlay.classList.remove('active');
+  if (modal) modal.classList.remove('active');
+  setTimeout(function() {
+    if (overlay) overlay.style.display = 'none';
+  }, 300);
+  document.body.style.overflow = '';
+  var popup = document.getElementById('cal-day-popup');
+  if (popup) popup.style.display = 'none';
+}
+
+function calNavMonth(delta) {
+  if (!_calendarMonth) return;
+  _calendarMonth.month += delta;
+  if (_calendarMonth.month > 11) { _calendarMonth.month = 0; _calendarMonth.year++; }
+  if (_calendarMonth.month < 0)  { _calendarMonth.month = 11; _calendarMonth.year--; }
+  renderCalendarModal();
+}
+
+function renderCalendarModal() {
+  var grid = document.getElementById('cal-grid');
+  var titleEl = document.getElementById('cal-month-title');
+  if (!grid || !titleEl || !_calendarMonth) return;
+
+  var log = MEM.load('fp_calendarLog') || {};
+  var today = new Date().toISOString().slice(0, 10);
+  var year = _calendarMonth.year;
+  var month = _calendarMonth.month;
+  var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  titleEl.textContent = monthNames[month] + ' ' + year;
+
+  // Monday-first offset
+  var firstDow = new Date(year, month, 1).getDay(); // 0=Sun
+  var startOffset = (firstDow + 6) % 7;
+  var daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  var html = '<div class="cal-day-labels">';
+  ['M','T','W','T','F','S','S'].forEach(function(l) { html += '<div class="cal-day-label">' + l + '</div>'; });
+  html += '</div><div class="cal-grid-cells">';
+
+  for (var i = 0; i < startOffset; i++) html += '<div class="cal-cell cal-empty"></div>';
+
+  for (var d = 1; d <= daysInMonth; d++) {
+    var ds = year + '-' + String(month+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+    var entry = log[ds];
+    var isToday = ds === today;
+    var isFuture = ds > today;
+    var cls = 'cal-cell';
+    var dot = '';
+
+    if (entry && entry.mealsTotal > 0) {
+      var pct = entry.mealsEaten / entry.mealsTotal;
+      if (pct >= 1)        { cls += ' cal-complete'; dot = '<div class="cal-dot cal-dot-complete"></div>'; }
+      else if (pct >= 0.5) { cls += ' cal-partial';  dot = '<div class="cal-dot cal-dot-partial"></div>'; }
+      else                 { cls += ' cal-minimal';  dot = '<div class="cal-dot cal-dot-minimal"></div>'; }
+    } else if (!isFuture && ds < today) {
+      cls += ' cal-no-data';
+    }
+    if (isToday)  cls += ' cal-today';
+    if (isFuture) cls += ' cal-future';
+
+    html += '<div class="' + cls + '" onclick="showCalDayDetail(\'' + ds + '\')">'
+          + '<span class="cal-day-num">' + d + '</span>' + dot + '</div>';
+  }
+  html += '</div>';
+
+  // Month summary strip
+  var prefix = year + '-' + String(month+1).padStart(2,'0') + '-';
+  var loggedDays = Object.keys(log).filter(function(k) { return k.startsWith(prefix); });
+  var completeDays = loggedDays.filter(function(k) { var e=log[k]; return e && e.mealsTotal>0 && e.mealsEaten>=e.mealsTotal; });
+
+  if (loggedDays.length > 0) {
+    var adh = Math.round(completeDays.length / loggedDays.length * 100);
+    var avgK = Math.round(loggedDays.reduce(function(s,k){return s+(log[k].kcalEaten||0);},0) / loggedDays.length);
+    var avgP = Math.round(loggedDays.reduce(function(s,k){return s+(log[k].proteinEaten||0);},0) / loggedDays.length);
+    html += '<div class="cal-month-summary">'
+      + '<div class="cal-summary-stat"><span class="cal-summary-val" style="color:var(--lime)">' + completeDays.length + '</span><span class="cal-summary-label">days complete</span></div>'
+      + '<div class="cal-summary-stat"><span class="cal-summary-val">' + adh + '%</span><span class="cal-summary-label">adherence</span></div>'
+      + '<div class="cal-summary-stat"><span class="cal-summary-val" style="color:var(--orange)">' + avgK + '</span><span class="cal-summary-label">avg kcal</span></div>'
+      + '<div class="cal-summary-stat"><span class="cal-summary-val" style="color:var(--blue)">' + avgP + 'g</span><span class="cal-summary-label">avg protein</span></div>'
+      + '</div>';
+  }
+
+  grid.innerHTML = html;
+  // Hide detail popup on re-render
+  var popup = document.getElementById('cal-day-popup');
+  if (popup) popup.style.display = 'none';
+}
+
+function showCalDayDetail(dateStr) {
+  var log = MEM.load('fp_calendarLog') || {};
+  var entry = log[dateStr];
+  var popup = document.getElementById('cal-day-popup');
+  var content = document.getElementById('cal-popup-content');
+  if (!popup || !content) return;
+
+  var d = new Date(dateStr + 'T12:00:00');
+  var label = d.toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' });
+
+  var html = '<div class="cal-popup-date">' + label + '</div>';
+
+  if (!entry || entry.mealsTotal === 0) {
+    html += '<div style="color:var(--muted);font-size:13px;padding:6px 0 2px">No data logged for this day.</div>';
+  } else {
+    var pct2 = entry.mealsTotal > 0 ? Math.round(entry.mealsEaten / entry.mealsTotal * 100) : 0;
+    var pctColor = pct2 >= 100 ? 'var(--lime)' : pct2 >= 50 ? 'var(--orange)' : 'var(--red)';
+    html += '<div class="cal-popup-stats">'
+      + '<div class="cal-popup-stat"><span class="cal-popup-val" style="color:' + pctColor + '">' + entry.mealsEaten + '/' + entry.mealsTotal + '</span><span class="cal-popup-label">meals</span></div>'
+      + '<div class="cal-popup-stat"><span class="cal-popup-val">' + (entry.kcalEaten||0) + '</span><span class="cal-popup-label">kcal</span></div>'
+      + '<div class="cal-popup-stat"><span class="cal-popup-val">' + (entry.proteinEaten||0) + 'g</span><span class="cal-popup-label">protein</span></div>'
+      + '<div class="cal-popup-stat"><span class="cal-popup-val" style="color:var(--blue)">' + (entry.water||0) + '</span><span class="cal-popup-label">glasses</span></div>'
+      + '</div>';
+
+    if (entry.targetKcal) {
+      var kp = Math.min(100, Math.round((entry.kcalEaten||0) / entry.targetKcal * 100));
+      html += '<div class="cal-popup-bar-row">'
+        + '<div class="cal-popup-bar-label"><span>Calories</span><span>' + (entry.kcalEaten||0) + ' / ' + entry.targetKcal + '</span></div>'
+        + '<div class="cal-mini-bar"><div class="cal-mini-fill" style="width:' + kp + '%;background:var(--lime)"></div></div></div>';
+    }
+    if (entry.targetProtein) {
+      var pp = Math.min(100, Math.round((entry.proteinEaten||0) / entry.targetProtein * 100));
+      html += '<div class="cal-popup-bar-row">'
+        + '<div class="cal-popup-bar-label"><span>Protein</span><span>' + (entry.proteinEaten||0) + 'g / ' + entry.targetProtein + 'g</span></div>'
+        + '<div class="cal-mini-bar"><div class="cal-mini-fill" style="width:' + pp + '%;background:var(--blue)"></div></div></div>';
+    }
+    if (entry.note) {
+      html += '<div class="cal-popup-note">"' + escHtml(entry.note) + '"</div>';
+    }
+  }
+
+  content.innerHTML = html;
+  popup.style.display = 'block';
 }

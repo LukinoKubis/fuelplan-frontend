@@ -539,16 +539,22 @@
 
           <!-- Target Weight Mode -->
           <div id="goal-target-inputs" style="display:none">
-            <div class="grid-2" style="margin-bottom:8px">
-              <div class="field-group" style="margin-bottom:0">
-                <label>Goal Weight (kg)</label>
-                <input type="number" id="c-goal-weight" placeholder="e.g. 75" min="30" max="300" step="0.5" oninput="calcGoalWeight()">
-              </div>
-              <div class="field-group" style="margin-bottom:0">
-                <label>Target date</label>
-                <input type="date" id="c-goal-date" oninput="calcGoalWeight()">
+            <div class="field-group" style="margin-bottom:10px">
+              <label>Goal Weight (kg)</label>
+              <input type="number" id="c-goal-weight" placeholder="e.g. 75" min="30" max="300" step="0.5" oninput="calcGoalWeight()">
+            </div>
+            <div class="field-group" style="margin-bottom:10px">
+              <label>Weekly pace</label>
+              <div class="pace-selector" id="pace-selector">
+                <button class="pace-btn" data-rate="0.25" onclick="setPace(0.25)"><span class="pace-rate">0.25 kg/wk</span><span class="pace-label">Gentle</span></button>
+                <button class="pace-btn active" data-rate="0.5" onclick="setPace(0.5)"><span class="pace-rate">0.5 kg/wk</span><span class="pace-label">Steady</span></button>
+                <button class="pace-btn" data-rate="0.75" onclick="setPace(0.75)"><span class="pace-rate">0.75 kg/wk</span><span class="pace-label">Active</span></button>
+                <button class="pace-btn" data-rate="1.0" onclick="setPace(1.0)"><span class="pace-rate">1.0 kg/wk</span><span class="pace-label">Intense</span></button>
+                <button class="pace-btn" data-rate="1.5" onclick="setPace(1.5)"><span class="pace-rate">1.5 kg/wk</span><span class="pace-label">Max</span></button>
               </div>
             </div>
+            <!-- Hidden date kept for profile save compatibility -->
+            <input type="hidden" id="c-goal-date">
             <div id="goal-weight-feedback"></div>
           </div>
 
@@ -682,6 +688,9 @@
           <svg id="theme-icon-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           <svg id="theme-icon-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
         </button>
+        <button class="btn-settings" onclick="openCalendar()" title="History" style="display:flex;align-items:center;justify-content:center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="8" y2="18"/><line x1="12" y1="18" x2="12" y2="18"/></svg>
+        </button>
         <button class="btn-settings" onclick="sharePlan()" title="Share plan" style="display:flex;align-items:center;justify-content:center">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
         </button>
@@ -745,7 +754,7 @@
     <!-- VERSION FOOTER -->
     <div class="version-footer">
     <svg width="10" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-1px;opacity:0.5"><path d="M13 2L4.5 13.5H11L9 22L19.5 10H13L15 2H13z"/></svg>
-    FUELPLAN &nbsp;·&nbsp; v2.17.0
+    FUELPLAN &nbsp;·&nbsp; v2.18.0
   </div>
   </div><!-- /plan-wrap -->
 
@@ -1073,6 +1082,50 @@
       <div id="wl-history"></div>
     </div>
   </div>
+</div>
+
+<!-- ═══════════════════════ CALENDAR MODAL ═══════════════════════ -->
+<div id="calendar-overlay" onclick="if(event.target===this)closeCalendar()" style="display:none"></div>
+<div id="calendar-modal">
+  <div class="cal-modal-inner">
+    <!-- Header -->
+    <div class="cal-header">
+      <button class="cal-nav-btn" onclick="calNavMonth(-1)" aria-label="Previous month">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div style="text-align:center">
+        <div id="cal-month-title" style="font-family:'Syne',sans-serif;font-weight:800;font-size:17px"></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:1px">Adherence history</div>
+      </div>
+      <button class="cal-nav-btn" onclick="calNavMonth(1)" aria-label="Next month">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+
+    <!-- Legend -->
+    <div class="cal-legend">
+      <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--lime)"></div><span>Complete</span></div>
+      <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--orange)"></div><span>Partial</span></div>
+      <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--red);opacity:0.6"></div><span>Minimal</span></div>
+      <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--border2)"></div><span>No data</span></div>
+    </div>
+
+    <!-- Grid -->
+    <div id="cal-grid"></div>
+
+    <!-- Day detail popup -->
+    <div id="cal-day-popup" style="display:none">
+      <div class="cal-popup-inner">
+        <div id="cal-popup-content"></div>
+        <button class="cal-popup-close" onclick="document.getElementById('cal-day-popup').style.display='none'">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Close button -->
+  <button class="cal-close-btn" onclick="closeCalendar()" aria-label="Close calendar">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
 </div>
 
 <!-- JavaScript -->
