@@ -1063,6 +1063,7 @@ function renderPlan(plan, userName, isRestoring, planName) {
   var haulScale = MEM.load('fp_haulScale') || 1;
   var groceryView = MEM.load('fp_groceryView') || 'list';
   document.getElementById('shopping-content').innerHTML = renderShoppingPanel(plan.shopping_list, true, haulScale, groceryView);
+  updateShopProgress();
   // Sync scaler buttons
   document.querySelectorAll('#haul-scaler .scaler-btn').forEach(function(b) {
     b.classList.toggle('active', parseInt(b.dataset.scale) === haulScale);
@@ -1325,6 +1326,26 @@ function toggleShopItem(gi) {
   el.classList.toggle('checked', chk.checked);
   shopChecks[gi] = chk.checked;
   MEM.save('fp_shopChecks', shopChecks);
+  updateShopProgress();
+}
+
+function updateShopProgress() {
+  var plan = planData || MEM.load('fp_plan');
+  if (!plan) return;
+  var total = 0;
+  (plan.shopping_list || []).forEach(function(cat) { total += (cat.items || []).length; });
+  if (!total) return;
+  var checked = Object.values(shopChecks).filter(Boolean).length;
+  var pct = Math.round(checked / total * 100);
+  var bar = document.getElementById('shop-progress-bar');
+  var fill = document.getElementById('shop-progress-fill');
+  var text = document.getElementById('shop-progress-text');
+  var pctEl = document.getElementById('shop-progress-pct');
+  if (bar) bar.style.display = total > 0 ? 'block' : 'none';
+  if (fill) fill.style.width = pct + '%';
+  if (text) text.textContent = checked + ' / ' + total + ' items';
+  if (pctEl) { pctEl.textContent = pct + '%'; pctEl.style.color = pct === 100 ? 'var(--lime)' : 'var(--muted)'; }
+  if (pct === 100 && checked > 0) showToast('Shopping complete!');
 }
 
 // Keep old names as aliases so any remaining inline references still work
@@ -3152,6 +3173,7 @@ function setHaulScale(n) {
   if (planData) {
     var groceryView = MEM.load('fp_groceryView') || 'list';
     document.getElementById('shopping-content').innerHTML = renderShoppingPanel(planData.shopping_list, true, n, groceryView);
+    updateShopProgress();
   }
 }
 
@@ -3165,6 +3187,7 @@ function setGroceryView(mode) {
   if (planData) {
     var scale = MEM.load('fp_haulScale') || 1;
     document.getElementById('shopping-content').innerHTML = renderShoppingPanel(planData.shopping_list, true, scale, mode);
+    updateShopProgress();
   }
 }
 
@@ -3636,6 +3659,7 @@ function clearCheckedShopItems() {
     var scale = MEM.load('fp_haulScale') || 1;
     var groceryView = MEM.load('fp_groceryView') || 'list';
     document.getElementById('shopping-content').innerHTML = renderShoppingPanel(planData.shopping_list, true, scale, groceryView);
+    updateShopProgress();
   }
   showToast('Cleared checked items');
 }
