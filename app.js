@@ -2205,6 +2205,9 @@ function openSettings() {
   renderTrainingDayPills();
   renderWeightLogPreview();
   renderFavoritesPreview();
+  // Sync water goal display
+  var wgd = document.getElementById('water-goal-display');
+  if (wgd) wgd.textContent = WATER_GOAL;
 }
 
 function closeSettings() {
@@ -4095,8 +4098,9 @@ function buildNutritionalInsightsCard() {
   var fPct2 = 100 - pPct2 - cPct2;
   insights.push({ icon: '⚖', label: 'Macro split', sub: pPct2 + '% protein · ' + cPct2 + '% carbs · ' + fPct2 + '% fat', col: 'var(--muted)' });
 
-  var rows = insights.map(function(ins) {
-    return '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">'
+  var rows = insights.map(function(ins, i) {
+    var isLast = i === insights.length - 1;
+    return '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0' + (!isLast ? ';border-bottom:1px solid var(--border)' : '') + '">'
       + '<span style="font-size:16px;line-height:1;margin-top:1px">' + ins.icon + '</span>'
       + '<div style="flex:1;min-width:0">'
         + '<div style="font-size:13px;font-weight:700;color:' + ins.col + ';margin-bottom:1px">' + ins.label + '</div>'
@@ -4107,7 +4111,7 @@ function buildNutritionalInsightsCard() {
 
   return '<div style="margin:0 16px 20px;background:var(--card);border:1.5px solid var(--border);border-radius:16px;padding:16px">'
     + '<div style="font-family:\'Syne\',sans-serif;font-weight:800;font-size:14px;margin-bottom:4px">Plan Insights</div>'
-    + '<div style="margin-top:4px">' + rows.replace(/border-bottom[^"]+"\s*last-child-no/g, '') + '</div>'
+    + '<div style="margin-top:4px">' + rows + '</div>'
   + '</div>';
 }
 
@@ -4274,7 +4278,24 @@ function cancelPrepTimer(i) {
 /* ═══════════════════════════════════════════════════
    WATER TRACKER
 ═══════════════════════════════════════════════════ */
-var WATER_GOAL = 8; // glasses per day
+var WATER_GOAL = parseInt(localStorage.getItem('fp_waterGoal') || '8', 10) || 8; // glasses per day
+
+function adjustWaterGoal(delta) {
+  WATER_GOAL = Math.max(4, Math.min(16, WATER_GOAL + delta));
+  localStorage.setItem('fp_waterGoal', String(WATER_GOAL));
+  var el = document.getElementById('water-goal-display');
+  if (el) el.textContent = WATER_GOAL;
+  // Re-render water trackers for the active day
+  if (planData) {
+    planData.days.forEach(function(d) {
+      var dayId = d.day.toLowerCase();
+      var tracker = document.getElementById('water-tracker-' + dayId);
+      if (tracker) tracker.outerHTML = renderWaterTracker(dayId);
+    });
+  }
+  renderTodaySnapshot();
+  renderWeekStats();
+}
 
 function renderWaterTracker(dayId) {
   var water = (MEM.load('fp_water') || {})[dayId] || 0;

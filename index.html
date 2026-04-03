@@ -745,7 +745,7 @@
     <!-- VERSION FOOTER -->
     <div class="version-footer">
     <svg width="10" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-1px;opacity:0.5"><path d="M13 2L4.5 13.5H11L9 22L19.5 10H13L15 2H13z"/></svg>
-    FUELPLAN &nbsp;·&nbsp; v2.16.0
+    FUELPLAN &nbsp;·&nbsp; v2.17.0
   </div>
   </div><!-- /plan-wrap -->
 
@@ -811,6 +811,19 @@
           <button onclick="openWeightLog()" style="background:var(--lime);color:#0e0f11;border:none;border-radius:8px;font-family:'Syne',sans-serif;font-weight:800;font-size:11px;padding:4px 12px;cursor:pointer;letter-spacing:0.05em">+ Log</button>
         </div>
         <div id="weight-log-preview" style="padding-top:4px"><div class="profile-row"><span class="profile-row-label" style="color:var(--muted)">No weigh-ins yet</span></div></div>
+      </div>
+
+      <!-- Water Goal -->
+      <div class="profile-card">
+        <div class="profile-card-label">Daily Water Goal</div>
+        <div class="profile-row" style="align-items:center">
+          <span class="profile-row-label">Target glasses</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button onclick="adjustWaterGoal(-1)" style="width:28px;height:28px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">−</button>
+            <span id="water-goal-display" style="font-weight:700;font-size:16px;min-width:24px;text-align:center">8</span>
+            <button onclick="adjustWaterGoal(1)" style="width:28px;height:28px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">+</button>
+          </div>
+        </div>
       </div>
 
       <!-- Actions -->
