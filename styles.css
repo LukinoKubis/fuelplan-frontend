@@ -2564,9 +2564,10 @@ body.light .swap-alt-card { background: var(--bg2); border-color: var(--border);
 .meal-card-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 6px;
   margin-bottom: 4px;
 }
+.meal-card-top .meal-time { flex: 1; }
 .meal-swap-btn {
   background: none;
   border: 1px solid var(--border);
@@ -2610,6 +2611,8 @@ body.light .swap-alt-card { background: var(--bg2); border-color: var(--border);
 
 body.light .meal-card-up { background: rgba(200,245,66,0.04); }
 body.light .meal-card-down { background: rgba(255,87,87,0.04); }
+.meal-card-eaten { opacity: 0.65; }
+.meal-card-eaten .meal-name { text-decoration: line-through; text-decoration-color: var(--muted); }
 
 /* ═══════════════════════════════════════════════════
    FEATURE 3: HAUL SCALER
@@ -3113,3 +3116,124 @@ body.light .action-toast { background: #fff; border-color: #e0e4ef; box-shadow: 
   padding: 12px 20px 4px;
 }
 body.light .swap-fav-card { background: rgba(200,245,66,0.06); }
+
+/* ═══════════════════════════════════════════════════
+   MEAL EATEN TRACKER
+═══════════════════════════════════════════════════ */
+.eat-btn {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  border-radius: 20px;
+  border: 1.5px solid rgba(255,255,255,0.12);
+  background: transparent;
+  color: var(--muted);
+  font-family: 'Figtree', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.eat-btn:hover { border-color: var(--lime); color: var(--lime); }
+.eat-btn.eaten {
+  background: rgba(200,245,66,0.15);
+  border-color: var(--lime);
+  color: var(--lime);
+}
+body.light .eat-btn { border-color: rgba(0,0,0,0.15); color: var(--muted); }
+body.light .eat-btn.eaten { background: rgba(120,200,0,0.12); }
+
+.day-eaten-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 20px 0;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.day-eaten-track {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+}
+.day-eaten-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--lime);
+  transition: width 0.4s cubic-bezier(.22,1,.36,1);
+}
+body.light .day-eaten-track { background: rgba(0,0,0,0.08); }
+
+/* ═══════════════════════════════════════════════════
+   MACRO DONUT + STREAK
+═══════════════════════════════════════════════════ */
+#week-macro-row {
+  display: flex;
+  gap: 10px;
+  margin: 0 16px 8px;
+  align-items: stretch;
+}
+#week-donut-card {
+  background: var(--card);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+#week-streak-card {
+  background: var(--card);
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 80px;
+}
+.streak-num {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--lime);
+  line-height: 1;
+}
+.streak-label {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 600;
+  text-align: center;
+  margin-top: 2px;
+}
+.streak-emoji {
+  font-size: 14px;
+  margin-bottom: 1px;
+}
+.donut-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.donut-leg-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg);
+}
+.donut-leg-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.donut-leg-pct { color: var(--muted); font-weight: 400; margin-left: 2px; }
+body.light #week-donut-card,
+body.light #week-streak-card { background: var(--bg2); }

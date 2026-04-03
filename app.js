@@ -881,6 +881,10 @@ function renderDayPanel(day, summary, isActive) {
   const mealAnnotations = MEM.load('fp_mealAnnotations') || {};
   const favorites = MEM.load('fp_favorites') || [];
   const favKeys = favorites.map(f => f.name + '|' + f.kcal);
+  const eaten = MEM.load('fp_eaten') || {};
+  const mealCount = (day.meals || []).length;
+  const eatenCount = (day.meals || []).filter((_, i) => eaten[dayId + '-' + i]).length;
+  const eatenPct = mealCount ? Math.round(eatenCount / mealCount * 100) : 0;
 
   function ringHtml(value, maxVal, color, label) {
     const p = pct(value, maxVal);
@@ -909,15 +913,23 @@ function renderDayPanel(day, summary, isActive) {
         </div>
       </div>
       ${renderWaterTracker(dayId)}
+      <div class="day-eaten-bar" id="eaten-bar-${dayId}">
+        <span id="eaten-count-${dayId}">${eatenCount}/${mealCount} eaten</span>
+        <div class="day-eaten-track"><div class="day-eaten-fill" id="eaten-fill-${dayId}" style="width:${eatenPct}%"></div></div>
+      </div>
       <div class="meals-grid">
         ${(day.meals || []).map((meal, mealIdx) => {
           const noteKey = dayId + '-' + mealIdx;
           const rating = mealNotes[noteKey];
           const ratingClass = rating === 'up' ? ' meal-card-up' : rating === 'down' ? ' meal-card-down' : '';
           return `
-          <div class="meal-card${ratingClass}" id="mcard-${dayId}-${mealIdx}">
+          <div class="meal-card${ratingClass}${eaten[dayId+'-'+mealIdx] ? ' meal-card-eaten' : ''}" id="mcard-${dayId}-${mealIdx}">
             <div class="meal-card-top">
               <div class="meal-time">${escHtml(meal.time)}</div>
+              <button class="eat-btn${eaten[dayId+'-'+mealIdx] ? ' eaten' : ''}" onclick="toggleMealEaten('${dayId}',${mealIdx})" id="eatbtn-${dayId}-${mealIdx}">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                ${eaten[dayId+'-'+mealIdx] ? 'Eaten' : 'Ate it'}
+              </button>
               <button class="meal-swap-btn" onclick="openMealSwap('${dayId}',${mealIdx})" title="Swap this meal">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
               </button>
@@ -2848,8 +2860,11 @@ function renderWeekStats() {
   const section = document.getElementById('section-week');
   if (!section || !planData) return;
 
-  const existing = document.getElementById('week-stats');
-  if (existing) existing.remove();
+  // Remove old
+  ['week-stats', 'week-macro-row'].forEach(function(id) {
+    const el = document.getElementById(id);
+    if (el) el.remove();
+  });
 
   const days = planData.days || [];
   if (!days.length) return;
@@ -2859,6 +2874,8 @@ function renderWeekStats() {
 
   const totalKcal = days.reduce((s, d) => s + (d.kcal || 0), 0);
   const totalProtein = days.reduce((s, d) => s + (d.protein || 0), 0);
+  const totalCarbs = days.reduce((s, d) => s + (d.carbs || 0), 0);
+  const totalFat = days.reduce((s, d) => s + (d.fat || 0), 0);
   const avgKcal = Math.round(totalKcal / days.length);
   const weekTarget = targetKcal * days.length;
   const deficit = weekTarget - totalKcal;
@@ -2868,11 +2885,10 @@ function renderWeekStats() {
   const deficitColor = Math.abs(deficit) < weekTarget * 0.05 ? 'var(--lime)'
     : deficit > 0 ? 'var(--blue)' : 'var(--orange)';
 
-  const avgProteinPct = Math.round((totalProtein / days.length) / targetProtein * 100);
-
-  const el = document.createElement('div');
-  el.id = 'week-stats';
-  el.innerHTML = `
+  // Week stats row
+  const statsEl = document.createElement('div');
+  statsEl.id = 'week-stats';
+  statsEl.innerHTML = `
     <div class="wstat-item">
       <span class="wstat-val">${avgKcal}</span>
       <span class="wstat-label">avg kcal/day</span>
@@ -2887,13 +2903,63 @@ function renderWeekStats() {
     </div>
   `;
 
+  // Macro donut + streak row
+  const pKcal = totalProtein * 4;
+  const cKcal = totalCarbs * 4;
+  const fKcal = totalFat * 9;
+  const totKcal = pKcal + cKcal + fKcal || 1;
+  const pPct = Math.round(pKcal / totKcal * 100);
+  const cPct = Math.round(cKcal / totKcal * 100);
+  const fPct = 100 - pPct - cPct;
+
+  // SVG donut
+  const r = 26, cx = 32, cy = 32, circ = 2 * Math.PI * r;
+  function donutArc(pct, offset, color) {
+    const dash = circ * pct / 100;
+    return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="8"
+      stroke-dasharray="${dash.toFixed(1)} ${(circ - dash).toFixed(1)}"
+      stroke-dashoffset="${(-offset * circ / 100).toFixed(1)}"
+      transform="rotate(-90 ${cx} ${cy})" stroke-linecap="butt"/>`;
+  }
+  const donutSvg = `<svg viewBox="0 0 64 64" width="64" height="64" style="flex-shrink:0">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
+    ${donutArc(pPct, 0, 'var(--blue)')}
+    ${donutArc(cPct, pPct, 'var(--orange)')}
+    ${donutArc(fPct, pPct + cPct, 'var(--red)')}
+  </svg>`;
+
+  const streak = calcStreak();
+  const streakEmoji = streak >= 7 ? '🔥' : streak >= 3 ? '⚡' : streak >= 1 ? '✅' : '—';
+
+  const macroRow = document.createElement('div');
+  macroRow.id = 'week-macro-row';
+  macroRow.innerHTML = `
+    <div id="week-donut-card">
+      ${donutSvg}
+      <div class="donut-legend">
+        <div class="donut-leg-item"><div class="donut-leg-dot" style="background:var(--blue)"></div>Protein <span class="donut-leg-pct">${pPct}%</span></div>
+        <div class="donut-leg-item"><div class="donut-leg-dot" style="background:var(--orange)"></div>Carbs <span class="donut-leg-pct">${cPct}%</span></div>
+        <div class="donut-leg-item"><div class="donut-leg-dot" style="background:var(--red)"></div>Fat <span class="donut-leg-pct">${fPct}%</span></div>
+      </div>
+    </div>
+    <div id="week-streak-card">
+      <div class="streak-emoji">${streakEmoji}</div>
+      <div class="streak-num">${streak}</div>
+      <div class="streak-label">day streak</div>
+    </div>
+  `;
+
   // Insert after week-glance
   const glance = document.getElementById('week-glance');
-  if (glance && glance.nextSibling) {
-    section.insertBefore(el, glance.nextSibling);
+  if (glance) {
+    glance.insertAdjacentElement('afterend', macroRow);
+    macroRow.insertAdjacentElement('afterend', statsEl);
   } else {
     const carousel = section.querySelector('.day-carousel');
-    if (carousel) section.insertBefore(el, carousel);
+    if (carousel) {
+      section.insertBefore(statsEl, carousel);
+      section.insertBefore(macroRow, statsEl);
+    }
   }
 }
 
@@ -3213,4 +3279,84 @@ function toggleFavorite(dayId, mealIdx) {
       if (svg) svg.setAttribute('fill', isFav ? 'currentColor' : 'none');
     }
   }
+}
+
+/* ═══════════════════════════════════════════════════
+   MEAL EATEN TRACKER
+═══════════════════════════════════════════════════ */
+function toggleMealEaten(dayId, mealIdx) {
+  haptic('light');
+  if (!planData) return;
+  const dayObj = planData.days.find(d => d.day.toLowerCase() === dayId);
+  if (!dayObj) return;
+
+  const key = dayId + '-' + mealIdx;
+  const eaten = MEM.load('fp_eaten') || {};
+  const wasEaten = !!eaten[key];
+
+  if (wasEaten) {
+    delete eaten[key];
+  } else {
+    eaten[key] = true;
+  }
+  MEM.save('fp_eaten', eaten);
+
+  // Update button in-place
+  const btn = document.getElementById('eatbtn-' + dayId + '-' + mealIdx);
+  if (btn) {
+    btn.classList.toggle('eaten', !wasEaten);
+    btn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> ${!wasEaten ? 'Eaten' : 'Ate it'}`;
+  }
+
+  // Update card style
+  const card = document.getElementById('mcard-' + dayId + '-' + mealIdx);
+  if (card) card.classList.toggle('meal-card-eaten', !wasEaten);
+
+  // Update eaten bar for this day
+  const mealCount = dayObj.meals.length;
+  const eatenCount = dayObj.meals.filter((_, i) => eaten[dayId + '-' + i]).length;
+  const eatenPct = mealCount ? Math.round(eatenCount / mealCount * 100) : 0;
+  const countEl = document.getElementById('eaten-count-' + dayId);
+  const fillEl = document.getElementById('eaten-fill-' + dayId);
+  if (countEl) countEl.textContent = eatenCount + '/' + mealCount + ' eaten';
+  if (fillEl) fillEl.style.width = eatenPct + '%';
+
+  // Celebrate when all meals eaten
+  if (!wasEaten && eatenCount === mealCount) {
+    haptic('success');
+    showToast('All meals logged for ' + dayObj.day + '!');
+  }
+
+  // Refresh week stats (streak might change)
+  renderWeekStats();
+}
+
+/* ═══════════════════════════════════════════════════
+   STREAK CALCULATOR
+═══════════════════════════════════════════════════ */
+function calcStreak() {
+  if (!planData) return 0;
+  const eaten = MEM.load('fp_eaten') || {};
+  const dayOrder = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+
+  // Build a set of "complete" day IDs
+  const completeDays = new Set();
+  planData.days.forEach(function(dayObj) {
+    const dayId = dayObj.day.toLowerCase();
+    const mealCount = (dayObj.meals || []).length;
+    if (!mealCount) return;
+    const eatenCount = dayObj.meals.filter((_, i) => eaten[dayId + '-' + i]).length;
+    if (eatenCount === mealCount) completeDays.add(dayId);
+  });
+
+  if (!completeDays.size) return 0;
+
+  // Find streak of consecutive complete days in the plan's day order
+  const planDayIds = planData.days.map(d => d.day.toLowerCase());
+  let maxStreak = 0, cur = 0;
+  planDayIds.forEach(function(id) {
+    if (completeDays.has(id)) { cur++; maxStreak = Math.max(maxStreak, cur); }
+    else cur = 0;
+  });
+  return maxStreak;
 }
