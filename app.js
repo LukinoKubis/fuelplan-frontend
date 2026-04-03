@@ -2489,8 +2489,29 @@ function resetShopList() {
   const container = document.getElementById('shopping-content');
   if (container && planData) {
     container.innerHTML = renderShoppingPanel(planData.shopping_list, true);
+    updateShopProgress();
   }
   showToast('Shopping list reset');
+}
+
+function resetWeekTracking() {
+  haptic('medium');
+  showConfirmModal({
+    icon: '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.36"/></svg>',
+    title: 'Reset Week Tracking?',
+    body: 'Clears all eaten meals and water logs. Your plan and weight log are kept.',
+    warning: null,
+    actionLabel: 'Reset Tracking',
+    actionStyle: 'background:var(--blue);color:#fff;',
+    onConfirm: function() {
+      MEM.remove('fp_eaten');
+      MEM.remove('fp_water');
+      if (planData) {
+        renderPlan(planData, MEM.load('fp_userName') || 'Your', true, MEM.load('fp_planName') || '');
+      }
+      showToast('Week tracking reset');
+    }
+  });
 }
 
 function confirmFullReset() {
