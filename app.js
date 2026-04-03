@@ -817,19 +817,26 @@ function renderPlan(plan, userName, isRestoring, planName) {
   window._carouselIndex = Math.max(0, window._carouselDays.indexOf(savedDayTab));
 
   renderWeekGlance();
+  renderWeekStats();
   renderCarousel();
 
   dayTabsContent.innerHTML = days.map(function(d) {
     return renderDayPanel(d, s, d.day.toLowerCase() === savedDayTab);
   }).join('');
 
-  // Shopping section — restore scale
+  // Shopping section — restore scale and view mode
   var haulScale = MEM.load('fp_haulScale') || 1;
-  document.getElementById('shopping-content').innerHTML = renderShoppingPanel(plan.shopping_list, true, haulScale);
+  var groceryView = MEM.load('fp_groceryView') || 'list';
+  document.getElementById('shopping-content').innerHTML = renderShoppingPanel(plan.shopping_list, true, haulScale, groceryView);
   // Sync scaler buttons
-  document.querySelectorAll('.scaler-btn').forEach(function(b) {
+  document.querySelectorAll('#haul-scaler .scaler-btn').forEach(function(b) {
     b.classList.toggle('active', parseInt(b.dataset.scale) === haulScale);
   });
+  // Sync view toggle buttons
+  var hvList = document.getElementById('hv-list');
+  var hvAisle = document.getElementById('hv-aisle');
+  if (hvList) hvList.classList.toggle('active', groceryView === 'list');
+  if (hvAisle) hvAisle.classList.toggle('active', groceryView === 'aisle');
 
   // Show plan, hide survey, show bottom nav
   document.getElementById('survey-wrap').style.display = 'none';
@@ -867,6 +874,7 @@ function renderDayPanel(day, summary, isActive) {
   const pct = (v, max) => Math.min(100, Math.round((v / (max || 1)) * 100));
   const ringOffset = (v, max) => circ * (1 - pct(v, max) / 100);
   const mealNotes = MEM.load('fp_mealNotes') || {};
+  const mealAnnotations = MEM.load('fp_mealAnnotations') || {};
 
   function ringHtml(value, maxVal, color, label) {
     const p = pct(value, maxVal);
@@ -908,12 +916,20 @@ function renderDayPanel(day, summary, isActive) {
               <span class="badge badge-kcal">🔥 ${meal.kcal} kcal</span>
             </div>
             <div class="meal-ingredients">${escHtml(meal.ingredients)}</div>
+            ${mealAnnotations[noteKey] ? `<div class="meal-note-text" id="mnote-text-${dayId}-${mealIdx}">${escHtml(mealAnnotations[noteKey])}</div>` : ''}
+            <div class="meal-note-editor" id="mnote-editor-${dayId}-${mealIdx}" style="display:none" onclick="event.stopPropagation()">
+              <textarea class="meal-note-input" id="mnote-input-${dayId}-${mealIdx}" placeholder="Add a note…" rows="2">${mealAnnotations[noteKey] ? escHtml(mealAnnotations[noteKey]) : ''}</textarea>
+              <button class="meal-note-save-btn" onclick="saveMealNote('${dayId}',${mealIdx})">Save</button>
+            </div>
             <div class="meal-rating-row">
               <button class="rating-btn${rating === 'up' ? ' active-up' : ''}" onclick="rateMeal('${dayId}',${mealIdx},'up');event.stopPropagation()" title="Like this meal">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
               </button>
               <button class="rating-btn${rating === 'down' ? ' active-down' : ''}" onclick="rateMeal('${dayId}',${mealIdx},'down');event.stopPropagation()" title="Dislike this meal">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
+              </button>
+              <button class="rating-btn note-btn${mealAnnotations[noteKey] ? ' note-has-content' : ''}" onclick="toggleMealNote('${dayId}',${mealIdx});event.stopPropagation()" title="Add note">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
               </button>
             </div>
           </div>
@@ -938,9 +954,54 @@ function scaleQty(qtyStr, scale) {
   return rounded + suffix;
 }
 
-function renderShoppingPanel(shoppingList, isActive, scale) {
+function categorizeForAisle(itemName) {
+  const n = (itemName || '').toLowerCase();
+  if (/chicken|beef|pork|fish|salmon|tuna|shrimp|turkey|lamb|steak|mince|ground meat|egg/.test(n)) return 'Proteins';
+  if (/milk|cheese|yogurt|cream|butter|cottage|whey/.test(n)) return 'Dairy & Eggs';
+  if (/rice|pasta|oat|bread|flour|quinoa|lentil|bean|chickpea|noodle|tortilla|wrap/.test(n)) return 'Grains & Legumes';
+  if (/oil|sauce|seasoning|spice|salt|pepper|vinegar|mustard|ketchup|soy|honey|garlic powder|onion powder|cumin|paprika|cinnamon/.test(n)) return 'Pantry & Condiments';
+  if (/frozen/.test(n)) return 'Frozen';
+  return 'Produce & Other';
+}
+
+function renderShoppingPanel(shoppingList, isActive, scale, groceryView) {
   scale = scale || 1;
-  const catIcons = { 'Proteins':'🥩','Carbohydrates':'🌾','Vegetables':'🥦','Dairy & Eggs':'🥚','Pantry & Spices':'🧂','Fruits':'🍎' };
+  groceryView = groceryView || 'list';
+  const catIcons = { 'Proteins':'🥩','Carbohydrates':'🌾','Vegetables':'🥦','Dairy & Eggs':'🥚','Pantry & Spices':'🧂','Fruits':'🍎',
+    'Grains & Legumes':'🌾','Pantry & Condiments':'🧂','Produce & Other':'🥦','Frozen':'🧊' };
+
+  if (groceryView === 'aisle') {
+    // Flatten all items and group by aisle category
+    const aisleMap = {};
+    let globalIdx = 0;
+    (shoppingList || []).forEach((cat) => {
+      (cat.items || []).forEach((item) => {
+        const aisle = categorizeForAisle(item.name);
+        if (!aisleMap[aisle]) aisleMap[aisle] = [];
+        aisleMap[aisle].push({ item, globalIdx });
+        globalIdx++;
+      });
+    });
+    const aisleOrder = ['Proteins','Dairy & Eggs','Grains & Legumes','Pantry & Condiments','Produce & Other','Frozen'];
+    const itemsHtml = aisleOrder.filter(a => aisleMap[a]).map(aisle => {
+      const entries = aisleMap[aisle];
+      return `<div class="shop-category">
+        <div class="shop-cat-header">${catIcons[aisle] || '📦'} ${escHtml(aisle)}
+          <span style="color:var(--muted);font-size:11px;font-weight:400;margin-left:auto">${entries.length} items</span>
+        </div>
+        <div class="shop-items">
+          ${entries.map(({ item, globalIdx: gi }) => `
+            <div class="shop-item${shopChecks['a-'+gi] ? ' checked' : ''}" id="shop-a-${gi}" onclick="toggleShopAisle(${gi})">
+              <input type="checkbox" id="chk-a-${gi}" ${shopChecks['a-'+gi] ? 'checked' : ''} onclick="event.stopPropagation();toggleShopAisle(${gi})">
+              <span class="shop-item-name">${escHtml(item.name)}</span>
+              <span class="shop-item-qty">${escHtml(scaleQty(item.qty, scale))}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>`;
+    }).join('');
+    return `<div class="shop-section">${itemsHtml}</div>`;
+  }
 
   const itemsHtml = (shoppingList || []).map((cat, ci) => `
     <div class="shop-category">
@@ -1014,6 +1075,7 @@ function renderCarousel(slideDir) {
   const idx = window._carouselIndex || 0;
   const track = document.getElementById('day-tabs-nav');
   if (!track) return;
+  const _trainDays = (MEM.load('fp_profile') || {}).trainingDayIds || [];
 
   // Positions relative to center: -2, -1, 0(center), +1, +2
   const slots = [-2, -1, 0, 1, 2];
@@ -1028,6 +1090,7 @@ function renderCarousel(slideDir) {
     const dayName = dayId.charAt(0).toUpperCase() + dayId.slice(1);
     const abbr = dayName.slice(0, 3);
     const num = di + 1; // day number
+    const isTrain = _trainDays.includes(dayId);
 
     let cls = 'dc-hidden';
     if (offset === 0) cls = 'dc-center';
@@ -1035,6 +1098,7 @@ function renderCarousel(slideDir) {
     else if (Math.abs(offset) === 2) cls = 'dc-far';
 
     return `<button class="day-tab-btn ${cls}" id="day-tab-btn-${dayId}" onclick="switchDayTab('${dayId}')">
+      ${isTrain ? '<div class="day-tab-train-dot"></div>' : ''}
       <span class="day-letter">${abbr}</span>
     </button>`;
   }).join('');
@@ -2468,13 +2532,39 @@ function rateMeal(dayId, mealIdx, rating) {
 function setHaulScale(n) {
   haptic('light');
   MEM.save('fp_haulScale', n);
-  document.querySelectorAll('.scaler-btn').forEach(function(b) {
+  document.querySelectorAll('#haul-scaler .scaler-btn').forEach(function(b) {
     b.classList.toggle('active', parseInt(b.dataset.scale) === n);
   });
   if (planData) {
-    document.getElementById('shopping-content').innerHTML = renderShoppingPanel(planData.shopping_list, true, n);
+    var groceryView = MEM.load('fp_groceryView') || 'list';
+    document.getElementById('shopping-content').innerHTML = renderShoppingPanel(planData.shopping_list, true, n, groceryView);
     restoreShopChecks();
   }
+}
+
+function setGroceryView(mode) {
+  haptic('light');
+  MEM.save('fp_groceryView', mode);
+  var hvList = document.getElementById('hv-list');
+  var hvAisle = document.getElementById('hv-aisle');
+  if (hvList) hvList.classList.toggle('active', mode === 'list');
+  if (hvAisle) hvAisle.classList.toggle('active', mode === 'aisle');
+  if (planData) {
+    var scale = MEM.load('fp_haulScale') || 1;
+    document.getElementById('shopping-content').innerHTML = renderShoppingPanel(planData.shopping_list, true, scale, mode);
+    if (mode === 'list') restoreShopChecks();
+  }
+}
+
+function toggleShopAisle(gi) {
+  haptic('light');
+  const el = document.getElementById('shop-a-' + gi);
+  const chk = document.getElementById('chk-a-' + gi);
+  if (!el || !chk) return;
+  chk.checked = !chk.checked;
+  el.classList.toggle('checked', chk.checked);
+  shopChecks['a-' + gi] = chk.checked;
+  MEM.save('fp_shopChecks', shopChecks);
 }
 
 /* ═══════════════════════════════════════════════════
@@ -2500,7 +2590,7 @@ function renderWeekGlance() {
     const dayId = d.day.toLowerCase();
     const pct = Math.min(100, Math.round((d.kcal / targetKcal) * 100));
     const diff = Math.abs(d.kcal - targetKcal) / targetKcal;
-    const color = diff <= 0.05 ? 'var(--lime)' : diff <= 0.15 ? 'var(--orange)' : 'var(--red)';
+    const color = d.kcal === 0 ? 'var(--muted)' : diff <= 0.10 ? 'var(--lime)' : diff <= 0.25 ? 'var(--orange)' : 'var(--red)';
     const abbr = dayAbbrs[dayId] || dayId.charAt(0).toUpperCase();
     const isTrain = trainingDays.includes(dayId);
     return `<div class="wg-col" onclick="switchDayTab('${dayId}')" title="${d.day}: ${d.kcal} kcal">
@@ -2584,4 +2674,148 @@ function renderFreshnessBadge() {
   el.style.alignItems = 'center';
   el.style.marginTop = '2px';
   el.innerHTML = `<span style="font-size:11px;color:${color}">${text}</span>${refreshIcon}`;
+}
+
+/* ═══════════════════════════════════════════════════
+   FEATURE 9: SHARE PLAN
+═══════════════════════════════════════════════════ */
+function sharePlan() {
+  if (!planData) return;
+  haptic('medium');
+  const profile = MEM.load('fp_profile') || {};
+  const targetKcal = planData.summary.kcal || 0;
+  const targetProtein = planData.summary.protein || 0;
+
+  let text = `My FUELPLAN — 7-Day Meal Plan\n`;
+  text += `Target: ${targetKcal} kcal | ${targetProtein}g protein/day\n\n`;
+
+  (planData.days || []).forEach(function(d) {
+    text += `${d.day}\n`;
+    (d.meals || []).forEach(function(m) {
+      text += `  ${m.time} — ${m.name} (${m.kcal} kcal, ${m.protein}g protein)\n`;
+    });
+    text += '\n';
+  });
+
+  text += `Generated by fuelplan.fit`;
+
+  if (navigator.share) {
+    navigator.share({ title: 'My FUELPLAN', text: text })
+      .catch(function() {});
+  } else {
+    navigator.clipboard.writeText(text).then(function() {
+      showToast('Plan copied to clipboard!');
+    }).catch(function() {
+      showToast('Could not copy — try manually');
+    });
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   FEATURE 10: MEAL NOTES
+═══════════════════════════════════════════════════ */
+function toggleMealNote(dayId, mealIdx) {
+  haptic('light');
+  const editor = document.getElementById('mnote-editor-' + dayId + '-' + mealIdx);
+  if (!editor) return;
+  const isOpen = editor.style.display !== 'none';
+  editor.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen) {
+    const input = document.getElementById('mnote-input-' + dayId + '-' + mealIdx);
+    if (input) setTimeout(function() { input.focus(); }, 50);
+  }
+}
+
+function saveMealNote(dayId, mealIdx) {
+  haptic('light');
+  const input = document.getElementById('mnote-input-' + dayId + '-' + mealIdx);
+  if (!input) return;
+  const text = input.value.trim();
+  const key = dayId + '-' + mealIdx;
+  const annotations = MEM.load('fp_mealAnnotations') || {};
+  if (text) {
+    annotations[key] = text;
+  } else {
+    delete annotations[key];
+  }
+  MEM.save('fp_mealAnnotations', annotations);
+
+  // Update the text display without full re-render
+  const editor = document.getElementById('mnote-editor-' + dayId + '-' + mealIdx);
+  let textEl = document.getElementById('mnote-text-' + dayId + '-' + mealIdx);
+  if (text) {
+    if (!textEl) {
+      textEl = document.createElement('div');
+      textEl.className = 'meal-note-text';
+      textEl.id = 'mnote-text-' + dayId + '-' + mealIdx;
+      if (editor) editor.parentNode.insertBefore(textEl, editor);
+    }
+    textEl.textContent = text;
+  } else if (textEl) {
+    textEl.remove();
+  }
+  // Update pencil button dot
+  const card = document.getElementById('mcard-' + dayId + '-' + mealIdx);
+  if (card) {
+    const noteBtn = card.querySelector('.note-btn');
+    if (noteBtn) noteBtn.classList.toggle('note-has-content', !!text);
+  }
+  if (editor) editor.style.display = 'none';
+  showToast(text ? 'Note saved' : 'Note removed');
+}
+
+/* ═══════════════════════════════════════════════════
+   FEATURE 12: WEEKLY STATS SUMMARY
+═══════════════════════════════════════════════════ */
+function renderWeekStats() {
+  const section = document.getElementById('section-week');
+  if (!section || !planData) return;
+
+  const existing = document.getElementById('week-stats');
+  if (existing) existing.remove();
+
+  const days = planData.days || [];
+  if (!days.length) return;
+
+  const targetKcal = planData.summary.kcal || 1;
+  const targetProtein = planData.summary.protein || 1;
+
+  const totalKcal = days.reduce((s, d) => s + (d.kcal || 0), 0);
+  const totalProtein = days.reduce((s, d) => s + (d.protein || 0), 0);
+  const avgKcal = Math.round(totalKcal / days.length);
+  const weekTarget = targetKcal * days.length;
+  const deficit = weekTarget - totalKcal;
+  const deficitText = deficit > 0
+    ? `${deficit.toLocaleString()} kcal deficit`
+    : `${Math.abs(deficit).toLocaleString()} kcal surplus`;
+  const deficitColor = Math.abs(deficit) < weekTarget * 0.05 ? 'var(--lime)'
+    : deficit > 0 ? 'var(--blue)' : 'var(--orange)';
+
+  const avgProteinPct = Math.round((totalProtein / days.length) / targetProtein * 100);
+
+  const el = document.createElement('div');
+  el.id = 'week-stats';
+  el.innerHTML = `
+    <div class="wstat-item">
+      <span class="wstat-val">${avgKcal}</span>
+      <span class="wstat-label">avg kcal/day</span>
+    </div>
+    <div class="wstat-item">
+      <span class="wstat-val" style="color:var(--blue)">${Math.round(totalProtein / days.length)}g</span>
+      <span class="wstat-label">avg protein/day</span>
+    </div>
+    <div class="wstat-item">
+      <span class="wstat-val" style="color:${deficitColor}">${deficitText.split(' ')[0]}</span>
+      <span class="wstat-label">${deficitText.split(' ').slice(1).join(' ')}</span>
+    </div>
+  `;
+
+  // Insert after week-glance
+  const glance = document.getElementById('week-glance');
+  if (glance && glance.nextSibling) {
+    section.insertBefore(el, glance.nextSibling);
+  } else {
+    const carousel = section.querySelector('.day-carousel');
+    if (carousel) section.insertBefore(el, carousel);
+  }
 }

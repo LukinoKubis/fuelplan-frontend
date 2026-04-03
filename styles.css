@@ -2781,3 +2781,107 @@ body.light .training-day-pill.active { border-color: #7ab800; color: #3a6600; ba
   opacity: 0.8;
 }
 .freshness-refresh-btn:hover { opacity: 1; }
+
+/* ═══════════════════════════════════════════════════
+   FEATURE 9: SHARE PLAN BUTTON
+═══════════════════════════════════════════════════ */
+/* btn-settings already styles the share button — no extra CSS needed */
+
+/* ═══════════════════════════════════════════════════
+   FEATURE 10: MEAL NOTES
+═══════════════════════════════════════════════════ */
+.meal-note-text {
+  font-size: 12px;
+  color: var(--muted);
+  font-style: italic;
+  margin: 6px 0 2px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.meal-note-editor {
+  margin: 6px 0 2px;
+}
+.meal-note-input {
+  width: 100%;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  color: var(--fg);
+  font-size: 12px;
+  font-family: inherit;
+  padding: 6px 8px;
+  resize: none;
+  box-sizing: border-box;
+}
+.meal-note-input:focus { outline: none; border-color: var(--lime); }
+.meal-note-save-btn {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: none;
+  background: var(--lime);
+  color: #0e0f11;
+  cursor: pointer;
+  font-family: inherit;
+}
+.note-btn { margin-left: auto; }
+.note-has-content { color: var(--lime) !important; }
+body.light .meal-note-input { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.12); }
+
+/* ═══════════════════════════════════════════════════
+   FEATURE 11: GROCERY AISLE VIEW / HAUL CONTROLS
+═══════════════════════════════════════════════════ */
+#haul-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px 0;
+  gap: 8px;
+}
+#haul-controls #haul-scaler,
+#haul-view-toggle {
+  display: flex;
+  gap: 4px;
+}
+#haul-view-toggle .scaler-btn {
+  min-width: 68px;
+}
+
+/* ═══════════════════════════════════════════════════
+   FEATURE 12: WEEKLY STATS ROW
+═══════════════════════════════════════════════════ */
+#week-stats {
+  display: flex;
+  gap: 0;
+  margin: 0 16px 8px;
+  background: var(--card);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.wstat-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 4px 8px;
+  border-right: 1px solid rgba(255,255,255,0.06);
+}
+.wstat-item:last-child { border-right: none; }
+.wstat-val {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--fg);
+  line-height: 1.1;
+}
+.wstat-label {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 2px;
+  text-align: center;
+  line-height: 1.2;
+}
+body.light #week-stats { background: var(--bg2); }
+body.light .wstat-item { border-color: rgba(0,0,0,0.06); }
