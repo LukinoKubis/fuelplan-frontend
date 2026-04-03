@@ -816,14 +816,20 @@ function renderPlan(plan, userName, isRestoring, planName) {
   window._carouselDays = days.map(d => d.day.toLowerCase());
   window._carouselIndex = Math.max(0, window._carouselDays.indexOf(savedDayTab));
 
+  renderWeekGlance();
   renderCarousel();
 
   dayTabsContent.innerHTML = days.map(function(d) {
     return renderDayPanel(d, s, d.day.toLowerCase() === savedDayTab);
   }).join('');
 
-  // Shopping section
-  document.getElementById('shopping-content').innerHTML = renderShoppingPanel(plan.shopping_list, true);
+  // Shopping section — restore scale
+  var haulScale = MEM.load('fp_haulScale') || 1;
+  document.getElementById('shopping-content').innerHTML = renderShoppingPanel(plan.shopping_list, true, haulScale);
+  // Sync scaler buttons
+  document.querySelectorAll('.scaler-btn').forEach(function(b) {
+    b.classList.toggle('active', parseInt(b.dataset.scale) === haulScale);
+  });
 
   // Show plan, hide survey, show bottom nav
   document.getElementById('survey-wrap').style.display = 'none';
@@ -831,6 +837,9 @@ function renderPlan(plan, userName, isRestoring, planName) {
   document.getElementById('bottom-nav').style.display = 'flex';
   updateSurveyBackButton(false);
   window.scrollTo(0, 0);
+
+  // Freshness badge
+  renderFreshnessBadge();
 
   // Init Prep Time section
   renderPrepTimeOverview();
@@ -843,14 +852,10 @@ function renderPlan(plan, userName, isRestoring, planName) {
   if (isRestoring) restoreShopChecks();
   if (isRestoring) showToast('Your last plan has been restored');
 
-  // Animate bars
+  // Animate rings on active panel
   setTimeout(function() {
     var activePanel = document.querySelector('.tab-panel.active');
-    if (activePanel) {
-      activePanel.querySelectorAll('.bar-fill[data-pct]').forEach(function(el) {
-        el.style.width = el.dataset.pct + '%';
-      });
-    }
+    if (activePanel) animateRings(activePanel);
   }, 120);
 }
 
@@ -1287,6 +1292,7 @@ async function restorePlan(planId) {
     MEM.save('fp_userName', data.userName || 'Your');
     MEM.save('fp_planName', data.planName || '');
     MEM.save('fp_activePlanId', planId);
+    MEM.save('fp_activePlanSavedAt', data.savedAt || new Date().toISOString());
 
     closeHistory();
     renderPlan(data.plan, data.userName || 'Your', false, data.planName || '');
@@ -1574,6 +1580,7 @@ async function saveCurrentPlanToHistory(plan, userName, planName) {
     const data = await res.json();
     if (data.id) MEM.save('fp_activePlanId', data.id);
     MEM.save('fp_planName', planName);
+    MEM.save('fp_activePlanSavedAt', new Date().toISOString());
   } catch (err) {
     console.warn('Failed to save plan:', err.message);
   }
@@ -1610,6 +1617,7 @@ function openSettings() {
   document.getElementById('settings-drawer').classList.add('open');
   document.body.style.overflow = 'hidden';
   initSettingsDrag();
+  renderTrainingDayPills();
 }
 
 function closeSettings() {
@@ -2246,4 +2254,334 @@ function checkAllDone() {
 function exitPrepSession() {
   _prepSession = null;
   renderPrepTimeOverview();
+}
+
+/* ═══════════════════════════════════════════════════
+   FEATURE 5: RING ANIMATION HELPER
+═══════════════════════════════════════════════════ */
+function animateRings(panel) {
+  if (!panel) return;
+  const circ = 2 * Math.PI * 26;
+  panel.querySelectorAll('.ring-fill[data-pct]').forEach(function(el) {
+    const pct = parseFloat(el.dataset.pct);
+    el.style.strokeDashoffset = circ * (1 - pct / 100);
+  });
+}
+
+/* ═══════════════════════════════════════════════════
+   FEATURE 1: MEAL SWAP
+═══════════════════════════════════════════════════ */
+let _swapDayId = null, _swapMealIdx = null;
+
+function openMealSwap(dayId, mealIdx) {
+  if (!planData) return;
+  _swapDayId = dayId;
+  _swapMealIdx = mealIdx;
+
+  const dayObj = planData.days.find(d => d.day.toLowerCase() === dayId);
+  if (!dayObj) return;
+  const meal = dayObj.meals[mealIdx];
+  if (!meal) return;
+
+  // Show current meal info
+  document.getElementById('swap-current-info').innerHTML = `
+    <div class="swap-current-meal">
+      <div class="swap-current-meal-name">${escHtml(meal.name)}</div>
+      <div class="swap-current-macros">
+        <span class="swap-macro-pill" style="color:var(--lime)">${meal.kcal} kcal</span>
+        <span class="swap-macro-pill" style="color:var(--blue)">${meal.protein}g P</span>
+        <span class="swap-macro-pill" style="color:var(--orange)">${meal.carbs}g C</span>
+        <span class="swap-macro-pill" style="color:var(--red)">${meal.fat}g F</span>
+      </div>
+    </div>
+  `;
+  document.getElementById('swap-results').innerHTML = '';
+  document.getElementById('swap-spinner').style.display = 'flex';
+
+  document.getElementById('meal-swap-overlay').classList.add('open');
+  document.getElementById('meal-swap-drawer').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  initMealSwapDrag();
+
+  fetchMealAlternatives(meal);
+}
+
+function closeMealSwap() {
+  document.getElementById('meal-swap-overlay').classList.remove('open');
+  document.getElementById('meal-swap-drawer').classList.remove('open');
+  document.body.style.overflow = '';
+  _swapDayId = null;
+  _swapMealIdx = null;
+}
+
+function initMealSwapDrag() {
+  const handle = document.getElementById('meal-swap-drag-handle');
+  const drawer = document.getElementById('meal-swap-drawer');
+  if (!handle || handle._dragInit) return;
+  handle._dragInit = true;
+  let startY = 0, startTime = 0, dragging = false;
+  function onStart(e) { startY = e.touches ? e.touches[0].clientY : e.clientY; startTime = Date.now(); dragging = true; drawer.style.transition = 'none'; }
+  function onMove(e) { if (!dragging) return; const y = e.touches ? e.touches[0].clientY : e.clientY; const d = y - startY; if (d > 0) drawer.style.transform = 'translateY(' + d + 'px)'; else drawer.style.transform = ''; }
+  function onEnd(e) {
+    if (!dragging) return; dragging = false; drawer.style.transition = ''; drawer.style.transform = '';
+    const y = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+    const delta = y - startY, vel = Math.abs(delta) / (Date.now() - startTime);
+    if (delta > 120 || (delta > 40 && vel > 0.6)) closeMealSwap();
+  }
+  handle.addEventListener('touchstart', onStart, { passive: true });
+  handle.addEventListener('touchmove', onMove, { passive: true });
+  handle.addEventListener('touchend', onEnd);
+  handle.addEventListener('mousedown', onStart);
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onEnd);
+}
+
+async function fetchMealAlternatives(meal) {
+  const spinner = document.getElementById('swap-spinner');
+  const results = document.getElementById('swap-results');
+  const code = (localStorage.getItem('fp_apikey') || '').toUpperCase();
+  if (!code) {
+    spinner.style.display = 'none';
+    results.innerHTML = '<p style="color:var(--muted);text-align:center;padding:20px">No activation code found.</p>';
+    return;
+  }
+
+  const prompt = 'Current meal: ' + meal.name + ' (' + meal.protein + 'g protein, ' + meal.carbs + 'g carbs, ' + meal.fat + 'g fat, ' + meal.kcal + ' kcal). Generate 3 macro-matched alternative meals. Return ONLY a JSON array with no markdown: [{"name":"...","time":"' + (meal.time || 'Meal') + '","protein":N,"carbs":N,"fat":N,"kcal":N,"ingredients":"..."}]';
+
+  try {
+    const res = await fetch(API_BASE + '/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        activationCode: code,
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1000,
+        system: 'You are a sports nutritionist. Return ONLY a valid JSON array of 3 meal alternatives. No markdown, no explanation.',
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    spinner.style.display = 'none';
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      results.innerHTML = '<p style="color:var(--red);text-align:center;padding:20px">' + escHtml(err.message || 'Error fetching alternatives') + '</p>';
+      return;
+    }
+
+    const data = await res.json();
+    const rawText = data.content[0]?.text || '';
+    const cleaned = rawText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+    let alts;
+    try {
+      alts = JSON.parse(cleaned);
+      if (!Array.isArray(alts)) throw new Error('Not array');
+    } catch {
+      const m = cleaned.match(/\[[\s\S]*\]/);
+      if (m) alts = JSON.parse(m[0]); else throw new Error('No JSON array found');
+    }
+
+    window._swapAlts = alts.slice(0, 3);
+    results.innerHTML = window._swapAlts.map(function(alt, i) {
+      return `<div class="swap-alt-card">
+        <div class="swap-alt-name">${escHtml(alt.name)}</div>
+        <div class="swap-alt-macros">
+          <span class="swap-macro-pill" style="color:var(--lime)">${alt.kcal} kcal</span>
+          <span class="swap-macro-pill" style="color:var(--blue)">${alt.protein}g P</span>
+          <span class="swap-macro-pill" style="color:var(--orange)">${alt.carbs}g C</span>
+          <span class="swap-macro-pill" style="color:var(--red)">${alt.fat}g F</span>
+        </div>
+        <button class="swap-use-btn" onclick="useMealSwap(window._swapAlts[${i}])">Use this meal</button>
+      </div>`;
+    }).join('');
+
+  } catch (err) {
+    spinner.style.display = 'none';
+    results.innerHTML = '<p style="color:var(--red);text-align:center;padding:20px">Failed to load alternatives. Try again.</p>';
+  }
+}
+
+function useMealSwap(altMeal) {
+  if (_swapDayId === null || _swapMealIdx === null || !planData) return;
+  const captureDayId = _swapDayId;
+  const captureMealIdx = _swapMealIdx;
+  const dayIdx = planData.days.findIndex(d => d.day.toLowerCase() === captureDayId);
+  if (dayIdx === -1) return;
+
+  // Replace meal
+  planData.days[dayIdx].meals[captureMealIdx] = altMeal;
+
+  // Recalculate day totals from meals
+  const meals = planData.days[dayIdx].meals;
+  planData.days[dayIdx].protein = meals.reduce(function(s, m) { return s + (parseInt(m.protein) || 0); }, 0);
+  planData.days[dayIdx].carbs   = meals.reduce(function(s, m) { return s + (parseInt(m.carbs)   || 0); }, 0);
+  planData.days[dayIdx].fat     = meals.reduce(function(s, m) { return s + (parseInt(m.fat)     || 0); }, 0);
+  planData.days[dayIdx].kcal    = meals.reduce(function(s, m) { return s + (parseInt(m.kcal)    || 0); }, 0);
+
+  MEM.save('fp_plan', planData);
+  closeMealSwap();
+  haptic('success');
+
+  // Re-render the day panel in place
+  const dayId = planData.days[dayIdx].day.toLowerCase();
+  const oldPanelEl = document.getElementById('panel-' + dayId);
+  if (oldPanelEl) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = renderDayPanel(planData.days[dayIdx], planData.summary, true);
+    const newPanel = tmp.firstElementChild;
+    oldPanelEl.parentNode.replaceChild(newPanel, oldPanelEl);
+    setTimeout(function() { animateRings(newPanel); }, 80);
+  }
+
+  showToast('Meal swapped!');
+}
+
+/* ═══════════════════════════════════════════════════
+   FEATURE 2: MEAL RATINGS
+═══════════════════════════════════════════════════ */
+function rateMeal(dayId, mealIdx, rating) {
+  haptic('light');
+  const key = dayId + '-' + mealIdx;
+  const notes = MEM.load('fp_mealNotes') || {};
+  if (notes[key] === rating) {
+    delete notes[key]; // toggle off
+  } else {
+    notes[key] = rating;
+  }
+  MEM.save('fp_mealNotes', notes);
+
+  const card = document.getElementById('mcard-' + dayId + '-' + mealIdx);
+  if (card) {
+    card.classList.remove('meal-card-up', 'meal-card-down');
+    if (notes[key]) card.classList.add(notes[key] === 'up' ? 'meal-card-up' : 'meal-card-down');
+    // Update button states
+    const upBtn = card.querySelector('.rating-btn:first-child');
+    const dnBtn = card.querySelector('.rating-btn:last-child');
+    if (upBtn) upBtn.classList.toggle('active-up', notes[key] === 'up');
+    if (dnBtn) dnBtn.classList.toggle('active-down', notes[key] === 'down');
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   FEATURE 3: SHOPPING LIST SCALER
+═══════════════════════════════════════════════════ */
+function setHaulScale(n) {
+  haptic('light');
+  MEM.save('fp_haulScale', n);
+  document.querySelectorAll('.scaler-btn').forEach(function(b) {
+    b.classList.toggle('active', parseInt(b.dataset.scale) === n);
+  });
+  if (planData) {
+    document.getElementById('shopping-content').innerHTML = renderShoppingPanel(planData.shopping_list, true, n);
+    restoreShopChecks();
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   FEATURE 4: WEEK AT A GLANCE
+═══════════════════════════════════════════════════ */
+function renderWeekGlance() {
+  const section = document.getElementById('section-week');
+  if (!section || !planData) return;
+
+  // Remove existing glance
+  const existing = document.getElementById('week-glance');
+  if (existing) existing.remove();
+
+  const profile = MEM.load('fp_profile') || {};
+  const trainingDays = profile.trainingDayIds || [];
+  const days = planData.days || [];
+  const targetKcal = planData.summary.kcal || 1;
+  const dayAbbrs = { monday:'M', tuesday:'T', wednesday:'W', thursday:'T', friday:'F', saturday:'S', sunday:'S' };
+
+  const glance = document.createElement('div');
+  glance.id = 'week-glance';
+  glance.innerHTML = days.map(function(d) {
+    const dayId = d.day.toLowerCase();
+    const pct = Math.min(100, Math.round((d.kcal / targetKcal) * 100));
+    const diff = Math.abs(d.kcal - targetKcal) / targetKcal;
+    const color = diff <= 0.05 ? 'var(--lime)' : diff <= 0.15 ? 'var(--orange)' : 'var(--red)';
+    const abbr = dayAbbrs[dayId] || dayId.charAt(0).toUpperCase();
+    const isTrain = trainingDays.includes(dayId);
+    return `<div class="wg-col" onclick="switchDayTab('${dayId}')" title="${d.day}: ${d.kcal} kcal">
+      ${isTrain ? '<div class="wg-train-dot"></div>' : '<div style="width:4px;height:4px"></div>'}
+      <div class="wg-bar-wrap">
+        <div class="wg-bar" style="height:${pct}%;background:${color}"></div>
+      </div>
+      <span class="wg-label">${abbr}</span>
+    </div>`;
+  }).join('');
+
+  const carousel = section.querySelector('.day-carousel');
+  if (carousel) section.insertBefore(glance, carousel);
+}
+
+/* ═══════════════════════════════════════════════════
+   FEATURE 6: TRAINING DAY MARKERS
+═══════════════════════════════════════════════════ */
+function renderTrainingDayPills() {
+  const el = document.getElementById('training-day-pills');
+  if (!el) return;
+  const profile = MEM.load('fp_profile') || {};
+  const trainingDays = profile.trainingDayIds || [];
+  const days = [
+    { id: 'monday', label: 'Mon' },
+    { id: 'tuesday', label: 'Tue' },
+    { id: 'wednesday', label: 'Wed' },
+    { id: 'thursday', label: 'Thu' },
+    { id: 'friday', label: 'Fri' },
+    { id: 'saturday', label: 'Sat' },
+    { id: 'sunday', label: 'Sun' }
+  ];
+  el.innerHTML = days.map(function(d) {
+    const active = trainingDays.includes(d.id);
+    return `<button class="training-day-pill${active ? ' active' : ''}" onclick="toggleTrainingDay('${d.id}')">${d.label}</button>`;
+  }).join('');
+}
+
+function toggleTrainingDay(dayId) {
+  haptic('light');
+  const profile = MEM.load('fp_profile') || {};
+  profile.trainingDayIds = profile.trainingDayIds || [];
+  const idx = profile.trainingDayIds.indexOf(dayId);
+  if (idx === -1) profile.trainingDayIds.push(dayId);
+  else profile.trainingDayIds.splice(idx, 1);
+  MEM.save('fp_profile', profile);
+  renderTrainingDayPills();
+  // Refresh week glance to show updated dumbbell dots
+  if (planData) renderWeekGlance();
+}
+
+/* ═══════════════════════════════════════════════════
+   FEATURE 7: PLAN FRESHNESS INDICATOR
+═══════════════════════════════════════════════════ */
+function renderFreshnessBadge() {
+  const el = document.getElementById('plan-freshness');
+  if (!el) return;
+  const savedAt = MEM.load('fp_activePlanSavedAt');
+  if (!savedAt) { el.style.display = 'none'; return; }
+
+  const days = Math.floor((Date.now() - new Date(savedAt)) / 86400000);
+  let text, color, showRefresh = false;
+
+  if (days === 0) {
+    text = 'Today'; color = 'var(--muted)';
+  } else if (days === 1) {
+    text = 'Yesterday'; color = 'var(--muted)';
+  } else if (days < 7) {
+    text = days + ' days ago'; color = 'var(--muted)';
+  } else if (days < 14) {
+    text = days + ' days ago'; color = 'var(--orange)';
+  } else {
+    text = days + ' days ago'; color = 'var(--red)'; showRefresh = true;
+  }
+
+  const refreshIcon = showRefresh
+    ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="cursor:pointer;margin-left:2px" onclick="openSettings_regenerate()" title="Generate new plan"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.36"/></svg>`
+    : '';
+
+  el.style.display = 'flex';
+  el.style.alignItems = 'center';
+  el.style.marginTop = '2px';
+  el.innerHTML = `<span style="font-size:11px;color:${color}">${text}</span>${refreshIcon}`;
 }
