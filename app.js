@@ -3521,6 +3521,9 @@ function renderWeekGlance() {
     weekHeader = '<div style="font-size:11px;color:var(--muted);margin:0 16px 4px;font-weight:600">Week of ' + monStr + ' – ' + sunStr + '</div>';
   }
 
+  // Load eaten data to show progress overlay on bars
+  var eatenAll = MEM.load('fp_eaten') || {};
+
   const glance = document.createElement('div');
   glance.id = 'week-glance';
   glance.innerHTML = weekHeader + '<div style="display:flex;gap:4px;padding:0 16px">' + days.map(function(d) {
@@ -3530,10 +3533,17 @@ function renderWeekGlance() {
     const color = d.kcal === 0 ? 'var(--muted)' : diff <= 0.10 ? 'var(--lime)' : diff <= 0.25 ? 'var(--orange)' : 'var(--red)';
     const abbr = dayAbbrs[dayId] || dayId.charAt(0).toUpperCase();
     const isTrain = trainingDays.includes(dayId);
-    return `<div class="wg-col" onclick="switchDayTab('${dayId}')" title="${d.day}: ${d.kcal} kcal">
+    // Compute eaten kcal for this day
+    var eatenKcalDay = (d.meals || []).reduce(function(s, m, i) {
+      return s + (eatenAll[dayId + '-' + i] ? (parseInt(m.kcal) || 0) : 0);
+    }, 0);
+    var eatenPctDay = d.kcal > 0 ? Math.min(100, Math.round(eatenKcalDay / d.kcal * 100)) : 0;
+    return `<div class="wg-col" onclick="switchDayTab('${dayId}')" title="${d.day}: ${eatenKcalDay > 0 ? eatenKcalDay + '/' : ''}${d.kcal} kcal">
       ${isTrain ? '<div class="wg-train-dot"></div>' : '<div style="width:4px;height:4px"></div>'}
       <div class="wg-bar-wrap">
-        <div class="wg-bar" style="height:${pct}%;background:${color}"></div>
+        <div class="wg-bar" style="height:${pct}%;background:${color};position:relative;overflow:hidden">
+          ${eatenPctDay > 0 ? `<div style="position:absolute;bottom:0;left:0;right:0;height:${eatenPctDay}%;background:rgba(255,255,255,0.25);border-radius:inherit"></div>` : ''}
+        </div>
       </div>
       <span class="wg-label">${abbr}</span>
     </div>`;
@@ -3796,7 +3806,9 @@ function renderWeekStats() {
   </svg>`;
 
   const streak = calcStreak();
+  const bestStreak = MEM.load('fp_bestStreak') || streak;
   const streakEmoji = streak >= 7 ? '🔥' : streak >= 3 ? '⚡' : streak >= 1 ? '✅' : '—';
+  const isNewBest = streak > 0 && streak >= bestStreak;
 
   const macroRow = document.createElement('div');
   macroRow.id = 'week-macro-row';
@@ -3814,6 +3826,8 @@ function renderWeekStats() {
       <div class="streak-emoji">${streakEmoji}</div>
       <div class="streak-num">${streak}</div>
       <div class="streak-label">day streak</div>
+      ${bestStreak > 1 ? `<div style="font-size:9px;color:var(--muted);margin-top:2px">best: ${bestStreak}</div>` : ''}
+      ${isNewBest && streak > 1 ? `<div style="font-size:9px;color:var(--lime);font-weight:700;margin-top:1px">NEW BEST</div>` : ''}
       <div style="display:flex;gap:3px;margin-top:8px;justify-content:center">
         ${days.map(function(dayObj) {
           var dId = dayObj.day.toLowerCase();
@@ -4389,7 +4403,8 @@ function toggleMealEaten(dayId, mealIdx) {
     showToast('All meals logged for ' + dayObj.day + '!');
   }
 
-  // Refresh week stats (streak might change) and today snapshot
+  // Refresh week stats (streak might change), glance and today snapshot
+  renderWeekGlance();
   renderWeekStats();
   renderTodaySnapshot();
 }
@@ -4448,6 +4463,7 @@ function logAllMeals(dayId) {
   }
 
   renderCarousel();
+  renderWeekGlance();
   renderWeekStats();
   renderTodaySnapshot();
 }
@@ -4527,5 +4543,12 @@ function calcStreak() {
     if (completeDays.has(id)) { cur++; maxStreak = Math.max(maxStreak, cur); }
     else cur = 0;
   });
+
+  // Track personal best streak
+  var bestStreak = MEM.load('fp_bestStreak') || 0;
+  if (maxStreak > bestStreak) {
+    MEM.save('fp_bestStreak', maxStreak);
+  }
+
   return maxStreak;
 }
