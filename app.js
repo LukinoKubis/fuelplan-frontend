@@ -602,6 +602,18 @@ function calcMacros(offsetOverride) {
   document.getElementById('prev-protein').textContent = protein + 'g';
   document.getElementById('prev-carbs').textContent = carbs + 'g';
   document.getElementById('prev-fat').textContent = fat + 'g';
+
+  // Show TDEE and difference
+  var tdeEl = document.getElementById('prev-tdee');
+  var diffEl = document.getElementById('prev-tdee-diff');
+  if (tdeEl) tdeEl.textContent = tdee;
+  if (diffEl) {
+    var diff = kcal - tdee;
+    var sign = diff >= 0 ? '+' : '';
+    diffEl.textContent = sign + diff + ' from maintenance';
+    diffEl.style.color = diff > 100 ? 'var(--orange)' : diff < -100 ? 'var(--blue)' : 'var(--lime)';
+  }
+
   document.getElementById('macro-preview-wrap').style.display = 'block';
 }
 
