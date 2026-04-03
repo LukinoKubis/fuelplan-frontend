@@ -470,6 +470,86 @@ function getGoalOffset() {
   return active ? parseInt(active.dataset.offset) : 0;
 }
 
+var _goalMode = 'preset';
+
+function setGoalMode(mode) {
+  _goalMode = mode;
+  var btnPreset = document.getElementById('gmt-preset');
+  var btnTarget = document.getElementById('gmt-target');
+  if (btnPreset) btnPreset.classList.toggle('active', mode === 'preset');
+  if (btnTarget) btnTarget.classList.toggle('active', mode === 'target');
+  var grid = document.getElementById('goal-grid');
+  var targetInputs = document.getElementById('goal-target-inputs');
+  var cutWarn = document.getElementById('cutting-warning');
+  var bulkWarn = document.getElementById('bulking-warning');
+  if (grid) grid.style.display = mode === 'preset' ? '' : 'none';
+  if (targetInputs) targetInputs.style.display = mode === 'target' ? '' : 'none';
+  if (cutWarn) cutWarn.style.display = 'none';
+  if (bulkWarn) bulkWarn.style.display = 'none';
+  if (mode === 'target') calcGoalWeight();
+  else calcMacros();
+}
+
+function calcGoalWeight() {
+  var weight = parseFloat(document.getElementById('c-weight').value);
+  var goalWeight = parseFloat(document.getElementById('c-goal-weight').value);
+  var goalDate = document.getElementById('c-goal-date').value;
+  var fb = document.getElementById('goal-weight-feedback');
+  if (!fb) return;
+  if (!weight || !goalWeight || !goalDate) {
+    fb.innerHTML = '';
+    calcMacros(0);
+    return;
+  }
+  var weeksAway = (new Date(goalDate).getTime() - Date.now()) / (7 * 24 * 3600 * 1000);
+  if (weeksAway <= 0) {
+    fb.innerHTML = '<div class="gw-warning danger">Pick a future date.</div>';
+    return;
+  }
+  var totalChange = weight - goalWeight; // positive = want to lose
+  var weeklyRate = totalChange / weeksAway; // kg/week (positive = loss)
+  var dailyDiff = weeklyRate * 7700 / 7; // kcal/day deficit (positive = deficit needed)
+
+  var WARN_KG = 0.75;    // start warning
+  var INTENSE_KG = 1.0;  // intense — still allowed
+  var MAX_KG = 1.5;      // hard cap
+
+  var warningHtml = '';
+  var cappedDiff = dailyDiff;
+
+  if (totalChange > 0) { // losing weight
+    if (weeklyRate > MAX_KG) {
+      cappedDiff = MAX_KG * 7700 / 7;
+      warningHtml = '<div class="gw-warning danger">⚠️ <strong>Dangerous rate</strong> — ' + weeklyRate.toFixed(2) + 'kg/week far exceeds safe limits. Hard-capped at ' + MAX_KG + 'kg/week. Please work with a doctor or registered dietitian before attempting this.</div>';
+    } else if (weeklyRate > INTENSE_KG) {
+      warningHtml = '<div class="gw-warning warn">⚠️ <strong>Very intense</strong> — ' + weeklyRate.toFixed(2) + 'kg/week. Recommended max is ~1kg/week. Keep protein at 2.5g+/kg of body weight and monitor energy levels closely.</div>';
+    } else if (weeklyRate > WARN_KG) {
+      warningHtml = '<div class="gw-warning info">ℹ️ <strong>Aggressive cut</strong> — ' + weeklyRate.toFixed(2) + 'kg/week. Manageable with high protein and consistent training. Monitor how you feel.</div>';
+    } else if (weeklyRate > 0) {
+      warningHtml = '<div class="gw-warning ok">✓ <strong>Sustainable pace</strong> — ' + weeklyRate.toFixed(2) + 'kg/week. Safe and effective rate for fat loss while preserving muscle.</div>';
+    }
+  } else if (totalChange < 0) { // gaining weight
+    var gainRate = -weeklyRate;
+    if (gainRate > 0.5) {
+      warningHtml = '<div class="gw-warning info">ℹ️ ' + gainRate.toFixed(2) + 'kg/week gain — expect some fat alongside muscle. Ideal lean bulk is 0.25–0.5kg/week. Consider slowing down.</div>';
+    } else {
+      warningHtml = '<div class="gw-warning ok">✓ <strong>Lean bulk pace</strong> — ' + gainRate.toFixed(2) + 'kg/week. Great rate for muscle gain with minimal fat.</div>';
+    }
+  } else {
+    warningHtml = '<div class="gw-warning ok">✓ Maintenance — keeping current weight.</div>';
+  }
+
+  var effectiveWeeks = (totalChange > 0 && weeklyRate > MAX_KG) ? totalChange / MAX_KG : weeksAway;
+  fb.innerHTML = warningHtml +
+    '<div class="gw-stats">' +
+    '<span>' + Math.abs(totalChange).toFixed(1) + 'kg total</span>' +
+    '<span>~' + Math.ceil(effectiveWeeks) + ' weeks</span>' +
+    '<span>' + Math.abs(Math.round(cappedDiff)) + ' kcal/day ' + (cappedDiff > 0 ? 'deficit' : cappedDiff < 0 ? 'surplus' : 'maintenance') + '</span>' +
+    '</div>';
+
+  calcMacros(-Math.round(cappedDiff));
+}
+
 function getGoalLabel() {
   const active = document.querySelector('.goal-card.active');
   if (!active) return 'Maintaining';
@@ -478,13 +558,13 @@ function getGoalLabel() {
   return `${name} (${offset})`;
 }
 
-function calcMacros() {
+function calcMacros(offsetOverride) {
   const weight = parseFloat(document.getElementById('c-weight').value);
   const height = parseFloat(document.getElementById('c-height').value);
   const age = parseFloat(document.getElementById('c-age').value);
   const sex = document.getElementById('c-sex').value;
   const activity = parseFloat(document.getElementById('c-activity').value);
-  const goal = getGoalOffset();
+  var goal = (offsetOverride !== undefined) ? offsetOverride : (_goalMode === 'target' ? 0 : getGoalOffset());
 
   if (!weight || !height || !age) {
     document.getElementById('macro-preview-wrap').style.display = 'none';
@@ -1268,41 +1348,25 @@ function renderCarousel(slideDir) {
   if (!track) return;
   const _trainDays = (MEM.load('fp_profile') || {}).trainingDayIds || [];
 
-  // Positions relative to center: -2, -1, 0(center), +1, +2
-  const slots = [-2, -1, 0, 1, 2];
-
-  track.innerHTML = slots.map(offset => {
-    const di = idx + offset;
-    if (di < 0 || di >= days.length) {
-      // Empty spacer to keep layout stable
-      return `<div class="day-tab-btn dc-hidden" aria-hidden="true"></div>`;
-    }
-    const dayId = days[di];
-    const dayName = dayId.charAt(0).toUpperCase() + dayId.slice(1);
-    const abbr = dayName.slice(0, 3);
-    const num = di + 1; // day number
+  track.innerHTML = days.map(function(dayId, di) {
+    const abbr = dayId.charAt(0).toUpperCase() + dayId.slice(1, 3);
     const isTrain = _trainDays.includes(dayId);
-
-    let cls = 'dc-hidden';
-    if (offset === 0) cls = 'dc-center';
-    else if (Math.abs(offset) === 1) cls = 'dc-side';
-    else if (Math.abs(offset) === 2) cls = 'dc-far';
-
-    return `<button class="day-tab-btn ${cls}" id="day-tab-btn-${dayId}" onclick="switchDayTab('${dayId}')">
-      ${isTrain ? '<div class="day-tab-train-dot"></div>' : ''}
-      <span class="day-letter">${abbr}</span>
-    </button>`;
+    const isActive = di === idx;
+    return '<button class="day-tab-btn' + (isActive ? ' dc-center' : '') + '" id="day-tab-btn-' + dayId + '" onclick="switchDayTab(\'' + dayId + '\')">'
+      + (isTrain ? '<div class="day-tab-train-dot"></div>' : '')
+      + '<span class="day-letter">' + abbr + '</span>'
+      + '</button>';
   }).join('');
 
-  // Animate the track
-  if (slideDir) {
-    track.classList.remove('slide-left', 'slide-right');
-    void track.offsetWidth; // reflow
-    track.classList.add(slideDir === 'left' ? 'slide-left' : 'slide-right');
-    track.addEventListener('animationend', () => {
-      track.classList.remove('slide-left', 'slide-right');
-    }, { once: true });
-  }
+  // Scroll active button into center of the strip
+  requestAnimationFrame(function() {
+    var activeBtn = document.getElementById('day-tab-btn-' + (days[idx] || ''));
+    var wrap = document.getElementById('day-strip-wrap');
+    if (activeBtn && wrap) {
+      var target = activeBtn.offsetLeft + activeBtn.offsetWidth / 2 - wrap.offsetWidth / 2;
+      wrap.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
+    }
+  });
 }
 
 function switchDayTab(id) {
@@ -1883,6 +1947,7 @@ function openSettings() {
   document.body.style.overflow = 'hidden';
   initSettingsDrag();
   renderTrainingDayPills();
+  renderWeightLogPreview();
 }
 
 function closeSettings() {
@@ -1891,6 +1956,108 @@ function closeSettings() {
   drawer.classList.remove('open');
   drawer.classList.remove('expanded');
   document.body.style.overflow = '';
+}
+
+/* ═══════════════ WEIGHT LOG ═══════════════ */
+
+function openWeightLog() {
+  haptic('medium');
+  var overlay = document.getElementById('weight-log-overlay');
+  if (!overlay) return;
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  renderWeightLog();
+  setTimeout(function() {
+    var inp = document.getElementById('wl-input');
+    if (inp) inp.focus();
+  }, 350);
+}
+
+function closeWeightLog() {
+  var overlay = document.getElementById('weight-log-overlay');
+  if (overlay) overlay.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function addWeighIn() {
+  var val = parseFloat(document.getElementById('wl-input').value);
+  var unit = document.getElementById('wl-unit').value;
+  if (!val || val < 20 || val > 500) return;
+  var weightKg = unit === 'lbs' ? val * 0.453592 : val;
+  var entries = MEM.load('fp_weights') || [];
+  var today = new Date().toISOString().slice(0, 10);
+  // Remove any existing entry for today
+  entries = entries.filter(function(e) { return e.date !== today; });
+  entries.unshift({ date: today, weight: Math.round(weightKg * 10) / 10, displayVal: val, unit: unit });
+  entries = entries.slice(0, 365); // keep up to a year
+  MEM.save('fp_weights', entries);
+  document.getElementById('wl-input').value = '';
+  renderWeightLog();
+  renderWeightLogPreview();
+  haptic('light');
+}
+
+function deleteWeighIn(date) {
+  var entries = MEM.load('fp_weights') || [];
+  entries = entries.filter(function(e) { return e.date !== date; });
+  MEM.save('fp_weights', entries);
+  renderWeightLog();
+  renderWeightLogPreview();
+}
+
+function renderWeightLog() {
+  var container = document.getElementById('wl-history');
+  if (!container) return;
+  var entries = MEM.load('fp_weights') || [];
+  if (!entries.length) {
+    container.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:24px 0">No weigh-ins yet. Log your first one above!</div>';
+    return;
+  }
+  container.innerHTML = entries.map(function(e, i) {
+    var prev = entries[i + 1];
+    var deltaHtml = '';
+    if (prev) {
+      var diff = Math.round((e.weight - prev.weight) * 10) / 10;
+      if (diff !== 0) {
+        var cls = diff > 0 ? 'wl-delta-up' : 'wl-delta-down';
+        var sign = diff > 0 ? '+' : '';
+        deltaHtml = '<span class="' + cls + '">' + sign + diff + 'kg</span>';
+      }
+    }
+    var dateStr = new Date(e.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+    return '<div class="wl-entry">'
+      + '<div>'
+        + '<div class="wl-entry-weight">' + e.weight + ' kg' + deltaHtml + '</div>'
+        + '<div class="wl-entry-date">' + dateStr + '</div>'
+      + '</div>'
+      + '<button class="wl-entry-del" onclick="deleteWeighIn(\'' + e.date + '\')" title="Delete">✕</button>'
+    + '</div>';
+  }).join('');
+}
+
+function renderWeightLogPreview() {
+  var container = document.getElementById('weight-log-preview');
+  if (!container) return;
+  var entries = MEM.load('fp_weights') || [];
+  if (!entries.length) {
+    container.innerHTML = '<div class="profile-row"><span class="profile-row-label" style="color:var(--muted)">No weigh-ins yet</span></div>';
+    return;
+  }
+  var latest = entries[0];
+  var prev = entries[1];
+  var deltaHtml = '';
+  if (prev) {
+    var diff = Math.round((latest.weight - prev.weight) * 10) / 10;
+    if (diff !== 0) {
+      var color = diff > 0 ? 'var(--red)' : '#4caf50';
+      var sign = diff > 0 ? '+' : '';
+      deltaHtml = ' <span style="color:' + color + ';font-size:12px">' + sign + diff + 'kg since last</span>';
+    }
+  }
+  var dateStr = new Date(latest.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  container.innerHTML = '<div class="profile-row"><span class="profile-row-label">Latest</span><span class="profile-row-val">' + latest.weight + ' kg' + deltaHtml + '</span></div>'
+    + '<div class="profile-row"><span class="profile-row-label">Logged</span><span class="profile-row-val">' + dateStr + '</span></div>'
+    + '<div class="profile-row"><span class="profile-row-label">Total entries</span><span class="profile-row-val">' + entries.length + '</span></div>';
 }
 
 function initSettingsDrag() {
