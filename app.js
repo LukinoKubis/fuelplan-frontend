@@ -1067,7 +1067,14 @@ function renderPlan(plan, userName, isRestoring, planName) {
 
   // Store days globally for carousel navigation
   window._carouselDays = days.map(d => d.day.toLowerCase());
-  window._carouselIndex = Math.max(0, window._carouselDays.indexOf(savedDayTab));
+
+  // Auto-navigate to today if it's in the plan and no saved day preference
+  var todayDowInit = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][new Date().getDay()];
+  var hasSavedDay = !!MEM.load('fp_activeDay');
+  var todayInPlan = window._carouselDays.includes(todayDowInit);
+  var activeTab = (!hasSavedDay && todayInPlan) ? todayDowInit : savedDayTab;
+
+  window._carouselIndex = Math.max(0, window._carouselDays.indexOf(activeTab));
 
   renderWeekGlance();
   renderTodaySnapshot();
@@ -1075,7 +1082,7 @@ function renderPlan(plan, userName, isRestoring, planName) {
   renderCarousel();
 
   dayTabsContent.innerHTML = days.map(function(d) {
-    return renderDayPanel(d, s, d.day.toLowerCase() === savedDayTab);
+    return renderDayPanel(d, s, d.day.toLowerCase() === activeTab);
   }).join('');
 
   // Shopping section — restore scale and view mode
@@ -4397,10 +4404,29 @@ function toggleMealEaten(dayId, mealIdx) {
     }
   }
 
-  // Celebrate when all meals eaten
-  if (!wasEaten && eatenCount === mealCount) {
-    haptic('success');
-    showToast('All meals logged for ' + dayObj.day + '!');
+  // Achievements
+  if (!wasEaten) {
+    if (eatenCount === mealCount) {
+      haptic('success');
+      showToast('All meals logged for ' + dayObj.day + '! 🎉');
+    } else {
+      // Check calorie and protein milestones (only for today's day)
+      var todayCheck = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][new Date().getDay()];
+      if (dayId === todayCheck) {
+        var eatenK2 = dayObj.meals.reduce(function(s, m, i2) { return s + (eaten[dayId+'-'+i2] ? (parseInt(m.kcal)||0) : 0); }, 0);
+        var prevK   = dayObj.meals.reduce(function(s, m, i2) { return s + (i2 !== mealIdx && eaten[dayId+'-'+i2] ? (parseInt(m.kcal)||0) : 0); }, 0);
+        var dayTarget = dayObj.kcal || planData.summary.kcal;
+        if (prevK < dayTarget && eatenK2 >= dayTarget) {
+          showToast('Calorie target hit today! 🎯');
+        }
+        var eatenP2 = dayObj.meals.reduce(function(s, m, i2) { return s + (eaten[dayId+'-'+i2] ? (parseInt(m.protein)||0) : 0); }, 0);
+        var prevP   = dayObj.meals.reduce(function(s, m, i2) { return s + (i2 !== mealIdx && eaten[dayId+'-'+i2] ? (parseInt(m.protein)||0) : 0); }, 0);
+        var proteinTarget = planData.summary.protein;
+        if (prevP < proteinTarget && eatenP2 >= proteinTarget) {
+          showToast('Protein target hit today! 💪');
+        }
+      }
+    }
   }
 
   // Refresh week stats (streak might change), glance and today snapshot
