@@ -3392,6 +3392,11 @@ function renderTodaySnapshot() {
 
   var allEaten = eatenCount === meals.length && meals.length > 0;
 
+  // Water data for today
+  var waterData = MEM.load('fp_water') || {};
+  var todayWater = waterData[todayDow] || 0;
+  var waterGoal = WATER_GOAL || 8;
+
   var nextMealHtml = allEaten
     ? '<div style="color:var(--lime);font-weight:700;font-size:13px">All meals logged today! 🎉</div>'
     : nextMeal
@@ -3428,7 +3433,12 @@ function renderTodaySnapshot() {
     + '<div style="flex:1;height:4px;background:var(--bg2);border-radius:2px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:var(--lime);border-radius:2px;transition:width 0.4s ease"></div></div>'
     + '<div style="flex:1;height:4px;background:var(--bg2);border-radius:2px;overflow:hidden"><div style="height:100%;width:' + proteinPct + '%;background:var(--blue);border-radius:2px;transition:width 0.4s ease"></div></div>'
   + '</div>'
-  + nextMealHtml;
+  + nextMealHtml
+  + '<div id="snapshot-water-row" style="display:flex;align-items:center;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)" onclick="event.stopPropagation()">'
+    + '<span style="font-size:12px;color:var(--muted);flex:1">💧 Water ' + todayWater + '/' + waterGoal + ' glasses</span>'
+    + '<button onclick="snapshotAddWater(\'' + todayDow + '\')" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:3px 10px;font-size:12px;color:var(--text);cursor:pointer">+ Glass</button>'
+    + (todayWater > 0 ? '<button onclick="snapshotRemoveWater(\'' + todayDow + '\')" style="background:none;border:none;font-size:12px;color:var(--muted);cursor:pointer;padding:3px 4px">−</button>' : '')
+  + '</div>';
 
   // Insert before day-strip-wrap (first child of section-week), after week-glance
   var glance = document.getElementById('week-glance');
@@ -3438,6 +3448,33 @@ function renderTodaySnapshot() {
   } else if (stripWrap) {
     section.insertBefore(card, stripWrap);
   }
+}
+
+function snapshotAddWater(dayId) {
+  haptic('light');
+  var water = MEM.load('fp_water') || {};
+  water[dayId] = (water[dayId] || 0) + 1;
+  MEM.save('fp_water', water);
+  renderTodaySnapshot();
+  renderWeekStats();
+  // Also update the day panel water tracker if visible
+  var wCnt = document.getElementById('water-count-' + dayId);
+  if (wCnt) wCnt.textContent = water[dayId];
+  var glasses = document.querySelectorAll('#water-tracker-' + dayId + ' .water-glass');
+  glasses.forEach(function(g, i) { g.classList.toggle('filled', i < water[dayId]); });
+}
+
+function snapshotRemoveWater(dayId) {
+  haptic('light');
+  var water = MEM.load('fp_water') || {};
+  water[dayId] = Math.max(0, (water[dayId] || 0) - 1);
+  MEM.save('fp_water', water);
+  renderTodaySnapshot();
+  renderWeekStats();
+  var wCnt = document.getElementById('water-count-' + dayId);
+  if (wCnt) wCnt.textContent = water[dayId];
+  var glasses = document.querySelectorAll('#water-tracker-' + dayId + ' .water-glass');
+  glasses.forEach(function(g, i) { g.classList.toggle('filled', i < water[dayId]); });
 }
 
 /* ═══════════════════════════════════════════════════
@@ -3781,18 +3818,34 @@ function renderWeekStats() {
     </div>
   `;
 
+  // Week complete banner (created, will be inserted after macroRow is in DOM)
+  var oldWeekBanner = document.getElementById('week-complete-banner');
+  if (oldWeekBanner) oldWeekBanner.remove();
+  var weekBanner = null;
+  if (completeDayCount === days.length && days.length > 0) {
+    weekBanner = document.createElement('div');
+    weekBanner.id = 'week-complete-banner';
+    weekBanner.innerHTML = '<div style="margin:0 16px 12px;background:linear-gradient(135deg,rgba(200,245,66,0.15),rgba(200,245,66,0.05));border:1.5px solid rgba(200,245,66,0.4);border-radius:16px;padding:16px;text-align:center">'
+      + '<div style="font-size:28px;margin-bottom:6px">🏆</div>'
+      + '<div style="font-family:\'Syne\',sans-serif;font-weight:800;font-size:16px;color:var(--lime);margin-bottom:4px">Week Complete!</div>'
+      + '<div style="font-size:12px;color:var(--muted)">You logged all ' + days.length + ' days this week. Incredible consistency!</div>'
+    + '</div>';
+  }
+
   // Insert AFTER the day panels content — stats live below the carousel, not above it
   const dayContent = document.getElementById('day-tabs-content');
   if (dayContent) {
-    // Insert order: dayContent → macroRow → statsEl (macroRow first so statsEl ends up last)
+    // Insert order: dayContent → [banner] → macroRow → statsEl
     dayContent.insertAdjacentElement('afterend', macroRow);
     macroRow.insertAdjacentElement('afterend', statsEl);
+    if (weekBanner) macroRow.insertAdjacentElement('beforebegin', weekBanner);
   } else {
     // fallback — after glance
     const glance = document.getElementById('week-glance');
     if (glance) {
       glance.insertAdjacentElement('afterend', macroRow);
       macroRow.insertAdjacentElement('afterend', statsEl);
+      if (weekBanner) macroRow.insertAdjacentElement('beforebegin', weekBanner);
     }
   }
 
