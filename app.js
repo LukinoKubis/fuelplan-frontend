@@ -22,6 +22,83 @@ const MEM = {
 let currentMode = 'manual';
 let planData = null;
 let calcMacroState = null;
+
+/* ═══════════════════════════════════════════════════
+   TRACKING SYNC — persist calendar, weights, notes
+   to backend so data survives browser clears / device switches
+═══════════════════════════════════════════════════ */
+var _syncTimer = null;
+
+function scheduleTrackingSync() {
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(pushTrackingData, 2500);
+}
+
+async function pushTrackingData() {
+  const code = (localStorage.getItem('fp_apikey') || '').trim().toUpperCase();
+  if (!code) return;
+  const data = {
+    calendarLog: MEM.load('fp_calendarLog') || {},
+    weights: MEM.load('fp_weights') || [],
+    dayNotes: MEM.load('fp_dayNotes') || {},
+    waterGoal: parseInt(localStorage.getItem('fp_waterGoal') || '8', 10)
+  };
+  try {
+    await fetch(API_BASE + '/api/tracking/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ activationCode: code, data })
+    });
+  } catch(e) {}
+}
+
+async function pullTrackingData() {
+  const code = (localStorage.getItem('fp_apikey') || '').trim().toUpperCase();
+  if (!code) return;
+  try {
+    const res = await fetch(API_BASE + '/api/tracking/get', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ activationCode: code })
+    });
+    if (!res.ok) return;
+    const json = await res.json();
+    const remote = json.data;
+    if (!remote) return;
+
+    // Merge remote → local (local wins on conflict for same-date entries)
+    if (remote.calendarLog && typeof remote.calendarLog === 'object') {
+      const local = MEM.load('fp_calendarLog') || {};
+      MEM.save('fp_calendarLog', Object.assign({}, remote.calendarLog, local));
+    }
+    if (Array.isArray(remote.weights) && remote.weights.length) {
+      const local = MEM.load('fp_weights') || [];
+      const localDates = new Set(local.map(function(w) { return w.date; }));
+      const toAdd = remote.weights.filter(function(w) { return !localDates.has(w.date); });
+      if (toAdd.length) {
+        const merged = local.concat(toAdd).sort(function(a, b) {
+          return new Date(b.date) - new Date(a.date);
+        }).slice(0, 365);
+        MEM.save('fp_weights', merged);
+        renderWeightLogPreview();
+        refreshStatsWeightCard();
+      }
+    }
+    if (remote.dayNotes && typeof remote.dayNotes === 'object') {
+      const local = MEM.load('fp_dayNotes') || {};
+      MEM.save('fp_dayNotes', Object.assign({}, remote.dayNotes, local));
+    }
+    if (typeof remote.waterGoal === 'number') {
+      const localGoal = parseInt(localStorage.getItem('fp_waterGoal') || '0', 10);
+      if (!localGoal) {
+        localStorage.setItem('fp_waterGoal', remote.waterGoal);
+        WATER_GOAL = remote.waterGoal;
+        var wgd = document.getElementById('water-goal-display');
+        if (wgd) wgd.textContent = WATER_GOAL;
+      }
+    }
+  } catch(e) {}
+}
 let shopChecks = {};  // { "ci-ii": bool }
 
 /* ═══════════════════════════════════════════════════
@@ -1169,6 +1246,9 @@ function renderPlan(plan, userName, isRestoring, planName) {
     if (planData) renderTodaySnapshot();
   }, 60000);
 
+  // Pull tracking data from backend (non-blocking, silently merges)
+  setTimeout(pullTrackingData, 1500);
+
   // Show swipe hint once
   if (!MEM.load('fp_swipeHintShown')) {
     MEM.save('fp_swipeHintShown', true);
@@ -2293,6 +2373,7 @@ function addWeighIn() {
   renderWeightLog();
   renderWeightLogPreview();
   refreshStatsWeightCard();
+  scheduleTrackingSync();
   haptic('light');
 }
 
@@ -2303,6 +2384,7 @@ function deleteWeighIn(date) {
   renderWeightLog();
   renderWeightLogPreview();
   refreshStatsWeightCard();
+  scheduleTrackingSync();
 }
 
 function refreshStatsWeightCard() {
@@ -4407,6 +4489,7 @@ function adjustWaterGoal(delta) {
   }
   renderTodaySnapshot();
   renderWeekStats();
+  scheduleTrackingSync();
 }
 
 function renderWaterTracker(dayId) {
@@ -4754,6 +4837,7 @@ function saveDayJournal(dayId) {
     delete notes[dayId];
   }
   MEM.save('fp_dayNotes', notes);
+  scheduleTrackingSync();
   // Update preview
   var preview = document.getElementById('day-journal-preview-' + dayId);
   var toggle = document.querySelector('#day-journal-' + dayId + ' .day-journal-toggle');
@@ -4852,6 +4936,7 @@ function snapshotTodayToCalendar() {
     note: notes[todayDow] || ''
   };
   MEM.save('fp_calendarLog', log);
+  scheduleTrackingSync();
 }
 
 // Snapshot the whole current plan week to calendar (called before resetting fp_eaten)
