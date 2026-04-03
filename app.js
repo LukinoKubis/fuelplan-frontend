@@ -2131,6 +2131,17 @@ function openSettings() {
       })() : ''}
       ${profile?.dietPref ? `<div class="profile-row"><span class="profile-row-label">Diet prefs</span><span class="profile-row-val">${escHtml(profile.dietPref)}</span></div>` : ''}
       <div class="profile-row"><span class="profile-row-label">Goal</span><span class="profile-row-val">${goalLabel}</span></div>
+      ${(profile?.mode === 'calc' && profile?.weight && profile?.height && profile?.age && profile?.activity && s) ? (() => {
+        const bm = profile.sex === 'male'
+          ? 10 * profile.weight + 6.25 * profile.height - 5 * profile.age + 5
+          : 10 * profile.weight + 6.25 * profile.height - 5 * profile.age - 161;
+        const tdee2 = Math.round(bm * parseFloat(profile.activity));
+        const dailyDiff = s.kcal - tdee2;
+        const kgPerWeek = Math.abs(Math.round(dailyDiff * 7 / 7700 * 10) / 10);
+        const direction2 = dailyDiff < -50 ? `losing ~${kgPerWeek}kg/wk` : dailyDiff > 50 ? `gaining ~${kgPerWeek}kg/wk` : 'maintaining';
+        return `<div class="profile-row"><span class="profile-row-label">Maintenance</span><span class="profile-row-val">${tdee2} kcal/day</span></div>`
+          + `<div class="profile-row"><span class="profile-row-label">Rate</span><span class="profile-row-val" style="color:${dailyDiff < -50 ? 'var(--blue)' : dailyDiff > 50 ? 'var(--orange)' : 'var(--lime)'}">${direction2}</span></div>`;
+      })() : ''}
     `;
   } else {
     rows.innerHTML = `<div class="profile-row"><span class="profile-row-label" style="color:var(--muted)">No profile saved yet</span></div>`;
