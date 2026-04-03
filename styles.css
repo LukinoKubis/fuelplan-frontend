@@ -3093,6 +3093,34 @@ body.light .action-toast { background: #fff; border-color: #e0e4ef; box-shadow: 
 .mmb-c { background: var(--orange); }
 .mmb-f { background: var(--red); }
 
+.meal-macro-detail {
+  background: var(--bg2);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 2px 0 6px;
+  animation: fadeIn 0.15s ease;
+}
+.mmd-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 12px;
+}
+.mmd-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.mmd-dot-p { background: var(--blue); }
+.mmd-dot-c { background: var(--orange); }
+.mmd-dot-f { background: var(--red); }
+.mmd-name { flex: 1; color: var(--muted); }
+.mmd-val { font-weight: 700; color: var(--fg); min-width: 32px; text-align: right; }
+.mmd-kcal { color: var(--muted); min-width: 60px; text-align: right; }
+.mmd-pct { color: var(--muted); min-width: 32px; text-align: right; }
+
 /* ═══════════════════════════════════════════════════
    WATER TRACKER
 ═══════════════════════════════════════════════════ */

@@ -1430,12 +1430,16 @@ function renderDayPanel(day, summary, isActive) {
               <span class="badge badge-kcal">🔥 ${meal.kcal} kcal</span>
             </div>
             ${(function() {
-              const p = (meal.protein || 0) * 4;
-              const c = (meal.carbs || 0) * 4;
-              const f = (meal.fat || 0) * 9;
+              const pr = meal.protein || 0, cr = meal.carbs || 0, fr = meal.fat || 0;
+              const p = pr * 4, c = cr * 4, f = fr * 9;
               const tot = p + c + f || 1;
               const pp = Math.round(p/tot*100), cp = Math.round(c/tot*100), fp = 100 - pp - cp;
-              return `<div class="meal-macro-bar"><div class="mmb-p" style="width:${pp}%"></div><div class="mmb-c" style="width:${cp}%"></div><div class="mmb-f" style="width:${fp}%"></div></div>`;
+              return `<div class="meal-macro-bar" onclick="toggleMealMacros('${dayId}',${mealIdx})" title="Tap for macro breakdown" style="cursor:pointer"><div class="mmb-p" style="width:${pp}%"></div><div class="mmb-c" style="width:${cp}%"></div><div class="mmb-f" style="width:${fp}%"></div></div>`
+                + `<div class="meal-macro-detail" id="mmacro-${dayId}-${mealIdx}" style="display:none">`
+                + `<div class="mmd-row"><span class="mmd-dot mmd-dot-p"></span><span class="mmd-name">Protein</span><span class="mmd-val">${pr}g</span><span class="mmd-kcal">${Math.round(p)} kcal</span><span class="mmd-pct">${pp}%</span></div>`
+                + `<div class="mmd-row"><span class="mmd-dot mmd-dot-c"></span><span class="mmd-name">Carbs</span><span class="mmd-val">${cr}g</span><span class="mmd-kcal">${Math.round(c)} kcal</span><span class="mmd-pct">${cp}%</span></div>`
+                + `<div class="mmd-row"><span class="mmd-dot mmd-dot-f"></span><span class="mmd-name">Fat</span><span class="mmd-val">${fr}g</span><span class="mmd-kcal">${Math.round(f)} kcal</span><span class="mmd-pct">${fp}%</span></div>`
+                + `</div>`;
             })()}
             <div class="meal-ingredients" id="mingr-${dayId}-${mealIdx}" onclick="toggleIngredients('${dayId}',${mealIdx})">${escHtml(meal.ingredients)}</div>
             <button class="meal-ingr-toggle" id="mingr-toggle-${dayId}-${mealIdx}" onclick="toggleIngredients('${dayId}',${mealIdx})">Show more ▾</button>
@@ -1651,6 +1655,13 @@ function toggleIngredients(dayId, mealIdx) {
   if (!ingr) return;
   var expanded = ingr.classList.toggle('expanded');
   if (btn) btn.textContent = expanded ? 'Show less ▴' : 'Show more ▾';
+}
+
+function toggleMealMacros(dayId, mealIdx) {
+  var el = document.getElementById('mmacro-' + dayId + '-' + mealIdx);
+  if (!el) return;
+  var showing = el.style.display !== 'none';
+  el.style.display = showing ? 'none' : 'block';
 }
 
 /* ── CUSTOM SHOPPING ITEMS ──────────────────────────── */
