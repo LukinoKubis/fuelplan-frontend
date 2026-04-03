@@ -3749,6 +3749,14 @@ function renderTodaySnapshot() {
   var remainingProtein = Math.max(0, targetProtein - eatenProtein);
   var proteinPct = Math.min(100, Math.round(eatenProtein / targetProtein * 100));
 
+  var eatenCarbs = meals.reduce(function(s, m, i) { return s + (eaten[todayDow + '-' + i] ? (parseInt(m.carbs) || 0) : 0); }, 0);
+  var targetCarbs = planData.summary.carbs || 1;
+  var carbsPct = Math.min(100, Math.round(eatenCarbs / targetCarbs * 100));
+
+  var eatenFat = meals.reduce(function(s, m, i) { return s + (eaten[todayDow + '-' + i] ? (parseInt(m.fat) || 0) : 0); }, 0);
+  var targetFat = planData.summary.fat || 1;
+  var fatPct = Math.min(100, Math.round(eatenFat / targetFat * 100));
+
   var allEaten = eatenCount === meals.length && meals.length > 0;
 
   // Water data for today
@@ -3804,12 +3812,20 @@ function renderTodaySnapshot() {
     + '</div>'
     + '<div style="text-align:right">'
       + '<div style="font-size:20px;font-family:\'Syne\',sans-serif;font-weight:800;color:' + (pct === 100 ? 'var(--lime)' : 'var(--text)') + '">' + pct + '%</div>'
-      + '<div style="font-size:10px;color:var(--muted)">' + eatenKcal + '/' + target + ' kcal</div>'
+      + '<div style="font-size:10px;color:var(--muted)">of daily target</div>'
     + '</div>'
   + '</div>'
-  + '<div style="display:flex;gap:4px;margin-bottom:10px">'
-    + '<div style="flex:1;height:4px;background:var(--bg2);border-radius:2px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:var(--lime);border-radius:2px;transition:width 0.4s ease"></div></div>'
-    + '<div style="flex:1;height:4px;background:var(--bg2);border-radius:2px;overflow:hidden"><div style="height:100%;width:' + proteinPct + '%;background:var(--blue);border-radius:2px;transition:width 0.4s ease"></div></div>'
+  + '<div style="display:flex;gap:4px;margin-bottom:6px">'
+    + '<div style="flex:1;height:4px;background:var(--bg2);border-radius:2px;overflow:hidden" title="Calories"><div style="height:100%;width:' + pct + '%;background:var(--lime);border-radius:2px;transition:width 0.4s ease"></div></div>'
+    + '<div style="flex:1;height:4px;background:var(--bg2);border-radius:2px;overflow:hidden" title="Protein"><div style="height:100%;width:' + proteinPct + '%;background:var(--blue);border-radius:2px;transition:width 0.4s ease"></div></div>'
+    + '<div style="flex:1;height:4px;background:var(--bg2);border-radius:2px;overflow:hidden" title="Carbs"><div style="height:100%;width:' + carbsPct + '%;background:var(--orange);border-radius:2px;transition:width 0.4s ease"></div></div>'
+    + '<div style="flex:1;height:4px;background:var(--bg2);border-radius:2px;overflow:hidden" title="Fat"><div style="height:100%;width:' + fatPct + '%;background:rgba(200,245,66,0.6);border-radius:2px;transition:width 0.4s ease"></div></div>'
+  + '</div>'
+  + '<div style="display:flex;gap:8px;margin-bottom:8px;font-size:10px;color:var(--muted)">'
+    + '<span style="flex:1;text-align:center"><span style="color:var(--lime);font-weight:700">' + eatenKcal + '</span>/' + target + ' kcal</span>'
+    + '<span style="flex:1;text-align:center"><span style="color:var(--blue);font-weight:700">' + eatenProtein + 'g</span>/' + targetProtein + 'g P</span>'
+    + '<span style="flex:1;text-align:center"><span style="color:var(--orange);font-weight:700">' + eatenCarbs + 'g</span>/' + targetCarbs + 'g C</span>'
+    + '<span style="flex:1;text-align:center"><span style="font-weight:700">' + eatenFat + 'g</span>/' + targetFat + 'g F</span>'
   + '</div>'
   + nextMealHtml
   + '<div id="snapshot-water-row" style="display:flex;align-items:center;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)" onclick="event.stopPropagation()">'
@@ -4084,11 +4100,30 @@ function saveMealNote(dayId, mealIdx) {
 ═══════════════════════════════════════════════════ */
 function renderWeekStats() {
   const section = document.getElementById('section-stats');
-  if (!section || !planData) return;
+  if (!section) return;
 
-  // Remove old
-  ['week-stats', 'week-macro-row'].forEach(function(id) {
-    const el = document.getElementById(id);
+  // Remove old empty state if exists
+  var emptyState = document.getElementById('stats-empty-state');
+  if (emptyState) emptyState.remove();
+
+  if (!planData) {
+    // Show empty state
+    var emptyEl = document.createElement('div');
+    emptyEl.id = 'stats-empty-state';
+    emptyEl.style.cssText = 'padding:48px 16px;text-align:center;';
+    emptyEl.innerHTML = '<div style="font-size:36px;margin-bottom:12px">📊</div>'
+      + '<div style="font-family:\'Syne\',sans-serif;font-weight:800;font-size:16px;margin-bottom:8px">No plan yet</div>'
+      + '<div style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:20px">Generate a meal plan to start tracking your progress, streak, and adherence</div>'
+      + '<button onclick="switchSection(\'week\')" style="background:var(--lime);color:#0e0f11;border:none;border-radius:12px;font-family:\'Syne\',sans-serif;font-weight:800;font-size:14px;padding:12px 24px;cursor:pointer">Get Started</button>';
+    var statsHeader = document.getElementById('stats-header');
+    if (statsHeader) statsHeader.insertAdjacentElement('afterend', emptyEl);
+    else section.appendChild(emptyEl);
+    return;
+  }
+
+  // Remove old stats elements
+  ['week-stats', 'week-macro-row', 'week-complete-banner', 'goal-progress-card', 'plan-insights-card', 'stats-weight-card'].forEach(function(id) {
+    var el = document.getElementById(id);
     if (el) el.remove();
   });
 
