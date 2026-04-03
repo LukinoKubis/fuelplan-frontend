@@ -760,12 +760,33 @@
         </div>
       </div>
       <div id="shopping-content"></div>
+      <!-- Custom items section -->
+      <div id="custom-shop-section" style="margin:0 0 24px">
+        <div class="shop-category" style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-family:'Syne',sans-serif;font-weight:800;font-size:13px;letter-spacing:0.04em">MY EXTRAS</span>
+          <span id="custom-shop-count" style="color:var(--muted);font-size:11px;font-weight:400"></span>
+        </div>
+        <div id="custom-shop-items"></div>
+        <div style="padding:8px 16px 0">
+          <div style="display:flex;gap:8px;align-items:center">
+            <input id="custom-item-input" type="text" placeholder="Add item…" maxlength="60"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomShopItem()}"
+              style="flex:1;background:var(--bg2);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-family:'Figtree',sans-serif;font-size:14px;padding:9px 12px;outline:none;-webkit-appearance:none"
+              onfocus="this.style.borderColor='var(--lime)'" onblur="this.style.borderColor='var(--border)'">
+            <input id="custom-item-qty" type="text" placeholder="Qty" maxlength="20"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomShopItem()}"
+              style="width:70px;background:var(--bg2);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-family:'Figtree',sans-serif;font-size:14px;padding:9px 10px;outline:none;-webkit-appearance:none"
+              onfocus="this.style.borderColor='var(--lime)'" onblur="this.style.borderColor='var(--border)'">
+            <button onclick="addCustomShopItem()" style="background:var(--lime);color:#0e0f11;border:none;border-radius:10px;font-family:'Syne',sans-serif;font-weight:800;font-size:13px;padding:9px 14px;cursor:pointer;white-space:nowrap">Add</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- VERSION FOOTER -->
     <div class="version-footer">
     <svg width="10" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-1px;opacity:0.5"><path d="M13 2L4.5 13.5H11L9 22L19.5 10H13L15 2H13z"/></svg>
-    FUELPLAN &nbsp;·&nbsp; v2.21.0
+    FUELPLAN &nbsp;·&nbsp; v2.22.0
   </div>
   </div><!-- /plan-wrap -->
 

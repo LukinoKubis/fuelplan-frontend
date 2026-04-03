@@ -1199,6 +1199,7 @@ function renderPlan(plan, userName, isRestoring, planName) {
   var haulScale = MEM.load('fp_haulScale') || 1;
   var groceryView = MEM.load('fp_groceryView') || 'list';
   document.getElementById('shopping-content').innerHTML = renderShoppingPanel(plan.shopping_list, true, haulScale, groceryView);
+  renderCustomShopItems();
   updateShopProgress();
   // Sync scaler buttons
   document.querySelectorAll('#haul-scaler .scaler-btn').forEach(function(b) {
@@ -1574,6 +1575,8 @@ function updateShopProgress() {
   if (!plan) return;
   var total = 0;
   (plan.shopping_list || []).forEach(function(cat) { total += (cat.items || []).length; });
+  var customItems = MEM.load('fp_customShopItems') || [];
+  total += customItems.length;
   if (!total) return;
   var checked = Object.values(shopChecks).filter(Boolean).length;
   var pct = Math.round(checked / total * 100);
@@ -1589,6 +1592,79 @@ function updateShopProgress() {
   // Show search bar when there are items
   var sw = document.getElementById('shop-search-wrap');
   if (sw) sw.style.display = total > 0 ? 'block' : 'none';
+}
+
+/* ── CUSTOM SHOPPING ITEMS ──────────────────────────── */
+function renderCustomShopItems() {
+  var items = MEM.load('fp_customShopItems') || [];
+  var container = document.getElementById('custom-shop-items');
+  var countEl = document.getElementById('custom-shop-count');
+  if (!container) return;
+  if (countEl) countEl.textContent = items.length ? items.length + ' item' + (items.length !== 1 ? 's' : '') : '';
+  if (!items.length) {
+    container.innerHTML = '<div style="padding:4px 16px 8px;font-size:13px;color:var(--muted)">Nothing added yet</div>';
+    return;
+  }
+  container.innerHTML = items.map(function(item, i) {
+    var isChecked = !!shopChecks['custom-' + i];
+    return '<div class="shop-item' + (isChecked ? ' checked' : '') + '" id="shop-custom-' + i + '" onclick="toggleCustomShopItem(' + i + ')">'
+      + '<input type="checkbox"' + (isChecked ? ' checked' : '') + ' onclick="event.stopPropagation();toggleCustomShopItem(' + i + ')">'
+      + '<span class="shop-item-name">' + escHtml(item.name) + '</span>'
+      + (item.qty ? '<span class="shop-item-qty">' + escHtml(item.qty) + '</span>' : '')
+      + '<button onclick="event.stopPropagation();deleteCustomShopItem(' + i + ')" style="background:none;border:none;padding:4px 6px;cursor:pointer;color:var(--muted);font-size:14px;line-height:1;margin-left:auto;flex-shrink:0">✕</button>'
+    + '</div>';
+  }).join('');
+}
+
+function addCustomShopItem() {
+  var nameEl = document.getElementById('custom-item-input');
+  var qtyEl = document.getElementById('custom-item-qty');
+  if (!nameEl) return;
+  var name = (nameEl.value || '').trim();
+  if (!name) { nameEl.focus(); return; }
+  var qty = (qtyEl ? qtyEl.value.trim() : '') || '';
+  haptic('light');
+  var items = MEM.load('fp_customShopItems') || [];
+  items.push({ name: name, qty: qty });
+  MEM.save('fp_customShopItems', items);
+  nameEl.value = '';
+  if (qtyEl) qtyEl.value = '';
+  renderCustomShopItems();
+  updateShopProgress();
+  nameEl.focus();
+}
+
+function deleteCustomShopItem(idx) {
+  haptic('light');
+  var items = MEM.load('fp_customShopItems') || [];
+  items.splice(idx, 1);
+  MEM.save('fp_customShopItems', items);
+  // Rebuild shopChecks for custom items (re-index)
+  var newChecks = {};
+  Object.keys(shopChecks).forEach(function(k) {
+    if (!k.startsWith('custom-')) newChecks[k] = shopChecks[k];
+  });
+  items.forEach(function(_, i) {
+    newChecks['custom-' + i] = shopChecks['custom-' + i] || false;
+  });
+  shopChecks = newChecks;
+  MEM.save('fp_shopChecks', shopChecks);
+  renderCustomShopItems();
+  updateShopProgress();
+}
+
+function toggleCustomShopItem(idx) {
+  haptic('light');
+  var key = 'custom-' + idx;
+  shopChecks[key] = !shopChecks[key];
+  MEM.save('fp_shopChecks', shopChecks);
+  var el = document.getElementById('shop-custom-' + idx);
+  if (el) {
+    el.classList.toggle('checked', shopChecks[key]);
+    var chk = el.querySelector('input[type=checkbox]');
+    if (chk) chk.checked = shopChecks[key];
+  }
+  updateShopProgress();
 }
 
 function filterShopList(query) {
@@ -1634,6 +1710,9 @@ function switchSection(id, skipSave) {
   if (id === 'stats') {
     renderWeekGlance();
     renderWeekStats();
+  }
+  if (id === 'haul') {
+    renderCustomShopItems();
   }
 }
 
@@ -2779,6 +2858,7 @@ function resetShopList() {
   const container = document.getElementById('shopping-content');
   if (container && planData) {
     container.innerHTML = renderShoppingPanel(planData.shopping_list, true);
+    renderCustomShopItems();
     updateShopProgress();
   }
   showToast('Shopping list reset');
