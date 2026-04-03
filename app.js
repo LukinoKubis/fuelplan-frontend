@@ -2102,6 +2102,7 @@ function openSettings() {
   initSettingsDrag();
   renderTrainingDayPills();
   renderWeightLogPreview();
+  renderFavoritesPreview();
 }
 
 function closeSettings() {
@@ -2259,6 +2260,35 @@ function renderWeightLogPreview() {
   container.innerHTML = '<div class="profile-row"><span class="profile-row-label">Latest</span><span class="profile-row-val">' + latest.weight + ' kg' + deltaHtml + '</span></div>'
     + '<div class="profile-row"><span class="profile-row-label">Logged</span><span class="profile-row-val">' + dateStr + '</span></div>'
     + '<div class="profile-row"><span class="profile-row-label">Total entries</span><span class="profile-row-val">' + entries.length + '</span></div>';
+}
+
+function renderFavoritesPreview() {
+  var card = document.getElementById('favorites-card');
+  var container = document.getElementById('favorites-preview');
+  var countBadge = document.getElementById('fav-count-badge');
+  if (!card || !container) return;
+  var favs = MEM.load('fp_favorites') || [];
+  if (!favs.length) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  if (countBadge) countBadge.textContent = favs.length + ' saved';
+  container.innerHTML = favs.slice(0, 5).map(function(f, i) {
+    return '<div class="profile-row" style="align-items:flex-start;gap:8px">'
+      + '<div style="flex:1">'
+        + '<div style="font-weight:600;font-size:13px">' + escHtml(f.name) + '</div>'
+        + '<div style="font-size:11px;color:var(--muted)">' + f.kcal + ' kcal · ' + f.protein + 'g protein</div>'
+      + '</div>'
+      + '<button onclick="removeFavoriteByIdx(' + i + ')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:2px 4px;border-radius:4px" title="Remove">✕</button>'
+    + '</div>';
+  }).join('')
+  + (favs.length > 5 ? '<div class="profile-row"><span style="font-size:12px;color:var(--muted)">+ ' + (favs.length - 5) + ' more</span></div>' : '');
+}
+
+function removeFavoriteByIdx(idx) {
+  var favs = MEM.load('fp_favorites') || [];
+  favs.splice(idx, 1);
+  MEM.save('fp_favorites', favs);
+  renderFavoritesPreview();
+  showToast('Removed from favourites');
 }
 
 function initSettingsDrag() {
