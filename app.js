@@ -1562,6 +1562,25 @@ function renderCarousel(slideDir) {
       wrap.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
     }
   });
+
+  // Show/hide "Today" jump button
+  var todayJumpDow = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][new Date().getDay()];
+  var todayInPlan2 = days.includes(todayJumpDow);
+  var isOnToday = todayInPlan2 && days[idx] === todayJumpDow;
+  var oldJump = document.getElementById('jump-to-today');
+  if (oldJump) oldJump.remove();
+  if (todayInPlan2 && !isOnToday) {
+    var jumpBtn = document.createElement('button');
+    jumpBtn.id = 'jump-to-today';
+    jumpBtn.textContent = 'Today';
+    jumpBtn.style.cssText = 'position:absolute;right:12px;top:50%;transform:translateY(-50%);background:var(--lime);color:#0e0f11;border:none;border-radius:20px;font-size:11px;font-weight:800;font-family:\'Syne\',sans-serif;padding:4px 10px;cursor:pointer;z-index:5;white-space:nowrap;letter-spacing:0.04em';
+    jumpBtn.onclick = function() { switchDayTab(todayJumpDow); };
+    var strip = document.getElementById('day-strip-wrap');
+    if (strip) {
+      strip.style.position = 'relative';
+      strip.appendChild(jumpBtn);
+    }
+  }
 }
 
 function switchDayTab(id) {
@@ -4404,6 +4423,10 @@ function toggleMealEaten(dayId, mealIdx) {
     }
   }
 
+  // Update day panel complete state
+  var panel = document.getElementById('panel-' + dayId);
+  if (panel) panel.classList.toggle('day-panel-complete', eatenCount === mealCount);
+
   // Achievements
   if (!wasEaten) {
     if (eatenCount === mealCount) {
@@ -4483,9 +4506,13 @@ function logAllMeals(dayId) {
   }
   if (logBtn) logBtn.textContent = allEaten ? 'Log all' : 'Clear';
 
+  // Update panel complete state
+  var panel2 = document.getElementById('panel-' + dayId);
+  if (panel2) panel2.classList.toggle('day-panel-complete', !allEaten);
+
   if (!allEaten) {
     haptic('success');
-    showToast('All meals logged for ' + dayObj.day + '!');
+    showToast('All meals logged for ' + dayObj.day + '! 🎉');
   }
 
   renderCarousel();

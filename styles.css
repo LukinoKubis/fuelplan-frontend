@@ -2174,6 +2174,14 @@
   @keyframes p-in-r  { from { opacity:0; transform: translateX(24px); } to { opacity:1; transform:none; } }
   @keyframes p-in-l  { from { opacity:0; transform: translateX(-24px); } to { opacity:1; transform:none; } }
 
+  /* Day complete state */
+  .tab-panel.day-panel-complete .day-macro-header {
+    border-bottom: 2px solid rgba(200,245,66,0.25);
+  }
+  .tab-panel.day-panel-complete .day-kcal-display {
+    color: var(--lime);
+  }
+
   /* ── RESPONSIVE ── */
   @media (max-width: 640px) {
     .survey-card { padding: 28px 20px; }
