@@ -1943,11 +1943,7 @@ function initSettingsDrag() {
 /* ═══════════════════════════════════════════════════
    TOP-UP / STRIPE CHECKOUT
 ═══════════════════════════════════════════════════ */
-const TOPUP_PRICES = {
-  PRICE_5:  'price_1TI6wY2HAJ60ePPMTSjsd0Gw',
-  PRICE_10: 'price_1TI6x72HAJ60ePPMMOAjkxNL',
-  PRICE_20: 'price_1TI6xp2HAJ60ePPMMb6SgLUt',
-};
+const TOPUP_PLANS = { PRICE_5: '5', PRICE_10: '10', PRICE_20: '20' };
 
 function openTopup() {
   const overlay = document.getElementById('topup-overlay');
@@ -1970,8 +1966,8 @@ function closeTopup() {
 }
 
 async function startCheckout(planKey) {
-  const priceId = TOPUP_PRICES[planKey];
-  if (!priceId) return;
+  const plan = TOPUP_PLANS[planKey];
+  if (!plan) return;
   const code = (localStorage.getItem('fp_apikey') || '').toUpperCase();
   if (!code) { showToast('No activation code found'); return; }
 
@@ -1983,7 +1979,7 @@ async function startCheckout(planKey) {
     const res = await fetch(API_BASE + '/api/create-checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ activationCode: code, priceId })
+      body: JSON.stringify({ activationCode: code, plan })
     });
     const data = await res.json();
     if (!res.ok || !data.url) throw new Error(data.error || 'Checkout failed');
