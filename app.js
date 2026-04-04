@@ -396,7 +396,7 @@ function restoreProfile() {
     if (gwEl && p.goalWeight) gwEl.value = p.goalWeight;
     if (gdEl && p.goalDate) gdEl.value = p.goalDate;
     setGoalMode('target');
-    setTimeout(function() { initPaceDrum(_goalWeeklyRate); }, 50);
+    setTimeout(function() { initPaceSlider(_goalWeeklyRate); }, 50);
   } else if (p.mode === 'calc') {
     calcMacros();
   }
@@ -603,56 +603,45 @@ function getGoalOffset() {
 var _goalMode = 'preset';
 var _goalWeeklyRate = 0.5; // kg/week (positive = loss)
 
-var _PACE_DESCS = [
-  'Gentle cut · Barely noticeable — very sustainable',
-  'Moderate cut · Steady fat loss, muscle preserved',
-  'Aggressive cut · Significant deficit — keep protein high',
-  'Very aggressive · Intense cut — short term only',
-  'Extreme cut · ⚠️ Only with medical supervision'
-];
+function _getPaceCategory(rate) {
+  if (rate < 0.15) return { label: 'Maintaining',      desc: 'Holding weight — no deficit',                         color: 'var(--blue)' };
+  if (rate < 0.35) return { label: 'Gentle cut',        desc: 'Small deficit · very sustainable long-term',          color: 'var(--lime)' };
+  if (rate < 0.65) return { label: 'Moderate cut',      desc: 'Steady fat loss · muscle preserved',                  color: 'var(--lime)' };
+  if (rate < 0.90) return { label: 'Aggressive cut',    desc: 'Significant deficit — keep protein above 2g/kg',      color: '#ffb742' };
+  if (rate < 1.20) return { label: 'Very aggressive',   desc: 'Intense cut — 4–6 weeks max. Monitor strength.',      color: 'var(--orange)' };
+  return               { label: 'Extreme cut',          desc: '⚠️ Maximum deficit — medical supervision recommended', color: 'var(--red)' };
+}
 
-function setPace(rate) {
+function onPaceSlider(rate) {
   _goalWeeklyRate = rate;
-  // Sync drum highlight
-  var drum = document.getElementById('pace-drum');
-  if (drum) {
-    drum.querySelectorAll('.pace-drum-item').forEach(function(item) {
-      var active = parseFloat(item.dataset.rate) === rate;
-      item.classList.toggle('active', active);
-      if (active) {
-        var desc = document.getElementById('pace-drum-desc');
-        if (desc) desc.textContent = _PACE_DESCS[parseInt(item.dataset.idx)] || '';
-      }
-    });
+  var cat = _getPaceCategory(rate);
+  var valEl = document.getElementById('pace-slider-val');
+  var lblEl = document.getElementById('pace-slider-label');
+  var descEl = document.getElementById('pace-slider-desc');
+  if (valEl) { valEl.textContent = rate.toFixed(2) + ' kg/wk'; valEl.style.color = cat.color; }
+  if (lblEl) { lblEl.textContent = cat.label; lblEl.style.color = cat.color; }
+  if (descEl) descEl.textContent = cat.desc;
+  // Update track fill colour
+  var slider = document.getElementById('pace-slider');
+  if (slider) {
+    var pct = ((rate - 0.1) / (1.5 - 0.1)) * 100;
+    slider.style.background = 'linear-gradient(to right, ' + cat.color + ' ' + pct + '%, var(--border) ' + pct + '%)';
   }
   calcGoalWeight();
 }
 
-var _paceDrumTimer = null;
-function onPaceDrumScroll(el) {
-  clearTimeout(_paceDrumTimer);
-  _paceDrumTimer = setTimeout(function() {
-    var items = el.querySelectorAll('.pace-drum-item');
-    var centerX = el.scrollLeft + el.clientWidth / 2;
-    var closest = null, closestDist = Infinity;
-    items.forEach(function(item) {
-      var d = Math.abs((item.offsetLeft + item.offsetWidth / 2) - centerX);
-      if (d < closestDist) { closestDist = d; closest = item; }
-    });
-    if (closest) setPace(parseFloat(closest.dataset.rate));
-  }, 80);
+function setPace(rate) {
+  _goalWeeklyRate = rate;
+  var slider = document.getElementById('pace-slider');
+  if (slider) slider.value = rate;
+  onPaceSlider(rate);
 }
 
-function initPaceDrum(rate) {
-  var drum = document.getElementById('pace-drum');
-  if (!drum) return;
-  var target = drum.querySelector('[data-rate="' + rate + '"]') || drum.querySelector('.pace-drum-item');
-  if (!target) return;
-  // Scroll so target is centered
-  var drumW = drum.clientWidth;
-  var scrollTo = target.offsetLeft - drumW / 2 + target.offsetWidth / 2;
-  drum.scrollLeft = scrollTo;
-  setPace(parseFloat(target.dataset.rate));
+function initPaceSlider(rate) {
+  var slider = document.getElementById('pace-slider');
+  if (!slider) return;
+  slider.value = rate;
+  onPaceSlider(rate);
 }
 
 function setGoalMode(mode) {
@@ -669,7 +658,7 @@ function setGoalMode(mode) {
   if (targetInputs) targetInputs.style.display = mode === 'target' ? '' : 'none';
   if (cutWarn) cutWarn.style.display = 'none';
   if (bulkWarn) bulkWarn.style.display = 'none';
-  if (mode === 'target') { setTimeout(function() { initPaceDrum(_goalWeeklyRate); }, 30); calcGoalWeight(); }
+  if (mode === 'target') { setTimeout(function() { initPaceSlider(_goalWeeklyRate); }, 30); calcGoalWeight(); }
   else calcMacros();
 }
 

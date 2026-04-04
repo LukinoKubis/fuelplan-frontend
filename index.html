@@ -629,33 +629,18 @@
             </div>
             <div class="field-group" style="margin-bottom:10px">
               <label>Weekly pace</label>
-              <div class="pace-drum-wrap">
-                <div class="pace-drum-track" id="pace-drum" onscroll="onPaceDrumScroll(this)">
-                  <div class="pace-drum-pad"></div>
-                  <div class="pace-drum-item" data-idx="0" data-rate="0.25">
-                    <div class="pace-drum-kg">0.25 kg/wk</div>
-                    <div class="pace-drum-lbl">Gentle</div>
-                  </div>
-                  <div class="pace-drum-item active" data-idx="1" data-rate="0.5">
-                    <div class="pace-drum-kg">0.5 kg/wk</div>
-                    <div class="pace-drum-lbl">Moderate</div>
-                  </div>
-                  <div class="pace-drum-item" data-idx="2" data-rate="0.75">
-                    <div class="pace-drum-kg">0.75 kg/wk</div>
-                    <div class="pace-drum-lbl">Aggressive</div>
-                  </div>
-                  <div class="pace-drum-item" data-idx="3" data-rate="1.0">
-                    <div class="pace-drum-kg">1.0 kg/wk</div>
-                    <div class="pace-drum-lbl">Very agg.</div>
-                  </div>
-                  <div class="pace-drum-item" data-idx="4" data-rate="1.5">
-                    <div class="pace-drum-kg">1.5 kg/wk</div>
-                    <div class="pace-drum-lbl">Extreme</div>
-                  </div>
-                  <div class="pace-drum-pad"></div>
+              <div class="pace-slider-wrap">
+                <div class="pace-slider-top">
+                  <span id="pace-slider-val" class="pace-slider-val">0.50 kg/wk</span>
+                  <span id="pace-slider-label" class="pace-slider-label">Moderate cut</span>
                 </div>
-                <div class="pace-drum-selector"></div>
-                <div id="pace-drum-desc" class="pace-drum-desc">Gentle cut · Sustainable long-term deficit</div>
+                <input type="range" id="pace-slider" class="pace-slider"
+                  min="0.1" max="1.5" step="0.05" value="0.5"
+                  oninput="onPaceSlider(parseFloat(this.value))">
+                <div class="pace-slider-ticks">
+                  <span>0.1</span><span>0.5</span><span>0.75</span><span>1.0</span><span>1.5</span>
+                </div>
+                <div id="pace-slider-desc" class="pace-slider-desc">Steady fat loss · muscle preserved</div>
               </div>
             </div>
             <!-- Hidden date kept for profile save compatibility -->
