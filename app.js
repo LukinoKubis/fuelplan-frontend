@@ -2882,8 +2882,10 @@ function refreshStatsWeightCard() {
   if (el) el.innerHTML = buildStatsWeightCard();
 }
 
+var _sparklineId = 0;
 function buildWeightSparkline(entries) {
   if (entries.length < 2) return '';
+  var gid = 'wg' + (++_sparklineId);
   var pts = entries.slice().reverse(); // oldest first for chart
   var weights = pts.map(function(e) { return e.weight; });
   var minW = Math.min.apply(null, weights);
@@ -2908,7 +2910,7 @@ function buildWeightSparkline(entries) {
 
   // Trend: first vs last
   var trend = weights[weights.length - 1] - weights[0];
-  var trendColor = trend > 0 ? 'var(--red)' : trend < 0 ? '#4caf50' : 'var(--lime)';
+  var trendColor = trend > 0 ? 'var(--red)' : trend < 0 ? 'var(--lime)' : 'var(--muted)';
   var trendSign = trend > 0 ? '+' : '';
   var trendLabel = trendSign + trend.toFixed(1) + 'kg';
 
@@ -2918,12 +2920,12 @@ function buildWeightSparkline(entries) {
       + '<span style="font-size:12px;font-weight:700;color:' + trendColor + '">' + trendLabel + '</span>'
     + '</div>'
     + '<svg width="100%" viewBox="0 0 ' + W + ' ' + H + '" style="overflow:visible">'
-      + '<defs><linearGradient id="wg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--lime)" stop-opacity="0.25"/><stop offset="100%" stop-color="var(--lime)" stop-opacity="0"/></linearGradient></defs>'
-      + '<path d="' + areaPoints + '" fill="url(#wg)"/>'
-      + '<polyline points="' + points + '" fill="none" stroke="var(--lime)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'
-      + '<circle cx="' + (PAD + (pts.length - 1) * xStep).toFixed(1) + '" cy="' + (H - PAD - (weights[weights.length-1] - minW) * yScale).toFixed(1) + '" r="3.5" fill="var(--lime)"/>'
-      + '<text x="4" y="' + (H - PAD - (maxW - minW) * yScale - 4).toFixed(1) + '" font-family="Figtree,sans-serif" font-size="9" fill="var(--muted)">' + maxW + '</text>'
-      + '<text x="4" y="' + (H - 2) + '" font-family="Figtree,sans-serif" font-size="9" fill="var(--muted)">' + minW + '</text>'
+      + '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" style="stop-color:var(--lime);stop-opacity:0.25"/><stop offset="100%" style="stop-color:var(--lime);stop-opacity:0"/></linearGradient></defs>'
+      + '<path d="' + areaPoints + '" style="fill:url(#' + gid + ')"/>'
+      + '<polyline points="' + points + '" style="fill:none;stroke:var(--lime);stroke-width:2;stroke-linejoin:round;stroke-linecap:round"/>'
+      + '<circle cx="' + (PAD + (pts.length - 1) * xStep).toFixed(1) + '" cy="' + (H - PAD - (weights[weights.length-1] - minW) * yScale).toFixed(1) + '" r="3.5" style="fill:var(--lime)"/>'
+      + '<text x="4" y="' + (H - PAD - (maxW - minW) * yScale - 4).toFixed(1) + '" font-family="Figtree,sans-serif" font-size="9" style="fill:var(--muted)">' + maxW + '</text>'
+      + '<text x="4" y="' + (H - 2) + '" font-family="Figtree,sans-serif" font-size="9" style="fill:var(--muted)">' + minW + '</text>'
     + '</svg>'
   + '</div>';
 }
@@ -3001,7 +3003,7 @@ function renderWeightLogPreview() {
   if (prev) {
     var diff = Math.round((latest.weight - prev.weight) * 10) / 10;
     if (diff !== 0) {
-      var color = diff > 0 ? 'var(--red)' : '#4caf50';
+      var color = diff > 0 ? 'var(--red)' : 'var(--lime)';
       var sign = diff > 0 ? '+' : '';
       deltaHtml = ' <span style="color:' + color + ';font-size:12px">' + sign + diff + 'kg since last</span>';
     }

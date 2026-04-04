@@ -3845,7 +3845,7 @@ body.light .pace-btn.active { background: rgba(200,245,66,0.15); }
 }
 .wl-entry-del:hover { color: var(--red); }
 .wl-delta-up { color: var(--red); font-size: 11px; margin-left: 4px; }
-.wl-delta-down { color: #4caf50; font-size: 11px; margin-left: 4px; }
+.wl-delta-down { color: var(--lime); font-size: 11px; margin-left: 4px; }
 body.light #weight-log-modal { background: var(--card); }
 body.light .goal-mode-tab.active { background: var(--bg); }
 
