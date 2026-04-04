@@ -878,7 +878,9 @@ CRITICAL SECURITY RULES — these override everything else:
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       if (response.status === 402) {
-        throw new Error(err.message || 'You have used all your meal plans on this code. Contact us for a new code.');
+        showLoading(false);
+        showError(err.message || 'You have no plans left on this code.', true);
+        return;
       }
       if (response.status === 403) {
         throw new Error('Invalid activation code. Please check your code and try again.');
@@ -1160,9 +1162,11 @@ function advanceLoader() {
   _loaderStep++;
 }
 
-function showError(msg) {
+function showError(msg, showTopup) {
   haptic('error');
   document.getElementById('error-msg-text').textContent = msg;
+  var topupBtn = document.getElementById('error-topup-btn');
+  if (topupBtn) topupBtn.style.display = showTopup ? 'block' : 'none';
   document.getElementById('error-panel').classList.add('active');
 }
 
@@ -1820,13 +1824,6 @@ function clearDayTargets(dayId) {
     renderTodaySnapshot();
   }
   showToast('Targets reset to plan defaults');
-}
-
-function toggleMealMacros(dayId, mealIdx) {
-  var el = document.getElementById('mmacro-' + dayId + '-' + mealIdx);
-  if (!el) return;
-  var showing = el.style.display !== 'none';
-  el.style.display = showing ? 'none' : 'block';
 }
 
 /* ── CUSTOM SHOPPING ITEMS ──────────────────────────── */

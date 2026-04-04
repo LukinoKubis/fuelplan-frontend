@@ -3692,6 +3692,9 @@ body.light #week-streak-card { background: var(--bg2); }
 }
 .ob-cta-btn:hover { background: #d8ff5a; }
 .ob-cta-btn-sm { width: auto; padding: 10px 24px; font-size: 13px; }
+.ob-dots { display: flex; justify-content: center; align-items: center; gap: 6px; padding: 12px 0 4px; }
+.ob-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); transition: background 0.2s; }
+.ob-dot.ob-dot-active { background: var(--lime); }
 
 /* ═══════════════════════════════════════════════════
    TOP-UP MODAL

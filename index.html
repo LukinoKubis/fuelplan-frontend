@@ -61,6 +61,7 @@
         <div class="ob-preview-macros"><span style="color:#c8f542">2,100 kcal</span> · <span style="color:#57a9ff">165g P</span> · <span style="color:#f97316">210g C</span> · <span style="color:#ef4444">62g F</span></div>
       </div>
     </div>
+    <div class="ob-dots" aria-hidden="true"><span class="ob-dot ob-dot-active"></span><span class="ob-dot"></span></div>
     <div class="ob-options">
       <p class="ob-options-label">How would you like to use Fuelplan?</p>
       <button class="ob-option-btn" id="ob-ios-btn" onclick="showObScreen('ob-ios')">
@@ -98,6 +99,7 @@
       </button>
       <h2 class="ob-guide-title">Install on iPhone</h2>
     </div>
+    <div class="ob-dots" aria-hidden="true"><span class="ob-dot"></span><span class="ob-dot ob-dot-active"></span></div>
     <div class="ob-guide-body">
       <div class="ob-step">
         <div class="ob-step-num">1</div>
@@ -145,6 +147,7 @@
       </button>
       <h2 class="ob-guide-title">Install on Android</h2>
     </div>
+    <div class="ob-dots" aria-hidden="true"><span class="ob-dot"></span><span class="ob-dot ob-dot-active"></span></div>
     <div class="ob-guide-body">
       <div class="ob-android-prompt" id="ob-android-prompt" style="display:none">
         <p>Your browser supports one-tap install!</p>
@@ -679,6 +682,7 @@
   </div>
   <div class="error-title">Something went wrong</div>
   <div class="error-msg" id="error-msg-text">Claude returned an unexpected response. Please check your API key and try again.</div>
+  <button id="error-topup-btn" class="btn-primary" style="display:none;margin-bottom:10px;" onclick="document.getElementById('error-panel').classList.remove('active');openTopup()">Top Up →</button>
   <button class="btn-outline" onclick="resetToSurvey()">Try Again</button>
 </div>
 
@@ -822,7 +826,7 @@
     <!-- VERSION FOOTER -->
     <div class="version-footer">
     <svg width="10" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-1px;opacity:0.5"><path d="M13 2L4.5 13.5H11L9 22L19.5 10H13L15 2H13z"/></svg>
-    FUELPLAN &nbsp;·&nbsp; v2.30.0
+    FUELPLAN &nbsp;·&nbsp; v2.31.0
   </div>
   </div><!-- /plan-wrap -->
 
