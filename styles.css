@@ -3459,6 +3459,44 @@ body.light #week-streak-card { background: var(--bg2); }
   opacity: 0.8;
   font-weight: 500;
 }
+.ob-plan-preview {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin-top: 14px;
+  text-align: left;
+}
+.ob-preview-day {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--lime);
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+}
+.ob-preview-meals {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+.ob-preview-meal {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  align-items: center;
+}
+.ob-pm-time { color: rgba(255,255,255,0.45); min-width: 36px; font-size: 11px; }
+.ob-pm-name { flex: 1; color: rgba(255,255,255,0.85); }
+.ob-pm-kcal { font-size: 11px; color: rgba(255,255,255,0.4); }
+.ob-preview-macros {
+  font-size: 11px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding-top: 8px;
+  color: rgba(255,255,255,0.5);
+  font-weight: 600;
+}
+
 .ob-options {
   padding: 0 20px calc(env(safe-area-inset-bottom) + 32px);
   display: flex;
