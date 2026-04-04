@@ -2782,13 +2782,9 @@ body.light .scaler-btn.active { border-color: #7ab800; color: #3a6600; backgroun
 .ring-fill {
   transition: stroke-dashoffset 0.6s cubic-bezier(.22,1,.36,1);
 }
-.day-macro-header {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 4px 24px 16px;
-  margin-bottom: 24px;
-  position: relative;
+.day-macro-header-old {
+  /* replaced — see bottom of file for new .day-macro-header */
+  display: none;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -4026,3 +4022,266 @@ body.light .goal-mode-tab.active { background: var(--bg); }
 body.light .cal-modal-inner { background: var(--bg2); }
 body.light .cal-cell { background: var(--card); }
 body.light #cal-day-popup { background: var(--bg); }
+
+/* ═══════════════════════════════════════════════════
+   DAY PANEL — CLEAN HEADER (Task 2)
+═══════════════════════════════════════════════════ */
+.day-macro-header {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 12px 16px 14px;
+  margin: 0 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.day-header-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex-shrink: 0;
+  min-width: 58px;
+}
+.day-kcal-display {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 22px;
+  color: var(--lime);
+  line-height: 1;
+  text-align: left !important;
+  padding-top: 0 !important;
+}
+.day-kcal-label {
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  text-align: left !important;
+  margin-bottom: 0 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+}
+.day-target-edit-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 10px;
+  padding: 0;
+  line-height: 1;
+  transition: color 0.15s;
+}
+.day-target-edit-btn:hover { color: var(--lime); }
+.day-macro-rings {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+}
+.day-header-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.day-action-btn {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 28px;
+  transition: border-color 0.15s, color 0.15s;
+}
+.day-action-btn:hover { border-color: var(--lime); color: var(--lime); }
+.day-logall-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--muted);
+  font-family: 'Figtree', sans-serif;
+  font-weight: 600;
+  padding: 2px 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+.day-logall-btn:hover { color: var(--text); }
+
+/* ═══════════════════════════════════════════════════
+   MEAL CARD — CLEAN VERSION (Task 1)
+═══════════════════════════════════════════════════ */
+.meal-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.meal-more-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 3px 7px;
+  cursor: pointer;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  transition: border-color 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.meal-more-btn:hover { border-color: var(--border2); color: var(--text); }
+.meal-note-preview {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 3px 0 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  font-style: italic;
+}
+.meal-note-preview:hover { color: var(--text); }
+
+/* Day journal link style */
+.day-journal-link {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--muted);
+  font-family: 'Figtree', sans-serif;
+  padding: 0;
+  margin-bottom: 6px;
+  display: block;
+  transition: color 0.15s;
+  text-decoration: none;
+}
+.day-journal-link:hover { color: var(--text); }
+
+/* ═══════════════════════════════════════════════════
+   MEAL ACTION SHEET (Task 1)
+═══════════════════════════════════════════════════ */
+.meal-action-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0);
+  z-index: 9990;
+  transition: background 0.25s ease;
+  pointer-events: none;
+}
+.meal-action-sheet-overlay.open {
+  background: rgba(0,0,0,0.55);
+  pointer-events: all;
+}
+.meal-action-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  border-radius: 20px 20px 0 0;
+  padding: 0 0 max(20px, env(safe-area-inset-bottom));
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(.32,1,.36,1);
+  z-index: 9991;
+  max-width: 500px;
+  margin: 0 auto;
+}
+.meal-action-sheet.open { transform: translateY(0); }
+.sheet-drag-handle {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  margin: 12px auto 8px;
+}
+.sheet-meal-title {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 15px;
+  padding: 4px 20px 10px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sheet-rating-indicator {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 4px 20px;
+  font-style: italic;
+}
+.meal-action-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 13px 20px;
+  text-align: left;
+  font-family: 'Figtree', sans-serif;
+  font-size: 15px;
+  color: var(--text);
+  transition: background 0.1s;
+}
+.meal-action-item:hover { background: var(--bg2); }
+.meal-action-item:active { background: var(--bg2); }
+.action-item-emoji { font-size: 18px; width: 24px; text-align: center; }
+.action-item-label { flex: 1; }
+.action-item-muted { color: var(--muted); }
+body.light .meal-action-sheet { background: #fff; border-top-color: var(--border); }
+body.light .meal-action-sheet-overlay.open { background: rgba(0,0,0,0.4); }
+
+/* ═══════════════════════════════════════════════════
+   TOPUP SPINNER (Task 5)
+═══════════════════════════════════════════════════ */
+.topup-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--border);
+  border-top-color: var(--lime);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto;
+}
+
+/* ═══════════════════════════════════════════════════
+   SECTION PADDING — ensure content clears bottom nav
+═══════════════════════════════════════════════════ */
+.section-panel { padding-bottom: 120px; }
+#section-week { padding-bottom: 0; } /* week has its own card spacing */
+#day-tabs-content { padding-bottom: 120px; }
+
+/* Meals grid gap */
+.meals-grid { gap: 10px; }
+
+/* Day panel eaten bar — simplified (block layout, overrides old flex) */
+.day-eaten-bar {
+  display: block !important;
+  padding: 0 16px 10px !important;
+  margin-bottom: 2px;
+}
+.day-eaten-bar .day-eaten-track {
+  flex: unset;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+}
+body.light .day-eaten-bar .day-eaten-track { background: rgba(0,0,0,0.08); }

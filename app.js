@@ -975,8 +975,14 @@ async function fetchPlansRemaining(code) {
     const prev = stored !== null ? parseInt(stored) : -1;
 
     if (el) {
-      el.textContent = remaining + ' plans left';
-      el.style.color = remaining <= 2 ? 'var(--red)' : remaining <= 5 ? 'var(--orange)' : 'var(--muted)';
+      if (remaining === 0) {
+        el.innerHTML = '<span style="color:var(--red)">No plans left</span> &nbsp;<button onclick="openTopup()" style="font-size:11px;color:var(--red);background:none;border:1px solid var(--red);border-radius:6px;padding:1px 6px;cursor:pointer;font-family:\'Figtree\',sans-serif;font-weight:600">Top up →</button>';
+      } else if (remaining <= 3) {
+        el.innerHTML = '<span style="color:var(--orange)">⚡ ' + remaining + ' plans left</span> &nbsp;<button onclick="openTopup()" style="font-size:11px;color:var(--muted);background:none;border:none;cursor:pointer;font-family:\'Figtree\',sans-serif;text-decoration:underline;padding:0">Top up</button>';
+      } else {
+        el.innerHTML = remaining + ' plans left';
+        el.style.color = 'var(--muted)';
+      }
       el.dataset.remaining = remaining;
     }
 
@@ -1337,7 +1343,6 @@ function renderDayPanel(day, summary, isActive) {
   const dayId = day.day.toLowerCase();
   const circ = 2 * Math.PI * 26; // ≈163.4
   const pct = (v, max) => Math.min(100, Math.round((v / (max || 1)) * 100));
-  const ringOffset = (v, max) => circ * (1 - pct(v, max) / 100);
   const mealNotes = MEM.load('fp_mealNotes') || {};
   const mealAnnotations = MEM.load('fp_mealAnnotations') || {};
   const favorites = MEM.load('fp_favorites') || [];
@@ -1357,10 +1362,6 @@ function renderDayPanel(day, summary, isActive) {
   var todayDow = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][new Date().getDay()];
   var nextMealIdx = (dayId === todayDow && eatenCount < mealCount) ? getNextMealIdx(day.meals) : -1;
 
-  // Training day check
-  var _profile = MEM.load('fp_profile') || {};
-  var isTrainingDay = (_profile.trainingDayIds || []).includes(dayId);
-
   function ringHtml(value, maxVal, color, label) {
     const p = pct(value, maxVal);
     return `<div class="ring-col">
@@ -1379,38 +1380,34 @@ function renderDayPanel(day, summary, isActive) {
   return `
     <div class="tab-panel${isActive ? ' active' : ''}" id="panel-${dayId}">
       <div class="day-macro-header">
-        <div class="day-kcal-display">${day.kcal}</div>
-        <div class="day-kcal-label">kcal${_dayOverride.kcal ? ' <span style="color:var(--lime);font-size:10px">✦</span>' : ''}</div>
+        <div class="day-header-left">
+          <div class="day-kcal-display">${day.kcal}</div>
+          <div class="day-kcal-label">kcal <button class="day-target-edit-btn" onclick="openDayTargets('${dayId}')" title="Set day targets">${_dayOverride.kcal || _dayOverride.protein ? '✦' : '✦'}</button></div>
+        </div>
         <div class="day-macro-rings">
           ${ringHtml(day.protein, summary.protein, 'var(--blue)', 'Protein')}
           ${ringHtml(day.carbs, summary.carbs, 'var(--orange)', 'Carbs')}
           ${ringHtml(day.fat, summary.fat, 'var(--red)', 'Fat')}
         </div>
-        <button onclick="openDayTargets('${dayId}')" style="position:absolute;right:12px;top:8px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:10px;color:var(--muted);padding:3px 8px;cursor:pointer;letter-spacing:0.04em" title="Set day targets">${_dayOverride.kcal || _dayOverride.protein ? '✦ Targets' : 'Targets'}</button>
+        <div class="day-header-actions">
+          <button class="day-action-btn" onclick="regenerateDay('${dayId}')" title="Regenerate ${day.day}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.36"/></svg>
+          </button>
+          <button class="day-action-btn" onclick="openCopyMealsFrom('${dayId}')" title="Copy meals from another day">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+          <button class="day-logall-btn" id="log-all-btn-${dayId}" onclick="logAllMeals('${dayId}')">${eatenCount === mealCount && mealCount > 0 ? 'Clear' : 'Log all'}</button>
+        </div>
       </div>
-      ${isTrainingDay ? '<div class="training-day-callout"><span class="training-day-callout-dot"></span>Training Day — fuel up well!</div>' : ''}
-      ${renderWaterTracker(dayId)}
       <div class="day-eaten-bar" id="eaten-bar-${dayId}">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <span id="eaten-count-${dayId}" style="font-size:12px;color:var(--muted)">${eatenCount}/${mealCount} meals eaten</span>
-          <div style="display:flex;align-items:center;gap:10px">
+          <span id="eaten-count-${dayId}" style="font-size:12px;color:var(--muted)">${eatenCount} of ${mealCount} eaten</span>
           <span id="eaten-kcal-${dayId}" style="font-size:12px;font-weight:700;color:var(--lime)">${(function(){
             var ek = (day.meals||[]).reduce(function(s,m,i){return s+(eaten[dayId+'-'+i]?(parseInt(m.kcal)||0):0);},0);
-            return ek > 0 ? ek + ' kcal logged' : '';
+            return ek > 0 ? ek + ' kcal' : '';
           })()}</span>
-          <button id="log-all-btn-${dayId}" onclick="logAllMeals('${dayId}')" style="font-size:11px;color:var(--muted);background:none;border:none;cursor:pointer;padding:2px 0;text-decoration:underline;text-underline-offset:2px;flex-shrink:0">${eatenCount === mealCount && mealCount > 0 ? 'Clear' : 'Log all'}</button>
-          </div>
         </div>
         <div class="day-eaten-track"><div class="day-eaten-fill" id="eaten-fill-${dayId}" style="width:${eatenPct}%"></div></div>
-        ${(function(){
-          var ep = (day.meals||[]).reduce(function(s,m,i){return s+(eaten[dayId+'-'+i]?(parseInt(m.protein)||0):0);},0);
-          if (!ep) return '';
-          var pPct = summary.protein ? Math.min(100, Math.round(ep/summary.protein*100)) : 0;
-          return '<div style="margin-top:6px;display:flex;align-items:center;gap:8px">'
-            + '<div style="flex:1;height:3px;background:var(--bg2);border-radius:2px;overflow:hidden"><div style="height:100%;width:'+pPct+'%;background:var(--blue);border-radius:2px;transition:width 0.3s"></div></div>'
-            + '<span id="eaten-protein-'+dayId+'" style="font-size:11px;color:var(--blue);font-weight:600;white-space:nowrap">'+ep+'g protein</span>'
-            + '</div>';
-        })()}
       </div>
       <div class="meals-grid">
         ${(day.meals || []).map((meal, mealIdx) => {
@@ -1418,20 +1415,22 @@ function renderDayPanel(day, summary, isActive) {
           const rating = mealNotes[noteKey];
           const ratingClass = rating === 'up' ? ' meal-card-up' : rating === 'down' ? ' meal-card-down' : '';
           const isNextMeal = mealIdx === nextMealIdx && !eaten[dayId+'-'+mealIdx];
+          const hasNote = !!mealAnnotations[noteKey];
           return `
           <div class="meal-card${ratingClass}${eaten[dayId+'-'+mealIdx] ? ' meal-card-eaten' : ''}${isNextMeal ? ' meal-card-next' : ''}" id="mcard-${dayId}-${mealIdx}">
             ${isNextMeal ? '<div class="next-meal-badge">NEXT UP</div>' : ''}
             <div class="meal-card-top">
               <div class="meal-time">${escHtml(meal.time)}</div>
-              <button class="eat-btn${eaten[dayId+'-'+mealIdx] ? ' eaten' : ''}" onclick="toggleMealEaten('${dayId}',${mealIdx})" id="eatbtn-${dayId}-${mealIdx}">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                ${eaten[dayId+'-'+mealIdx] ? 'Eaten' : 'Ate it'}
-              </button>
-              <button class="meal-swap-btn" onclick="openMealSwap('${dayId}',${mealIdx})" title="Swap this meal">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-              </button>
+              <div class="meal-card-actions">
+                <button class="meal-more-btn" onclick="openMealActionSheet('${dayId}',${mealIdx})" title="More options" aria-label="More options">•••</button>
+                <button class="eat-btn${eaten[dayId+'-'+mealIdx] ? ' eaten' : ''}" onclick="toggleMealEaten('${dayId}',${mealIdx})" id="eatbtn-${dayId}-${mealIdx}">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  ${eaten[dayId+'-'+mealIdx] ? 'Eaten' : 'Ate it'}
+                </button>
+              </div>
             </div>
             <div class="meal-name">${escHtml(meal.name)}</div>
+            ${hasNote ? `<div class="meal-note-preview" id="mnote-text-${dayId}-${mealIdx}" onclick="toggleMealNote('${dayId}',${mealIdx})">${escHtml(mealAnnotations[noteKey])}</div>` : ''}
             <div class="meal-badges">
               <span class="badge badge-protein">🥩 ${meal.protein}g protein</span>
               <span class="badge badge-kcal">🔥 ${meal.kcal} kcal</span>
@@ -1441,55 +1440,24 @@ function renderDayPanel(day, summary, isActive) {
               const p = pr * 4, c = cr * 4, f = fr * 9;
               const tot = p + c + f || 1;
               const pp = Math.round(p/tot*100), cp = Math.round(c/tot*100), fp = 100 - pp - cp;
-              return `<div class="meal-macro-bar" onclick="toggleMealMacros('${dayId}',${mealIdx})" title="Tap for macro breakdown" style="cursor:pointer"><div class="mmb-p" style="width:${pp}%"></div><div class="mmb-c" style="width:${cp}%"></div><div class="mmb-f" style="width:${fp}%"></div></div>`
-                + `<div class="meal-macro-detail" id="mmacro-${dayId}-${mealIdx}" style="display:none">`
-                + `<div class="mmd-row"><span class="mmd-dot mmd-dot-p"></span><span class="mmd-name">Protein</span><span class="mmd-val">${pr}g</span><span class="mmd-kcal">${Math.round(p)} kcal</span><span class="mmd-pct">${pp}%</span></div>`
-                + `<div class="mmd-row"><span class="mmd-dot mmd-dot-c"></span><span class="mmd-name">Carbs</span><span class="mmd-val">${cr}g</span><span class="mmd-kcal">${Math.round(c)} kcal</span><span class="mmd-pct">${cp}%</span></div>`
-                + `<div class="mmd-row"><span class="mmd-dot mmd-dot-f"></span><span class="mmd-name">Fat</span><span class="mmd-val">${fr}g</span><span class="mmd-kcal">${Math.round(f)} kcal</span><span class="mmd-pct">${fp}%</span></div>`
-                + `</div>`;
+              return `<div class="meal-macro-bar"><div class="mmb-p" style="width:${pp}%"></div><div class="mmb-c" style="width:${cp}%"></div><div class="mmb-f" style="width:${fp}%"></div></div>`;
             })()}
             <div class="meal-ingredients" id="mingr-${dayId}-${mealIdx}" onclick="toggleIngredients('${dayId}',${mealIdx})">${escHtml(meal.ingredients)}</div>
             <button class="meal-ingr-toggle" id="mingr-toggle-${dayId}-${mealIdx}" onclick="toggleIngredients('${dayId}',${mealIdx})">Show more ▾</button>
-            ${mealAnnotations[noteKey] ? `<div class="meal-note-text" id="mnote-text-${dayId}-${mealIdx}">${escHtml(mealAnnotations[noteKey])}</div>` : ''}
             <div class="meal-note-editor" id="mnote-editor-${dayId}-${mealIdx}" style="display:none">
               <textarea class="meal-note-input" id="mnote-input-${dayId}-${mealIdx}" placeholder="Add a note…" rows="2">${mealAnnotations[noteKey] ? escHtml(mealAnnotations[noteKey]) : ''}</textarea>
               <button class="meal-note-save-btn" onclick="saveMealNote('${dayId}',${mealIdx})">Save</button>
-            </div>
-            <div class="meal-rating-row">
-              <button class="rating-btn${rating === 'up' ? ' active-up' : ''}" data-rate="up" onclick="rateMeal('${dayId}',${mealIdx},'up')" title="Like this meal">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
-              </button>
-              <button class="rating-btn${rating === 'down' ? ' active-down' : ''}" data-rate="down" onclick="rateMeal('${dayId}',${mealIdx},'down')" title="Dislike this meal">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
-              </button>
-              <button class="rating-btn note-btn${mealAnnotations[noteKey] ? ' note-has-content' : ''}" onclick="toggleMealNote('${dayId}',${mealIdx})" title="Add note">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-              </button>
-              <button class="rating-btn fav-btn${favKeys.includes(meal.name + '|' + meal.kcal) ? ' fav-active' : ''}" onclick="toggleFavorite('${dayId}',${mealIdx})" title="Save to favorites">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="${favKeys.includes(meal.name + '|' + meal.kcal) ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-              </button>
             </div>
           </div>
           `;
         }).join('')}
       </div>
-      <div class="day-regen-row">
-        <button class="day-regen-btn" onclick="regenerateDay('${dayId}')">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.36"/></svg>
-          Regenerate ${day.day}
-        </button>
-        <button class="day-regen-btn" style="background:var(--bg2);color:var(--muted)" onclick="openCopyMealsFrom('${dayId}')">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          Copy from…
-        </button>
-      </div>
       ${(function() {
         var dayNotes = MEM.load('fp_dayNotes') || {};
         var note = dayNotes[dayId] || '';
         return '<div class="day-journal-wrap" id="day-journal-' + dayId + '">'
-          + '<button class="day-journal-toggle" onclick="toggleDayJournal(\'' + dayId + '\')">'
-            + '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>'
-            + (note ? ' Edit day note' : ' Add day note')
+          + '<button class="day-journal-link" onclick="toggleDayJournal(\'' + dayId + '\')">'
+            + '✏ ' + (note ? 'Day note' : 'Add day note')
           + '</button>'
           + (note ? '<div class="day-journal-preview" id="day-journal-preview-' + dayId + '">' + escHtml(note) + '</div>' : '')
           + '<div class="day-journal-editor" id="day-journal-editor-' + dayId + '" style="display:none">'
@@ -1503,6 +1471,105 @@ function renderDayPanel(day, summary, isActive) {
       })()}
     </div>
   `;
+}
+
+/* ═══════════════ MEAL ACTION SHEET ═══════════════ */
+function openMealActionSheet(dayId, mealIdx) {
+  haptic('light');
+  // Close any existing
+  closeMealActionSheet();
+
+  const mealNotes = MEM.load('fp_mealNotes') || {};
+  const mealAnnotations = MEM.load('fp_mealAnnotations') || {};
+  const favorites = MEM.load('fp_favorites') || [];
+  const noteKey = dayId + '-' + mealIdx;
+  const rating = mealNotes[noteKey];
+  const hasNote = !!mealAnnotations[noteKey];
+  const dayObj = planData && planData.days ? planData.days.find(function(d) { return d.day.toLowerCase() === dayId; }) : null;
+  const meal = dayObj && dayObj.meals ? dayObj.meals[mealIdx] : null;
+  const isFav = meal ? favorites.some(function(f) { return f.name === meal.name && f.kcal == meal.kcal; }) : false;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'meal-action-sheet-overlay';
+  overlay.onclick = function(e) { if (e.target === overlay) closeMealActionSheet(); };
+
+  const sheet = document.createElement('div');
+  sheet.className = 'meal-action-sheet';
+
+  let html = '<div class="sheet-drag-handle"></div>';
+  if (meal) {
+    html += '<div class="sheet-meal-title">' + escHtml(meal.name) + '</div>';
+  }
+  if (rating) {
+    html += '<div class="sheet-rating-indicator">' + (rating === 'up' ? '👍 Liked' : '👎 Disliked') + ' · tap below to clear</div>';
+  }
+
+  var items = [
+    { emoji: '🔄', label: 'Swap meal',       fn: 'openMealSwap(\'' + dayId + '\',' + mealIdx + ')' },
+    { emoji: rating === 'up' ? '👍' : '👍',  label: rating === 'up' ? 'Clear like' : 'Like this meal',        fn: 'rateMeal(\'' + dayId + '\',' + mealIdx + ',\'up\')',   muted: rating === 'up' },
+    { emoji: rating === 'down' ? '👎' : '👎', label: rating === 'down' ? 'Clear dislike' : 'Dislike this meal', fn: 'rateMeal(\'' + dayId + '\',' + mealIdx + ',\'down\')', muted: rating === 'down' },
+    { emoji: '✏️', label: hasNote ? 'Edit note' : 'Add note', fn: 'toggleMealNote(\'' + dayId + '\',' + mealIdx + ')' },
+    { emoji: '⭐', label: isFav ? 'Remove from favourites' : 'Save to favourites', fn: 'toggleFavorite(\'' + dayId + '\',' + mealIdx + ')' },
+  ];
+
+  items.forEach(function(item) {
+    html += '<button class="meal-action-item' + (item.muted ? ' action-item-muted' : '') + '" onclick="closeMealActionSheet();' + item.fn + '">'
+      + '<span class="action-item-emoji">' + item.emoji + '</span>'
+      + '<span class="action-item-label">' + item.label + '</span>'
+      + '</button>';
+  });
+
+  sheet.innerHTML = html;
+  overlay.appendChild(sheet);
+  document.body.appendChild(overlay);
+
+  requestAnimationFrame(function() {
+    requestAnimationFrame(function() {
+      overlay.classList.add('open');
+      sheet.classList.add('open');
+    });
+  });
+}
+
+/* ═══════════════ FORGOT CODE ═══════════════ */
+function showForgotCode() {
+  var panel = document.getElementById('forgot-code-panel');
+  if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+async function sendForgotCode() {
+  var emailEl = document.getElementById('forgot-email-input');
+  var msgEl = document.getElementById('forgot-code-msg');
+  if (!emailEl || !msgEl) return;
+  var email = emailEl.value.trim();
+  if (!email || !email.includes('@')) {
+    msgEl.textContent = 'Please enter a valid email address';
+    msgEl.style.color = 'var(--red)';
+    return;
+  }
+  msgEl.textContent = 'Sending…';
+  msgEl.style.color = 'var(--muted)';
+  try {
+    await fetch(API_BASE + '/api/account/recover', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    msgEl.textContent = 'Check your email — we\'ve sent your code if it\'s registered';
+    msgEl.style.color = 'var(--lime)';
+  } catch(e) {
+    msgEl.textContent = 'Could not send — try again';
+    msgEl.style.color = 'var(--red)';
+  }
+}
+
+function closeMealActionSheet() {
+  var overlay = document.querySelector('.meal-action-sheet-overlay');
+  if (!overlay) return;
+  var sheet = overlay.querySelector('.meal-action-sheet');
+  overlay.classList.remove('open');
+  if (sheet) sheet.classList.remove('open');
+  setTimeout(function() { if (overlay.parentNode) overlay.remove(); }, 300);
 }
 
 /* ═══════════════ SHOPPING PANEL ═══════════════ */
@@ -2989,7 +3056,11 @@ async function startCheckout(planKey) {
 
   // Show loading state
   document.getElementById('topup-plans').style.display = 'none';
-  document.getElementById('topup-loading').style.display = 'block';
+  var loadEl = document.getElementById('topup-loading');
+  if (loadEl) {
+    loadEl.style.display = 'block';
+    loadEl.innerHTML = '<div class="topup-spinner"></div><div style="margin-top:12px;font-size:13px;color:var(--muted)">Redirecting to checkout…</div>';
+  }
 
   try {
     const res = await fetch(API_BASE + '/api/create-checkout', {
@@ -3007,7 +3078,7 @@ async function startCheckout(planKey) {
   }
 }
 
-// Handle return from Stripe (success or cancel)
+// Handle return from LemonSqueezy (success or cancel)
 function handlePaymentReturn() {
   const params = new URLSearchParams(window.location.search);
   const status = params.get('payment');
@@ -3023,10 +3094,22 @@ function handlePaymentReturn() {
     if (code) {
       setTimeout(function() { fetchPlansRemaining(code); }, 1500);
       setTimeout(function() { fetchPlansRemaining(code); }, 4000);
+      setTimeout(function() { fetchPlansRemaining(code); }, 8000);
     }
-    showToast('Payment successful — credits being added!');
+    // Show success modal in topup overlay
+    openTopup();
+    var plansEl = document.getElementById('topup-plans');
+    var loadingEl = document.getElementById('topup-loading');
+    if (plansEl) plansEl.style.display = 'none';
+    if (loadingEl) {
+      loadingEl.style.display = 'block';
+      loadingEl.innerHTML = '<div style="font-size:40px;margin-bottom:16px">✅</div>'
+        + '<div style="font-family:\'Syne\',sans-serif;font-weight:800;font-size:20px;color:var(--lime);margin-bottom:8px">Payment successful!</div>'
+        + '<div style="font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.5">Your plans are being added to your code. It may take a moment.</div>'
+        + '<button onclick="closeTopup()" style="background:var(--lime);color:#0e0f11;border:none;border-radius:14px;font-family:\'Syne\',sans-serif;font-weight:800;font-size:15px;padding:15px 32px;cursor:pointer;width:100%">Start generating</button>';
+    }
   } else if (status === 'cancelled') {
-    showToast('Checkout cancelled');
+    showToast('Payment cancelled — no charge made');
   }
 }
 
@@ -4058,54 +4141,68 @@ function renderTodaySnapshot() {
   }
 
   var nextMealHtml = allEaten
-    ? '<div style="color:var(--lime);font-weight:700;font-size:13px">All meals logged today! 🎉</div>'
+    ? '<div style="color:var(--lime);font-weight:700;font-size:14px">All done today 🎉</div>'
     : nextMeal
-      ? '<div style="display:flex;align-items:center;gap:8px">'
-          + '<div style="flex:1;min-width:0">'
-            + '<div style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:2px">Next up' + (countdownStr ? ' <span style="color:var(--lime);font-weight:700">' + countdownStr + '</span>' : '') + '</div>'
-            + '<div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(nextMeal.name) + '</div>'
-            + '<div style="font-size:11px;color:var(--muted)">' + escHtml(nextMeal.time) + ' · ' + nextMeal.kcal + ' kcal</div>'
-          + '</div>'
-          + (remaining > 0 ? '<div style="text-align:right;flex-shrink:0">'
-            + '<div style="font-size:11px;color:var(--muted)">remaining</div>'
-            + '<div style="font-size:13px;font-weight:700;color:var(--lime)">' + remaining + ' kcal</div>'
-            + '<div style="font-size:11px;color:var(--blue);font-weight:600">' + remainingProtein + 'g P</div>'
-            + '<div style="font-size:11px;color:var(--muted)">' + Math.max(0, (planData.summary.carbs||0) - eatenCarbs) + 'g C &middot; ' + Math.max(0, (planData.summary.fat||0) - eatenFat) + 'g F</div>'
-          + '</div>' : '')
+      ? '<div>'
+          + '<div style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:3px">Next up' + (countdownStr ? ' &nbsp;<span style="color:var(--lime);font-weight:700">' + countdownStr + '</span>' : '') + '</div>'
+          + '<div style="font-family:\'Syne\',sans-serif;font-weight:800;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px">' + escHtml(nextMeal.name) + '</div>'
+          + '<div style="font-size:11px;color:var(--muted)">' + escHtml(nextMeal.time) + ' &middot; ' + nextMeal.kcal + ' kcal</div>'
         + '</div>'
       : '<div style="font-size:12px;color:var(--muted)">No upcoming meals today</div>';
+
+  // Water dot indicators
+  var maxWaterDots = Math.min(waterGoal, 8);
+  var waterDots = '';
+  for (var wi = 0; wi < maxWaterDots; wi++) {
+    waterDots += '<span style="width:7px;height:7px;border-radius:50%;background:' + (wi < todayWater ? 'var(--blue)' : 'var(--bg2)') + ';display:inline-block;margin:0 1px"></span>';
+  }
+  if (waterGoal > 8) waterDots += '<span style="font-size:9px;color:var(--muted);vertical-align:middle">+' + (waterGoal - 8) + '</span>';
+
+  // Remaining macros row (only if calories have been logged)
+  var remainingMacrosHtml = '';
+  if (eatenKcal > 0) {
+    var remC = Math.max(0, (planData.summary.carbs || 0) - eatenCarbs);
+    var remF = Math.max(0, (planData.summary.fat || 0) - eatenFat);
+    remainingMacrosHtml = '<div style="font-size:11px;color:var(--muted);margin-top:4px">'
+      + 'P: <span style="color:var(--blue);font-weight:600">' + remainingProtein + 'g</span>'
+      + ' &middot; C: <span style="font-weight:600">' + remC + 'g</span>'
+      + ' &middot; F: <span style="font-weight:600">' + remF + 'g</span>'
+      + ' remaining</div>';
+  }
+
+  // Calorie bar colour
+  var kcalBarColor = 'var(--lime)';
+  if (eatenKcal > target * 1.15) kcalBarColor = 'var(--red)';
+  else if (eatenKcal > target * 1.05) kcalBarColor = 'var(--orange)';
 
   var card = document.createElement('div');
   card.id = 'today-snapshot';
   card.onclick = function() { switchDayTab(todayDow); };
   card.style.cssText = 'margin:8px 16px 0;background:var(--card);border:1.5px solid var(--border);border-radius:16px;padding:14px 16px;cursor:pointer;';
-  card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">'
-    + '<div>'
-      + '<div style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:0.06em;text-transform:uppercase">Today</div>'
-      + '<div style="font-family:\'Syne\',sans-serif;font-weight:800;font-size:15px">' + escHtml(new Date().toLocaleDateString(undefined, { weekday: 'long' })) + '</div>'
-      + '<div style="font-size:11px;color:var(--muted);margin-top:1px">' + eatenCount + '/' + meals.length + ' meals eaten</div>'
+  card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
+    + '<span style="font-size:10px;color:var(--lime);font-weight:700;letter-spacing:0.08em;text-transform:uppercase">Today</span>'
+    + '<span style="font-size:10px;color:var(--muted)">' + escHtml(new Date().toLocaleDateString(undefined, { weekday: 'long' })) + '</span>'
+  + '</div>'
+  // Calorie row
+  + '<div style="margin-bottom:6px">'
+    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">'
+      + '<span style="font-family:\'Syne\',sans-serif;font-weight:800;font-size:22px;color:var(--lime)">' + eatenKcal + '</span>'
+      + '<span style="font-size:12px;color:var(--muted)">/ ' + target + ' kcal</span>'
     + '</div>'
-    + '<div style="text-align:right">'
-      + '<div style="font-size:20px;font-family:\'Syne\',sans-serif;font-weight:800;color:' + (pct === 100 ? 'var(--lime)' : 'var(--text)') + '">' + pct + '%</div>'
-      + '<div style="font-size:10px;color:var(--muted)">of daily target</div>'
+    + '<div style="height:5px;background:var(--bg2);border-radius:3px;overflow:hidden">'
+      + '<div style="height:100%;width:' + pct + '%;background:' + kcalBarColor + ';border-radius:3px;transition:width 0.4s ease"></div>'
     + '</div>'
   + '</div>'
-  + '<div style="display:flex;gap:4px;margin-bottom:6px">'
-    + '<div style="flex:1;height:4px;background:var(--bg2);border-radius:2px;overflow:hidden" title="Calories"><div style="height:100%;width:' + pct + '%;background:var(--lime);border-radius:2px;transition:width 0.4s ease"></div></div>'
-    + '<div style="flex:1;height:4px;background:var(--bg2);border-radius:2px;overflow:hidden" title="Protein"><div style="height:100%;width:' + proteinPct + '%;background:var(--blue);border-radius:2px;transition:width 0.4s ease"></div></div>'
-    + '<div style="flex:1;height:4px;background:var(--bg2);border-radius:2px;overflow:hidden" title="Carbs"><div style="height:100%;width:' + carbsPct + '%;background:var(--orange);border-radius:2px;transition:width 0.4s ease"></div></div>'
-    + '<div style="flex:1;height:4px;background:var(--bg2);border-radius:2px;overflow:hidden" title="Fat"><div style="height:100%;width:' + fatPct + '%;background:rgba(200,245,66,0.6);border-radius:2px;transition:width 0.4s ease"></div></div>'
+  // Next meal row
+  + '<div style="margin-bottom:10px;padding:10px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)">'
+    + nextMealHtml
+    + remainingMacrosHtml
   + '</div>'
-  + '<div style="display:flex;gap:8px;margin-bottom:8px;font-size:10px;color:var(--muted)">'
-    + '<span style="flex:1;text-align:center"><span style="color:var(--lime);font-weight:700">' + eatenKcal + '</span>/' + target + ' kcal</span>'
-    + '<span style="flex:1;text-align:center"><span style="color:var(--blue);font-weight:700">' + eatenProtein + 'g</span>/' + targetProtein + 'g P</span>'
-    + '<span style="flex:1;text-align:center"><span style="color:var(--orange);font-weight:700">' + eatenCarbs + 'g</span>/' + targetCarbs + 'g C</span>'
-    + '<span style="flex:1;text-align:center"><span style="font-weight:700">' + eatenFat + 'g</span>/' + targetFat + 'g F</span>'
-  + '</div>'
-  + nextMealHtml
-  + '<div id="snapshot-water-row" style="display:flex;align-items:center;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)" onclick="event.stopPropagation()">'
-    + '<span style="font-size:12px;color:var(--muted);flex:1">💧 Water ' + todayWater + '/' + waterGoal + ' glasses</span>'
-    + '<button onclick="snapshotAddWater(\'' + todayDow + '\')" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:3px 10px;font-size:12px;color:var(--text);cursor:pointer">+ Glass</button>'
+  // Water row
+  + '<div id="snapshot-water-row" style="display:flex;align-items:center;gap:8px" onclick="event.stopPropagation()">'
+    + '<span style="font-size:13px">💧</span>'
+    + '<span style="font-size:12px;color:var(--muted);flex:1">' + todayWater + ' / ' + waterGoal + ' glasses &nbsp;' + waterDots + '</span>'
+    + '<button onclick="snapshotAddWater(\'' + todayDow + '\')" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:3px 10px;font-size:12px;color:var(--text);cursor:pointer">+</button>'
     + (todayWater > 0 ? '<button onclick="snapshotRemoveWater(\'' + todayDow + '\')" style="background:none;border:none;font-size:12px;color:var(--muted);cursor:pointer;padding:3px 4px">−</button>' : '')
   + '</div>';
 
@@ -5385,13 +5482,16 @@ function toggleMealEaten(dayId, mealIdx) {
   const countEl = document.getElementById('eaten-count-' + dayId);
   const fillEl = document.getElementById('eaten-fill-' + dayId);
   const kcalEl = document.getElementById('eaten-kcal-' + dayId);
-  if (countEl) countEl.textContent = eatenCount + '/' + mealCount + ' meals eaten';
+  if (countEl) countEl.textContent = eatenCount + ' of ' + mealCount + ' eaten';
   if (fillEl) fillEl.style.width = eatenPct + '%';
   if (kcalEl) {
     var eatenKcal = dayObj.meals.reduce(function(s, m, i) { return s + (eaten[dayId+'-'+i] ? (parseInt(m.kcal)||0) : 0); }, 0);
-    kcalEl.textContent = eatenKcal > 0 ? eatenKcal + ' kcal logged' : '';
+    kcalEl.textContent = eatenKcal > 0 ? eatenKcal + ' kcal' : '';
   }
-  // Update protein bar
+  // Update log-all button label
+  var logAllBtn = document.getElementById('log-all-btn-' + dayId);
+  if (logAllBtn) logAllBtn.textContent = eatenCount === mealCount && mealCount > 0 ? 'Clear' : 'Log all';
+  // Update protein bar (if it exists in old layout)
   var proteinEl = document.getElementById('eaten-protein-' + dayId);
   if (proteinEl) {
     var eatenProtein = dayObj.meals.reduce(function(s, m, i) { return s + (eaten[dayId+'-'+i] ? (parseInt(m.protein)||0) : 0); }, 0);
@@ -5521,11 +5621,11 @@ function logAllMeals(dayId) {
   const fillEl  = document.getElementById('eaten-fill-' + dayId);
   const kcalEl  = document.getElementById('eaten-kcal-' + dayId);
   const logBtn  = document.getElementById('log-all-btn-' + dayId);
-  if (countEl) countEl.textContent = newCount + '/' + mealCount + ' meals eaten';
+  if (countEl) countEl.textContent = newCount + ' of ' + mealCount + ' eaten';
   if (fillEl)  fillEl.style.width = newPct + '%';
   if (kcalEl) {
     var totalK = allEaten ? 0 : dayObj.meals.reduce(function(s, m) { return s + (parseInt(m.kcal)||0); }, 0);
-    kcalEl.textContent = totalK > 0 ? totalK + ' kcal logged' : '';
+    kcalEl.textContent = totalK > 0 ? totalK + ' kcal' : '';
   }
   if (logBtn) logBtn.textContent = allEaten ? 'Log all' : 'Clear';
 

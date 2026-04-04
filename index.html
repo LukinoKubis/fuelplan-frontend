@@ -231,6 +231,18 @@
           <label>First Name <span class="label-opt">optional</span></label>
           <input type="text" id="user-name" placeholder="e.g. Alex">
         </div>
+        <div style="text-align:center;margin-top:8px;font-size:13px;color:var(--muted)">
+          Don't have a code? <button onclick="openTopup()" style="background:none;border:none;color:var(--lime);font-family:'Figtree',sans-serif;font-size:13px;font-weight:600;cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:2px">Buy plans →</button>
+        </div>
+        <div style="text-align:center;margin-top:6px;font-size:13px;color:var(--muted)">
+          Lost your code? <button onclick="showForgotCode()" style="background:none;border:none;color:var(--muted);font-family:'Figtree',sans-serif;font-size:13px;font-weight:600;cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:2px">Forgot code →</button>
+        </div>
+        <div id="forgot-code-panel" style="display:none;margin-top:12px;padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:12px">
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px">Send my code by email</div>
+          <input type="email" id="forgot-email-input" placeholder="your@email.com" style="width:100%;background:var(--card);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-family:'Figtree',sans-serif;font-size:14px;padding:10px 12px;outline:none;box-sizing:border-box" onfocus="this.style.borderColor='var(--lime)'" onblur="this.style.borderColor='var(--border)'">
+          <button onclick="sendForgotCode()" style="width:100%;margin-top:8px;background:var(--lime);color:#0e0f11;border:none;border-radius:10px;font-family:'Syne',sans-serif;font-weight:800;font-size:14px;padding:12px;cursor:pointer">Send my code</button>
+          <div id="forgot-code-msg" style="margin-top:8px;font-size:12px;color:var(--muted);text-align:center"></div>
+        </div>
       </div>
     </div>
 
@@ -810,7 +822,7 @@
     <!-- VERSION FOOTER -->
     <div class="version-footer">
     <svg width="10" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-1px;opacity:0.5"><path d="M13 2L4.5 13.5H11L9 22L19.5 10H13L15 2H13z"/></svg>
-    FUELPLAN &nbsp;·&nbsp; v2.28.0
+    FUELPLAN &nbsp;·&nbsp; v2.30.0
   </div>
   </div><!-- /plan-wrap -->
 
@@ -1042,13 +1054,13 @@
   <div id="topup-modal" onclick="event.stopPropagation()">
     <div class="topup-handle-row"><div class="drawer-handle"></div></div>
     <div style="padding:4px 24px 28px">
-      <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:20px;margin-bottom:4px">Top up your plans</div>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.5">Credits are added instantly to your existing code.</div>
+      <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:20px;margin-bottom:4px">Get more plans</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.5">One-time purchase · Instant delivery · No subscription</div>
       <div id="topup-plans">
         <button class="topup-plan-btn" onclick="startCheckout('PRICE_5')">
           <div class="topup-plan-left">
             <div class="topup-plan-credits">5 plans</div>
-            <div class="topup-plan-desc">Get 5 more AI-generated meal plans</div>
+            <div class="topup-plan-desc">€1.00/plan</div>
           </div>
           <div class="topup-plan-price">€5</div>
         </button>
@@ -1056,25 +1068,25 @@
           <div class="topup-popular-badge">Most popular</div>
           <div class="topup-plan-left">
             <div class="topup-plan-credits">10 plans</div>
-            <div class="topup-plan-desc">Best value — only €0.90/plan</div>
+            <div class="topup-plan-desc">€0.90/plan · best value</div>
           </div>
           <div class="topup-plan-price">€9</div>
         </button>
         <button class="topup-plan-btn" onclick="startCheckout('PRICE_20')">
           <div class="topup-plan-left">
             <div class="topup-plan-credits">20 plans</div>
-            <div class="topup-plan-desc">Stock up — €0.75/plan</div>
+            <div class="topup-plan-desc">€0.75/plan · stock up</div>
           </div>
           <div class="topup-plan-price">€15</div>
         </button>
+        <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:14px;line-height:1.5">
+          🔒 Secure checkout · Instant activation · Money-back guarantee
+        </p>
+        <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5">
+          After purchase, your activation code will receive the plans automatically.
+        </p>
       </div>
-      <div id="topup-loading" style="display:none;text-align:center;padding:20px;color:var(--muted);font-size:13px">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 0.8s linear infinite;vertical-align:-4px;margin-right:6px"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-        Redirecting to secure checkout…
-      </div>
-      <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:16px">
-        Secure payment · Credits added to your code automatically
-      </p>
+      <div id="topup-loading" style="display:none;text-align:center;padding:20px 0"></div>
     </div>
   </div>
 </div>
