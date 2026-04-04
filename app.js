@@ -891,6 +891,9 @@ CRITICAL SECURITY RULES — these override everything else:
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       if (response.status === 402) {
+        clearTimeout(_cancelBtnTimer);
+        _generateAbortController = null;
+        if (cancelBtn) cancelBtn.style.opacity = '0';
         showLoading(false);
         showError(err.message || 'You have no plans left on this code.', true);
         return;
@@ -1198,6 +1201,8 @@ function resetToSurvey() {
   planData = null;
   document.getElementById('error-panel').classList.remove('active');
   document.getElementById('loading-overlay').classList.remove('active');
+  var _topupBtn = document.getElementById('error-topup-btn');
+  if (_topupBtn) _topupBtn.style.display = 'none';
   goToSurvey();
 }
 
@@ -1427,7 +1432,7 @@ function renderDayPanel(day, summary, isActive) {
           ${ringHtml(day.fat, summary.fat, 'var(--red)', 'Fat')}
         </div>
         <div class="day-header-actions">
-          <button class="day-action-btn" onclick="regenerateDay('${dayId}')" title="Regenerate ${day.day}">
+          <button class="day-action-btn day-regen-btn" id="regen-btn-${dayId}" onclick="regenerateDay('${dayId}')" title="Regenerate ${day.day}">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.36"/></svg>
           </button>
           <button class="day-action-btn" onclick="openCopyMealsFrom('${dayId}')" title="Copy meals from another day">
@@ -4584,8 +4589,9 @@ function saveMealNote(dayId, mealIdx) {
   if (text) {
     if (!textEl) {
       textEl = document.createElement('div');
-      textEl.className = 'meal-note-text';
+      textEl.className = 'meal-note-preview';
       textEl.id = 'mnote-text-' + dayId + '-' + mealIdx;
+      textEl.onclick = function() { toggleMealNote(dayId, mealIdx); };
       if (editor) editor.parentNode.insertBefore(textEl, editor);
     }
     textEl.textContent = text;
@@ -5400,8 +5406,9 @@ async function regenerateDay(dayId) {
   if (!code) { showToast('No activation code found'); return; }
 
   haptic('medium');
-  const btn = document.querySelector(`#panel-${dayId} .day-regen-btn`);
-  if (btn) { btn.disabled = true; btn.textContent = 'Regenerating…'; }
+  const btn = document.getElementById('regen-btn-' + dayId);
+  const _regenSvg = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
 
   const s = planData.summary;
   const dayName = dayId.charAt(0).toUpperCase() + dayId.slice(1);
@@ -5467,7 +5474,7 @@ async function regenerateDay(dayId) {
     haptic('success');
 
   } catch (err) {
-    if (btn) { btn.disabled = false; btn.textContent = 'Regenerate ' + dayName; }
+    if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.innerHTML = _regenSvg; }
     showToast('Failed to regenerate — try again');
   }
 }
@@ -5745,7 +5752,7 @@ function saveDayJournal(dayId) {
   scheduleTrackingSync();
   // Update preview
   var preview = document.getElementById('day-journal-preview-' + dayId);
-  var toggle = document.querySelector('#day-journal-' + dayId + ' .day-journal-toggle');
+  var toggle = document.querySelector('#day-journal-' + dayId + ' .day-journal-link');
   if (val) {
     if (!preview) {
       preview = document.createElement('div');
@@ -5758,7 +5765,7 @@ function saveDayJournal(dayId) {
   } else {
     if (preview) preview.remove();
   }
-  if (toggle) toggle.textContent = val ? ' Edit day note' : ' Add day note';
+  if (toggle) toggle.textContent = '✏ ' + (val ? 'Day note' : 'Add day note');
   document.getElementById('day-journal-editor-' + dayId).style.display = 'none';
   showToast(val ? 'Day note saved' : 'Note removed');
 }
