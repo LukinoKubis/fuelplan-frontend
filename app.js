@@ -2723,6 +2723,7 @@ function openRenameModal() {
   document.getElementById('plan-name-overlay').classList.add('open');
   document.getElementById('plan-name-modal').classList.add('open');
   initKeyboardAware('plan-name-modal');
+  initPlanNameDrag();
   setTimeout(() => input.focus(), 400);
 }
 
@@ -2744,6 +2745,7 @@ function openPlanNameModal(plan, userName) {
   document.getElementById('plan-name-overlay').classList.add('open');
   document.getElementById('plan-name-modal').classList.add('open');
   initKeyboardAware('plan-name-modal');
+  initPlanNameDrag();
   setTimeout(() => input.focus(), 400);
 }
 
@@ -2922,6 +2924,50 @@ function initWeightLogDrag() {
     var y = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
     var delta = y - startY, vel = Math.abs(delta) / (Date.now() - startTime);
     if (delta > 120 || (delta > 40 && vel > 0.6)) closeWeightLog();
+  }
+  handle.addEventListener('touchstart', onStart, { passive: true });
+  handle.addEventListener('touchmove', onMove, { passive: true });
+  handle.addEventListener('touchend', onEnd);
+  handle.addEventListener('mousedown', onStart);
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onEnd);
+}
+
+function initTopupDrag() {
+  var handle = document.getElementById('topup-drag-handle');
+  var modal = document.getElementById('topup-modal');
+  if (!handle || !modal || handle._dragInit) return;
+  handle._dragInit = true;
+  var startY = 0, startTime = 0, dragging = false;
+  function onStart(e) { startY = e.touches ? e.touches[0].clientY : e.clientY; startTime = Date.now(); dragging = true; modal.style.transition = 'none'; }
+  function onMove(e) { if (!dragging) return; var y = e.touches ? e.touches[0].clientY : e.clientY; var d = y - startY; if (d > 0) modal.style.transform = 'translateY(' + d + 'px)'; else modal.style.transform = ''; }
+  function onEnd(e) {
+    if (!dragging) return; dragging = false; modal.style.transition = ''; modal.style.transform = '';
+    var y = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+    var delta = y - startY, vel = Math.abs(delta) / (Date.now() - startTime);
+    if (delta > 120 || (delta > 40 && vel > 0.6)) closeTopup();
+  }
+  handle.addEventListener('touchstart', onStart, { passive: true });
+  handle.addEventListener('touchmove', onMove, { passive: true });
+  handle.addEventListener('touchend', onEnd);
+  handle.addEventListener('mousedown', onStart);
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onEnd);
+}
+
+function initPlanNameDrag() {
+  var handle = document.getElementById('plan-name-drag-handle');
+  var modal = document.getElementById('plan-name-modal');
+  if (!handle || !modal || handle._dragInit) return;
+  handle._dragInit = true;
+  var startY = 0, startTime = 0, dragging = false;
+  function onStart(e) { startY = e.touches ? e.touches[0].clientY : e.clientY; startTime = Date.now(); dragging = true; modal.style.transition = 'none'; }
+  function onMove(e) { if (!dragging) return; var y = e.touches ? e.touches[0].clientY : e.clientY; var d = y - startY; if (d > 0) modal.style.transform = 'translateY(' + d + 'px)'; else modal.style.transform = ''; }
+  function onEnd(e) {
+    if (!dragging) return; dragging = false; modal.style.transition = ''; modal.style.transform = '';
+    var y = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+    var delta = y - startY, vel = Math.abs(delta) / (Date.now() - startTime);
+    if (delta > 120 || (delta > 40 && vel > 0.6)) closePlanNameModal();
   }
   handle.addEventListener('touchstart', onStart, { passive: true });
   handle.addEventListener('touchmove', onMove, { passive: true });
@@ -3213,6 +3259,7 @@ function openTopup() {
   overlay.classList.add('open');
   modal.classList.add('open');
   document.body.style.overflow = 'hidden';
+  initTopupDrag();
 }
 
 function copyNewCode() {

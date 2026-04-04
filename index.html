@@ -891,7 +891,7 @@
           <div style="display:flex;gap:8px;align-items:center">
             <input id="custom-item-input" type="text" placeholder="Add item…" maxlength="60"
               onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomShopItem()}"
-              style="flex:1;background:var(--bg2);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-family:'Figtree',sans-serif;font-size:14px;padding:9px 12px;outline:none;-webkit-appearance:none"
+              style="flex:1;min-width:0;background:var(--bg2);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-family:'Figtree',sans-serif;font-size:14px;padding:9px 12px;outline:none;-webkit-appearance:none"
               onfocus="this.style.borderColor='var(--lime)'" onblur="this.style.borderColor='var(--border)'">
             <input id="custom-item-qty" type="text" placeholder="Qty" maxlength="20"
               onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomShopItem()}"
@@ -1136,7 +1136,7 @@
 <!-- ═══════════════════════════ TOP-UP MODAL ═════════════════════════════ -->
 <div id="topup-overlay" onclick="if(event.target===this)closeTopup()">
   <div id="topup-modal" onclick="event.stopPropagation()">
-    <div class="topup-handle-row"><div class="drawer-handle"></div></div>
+    <div id="topup-drag-handle" class="topup-handle-row" style="cursor:grab"><div class="drawer-handle"></div></div>
     <div style="padding:4px 24px 28px">
       <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:20px;margin-bottom:4px">Get more plans</div>
       <div style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.5">One-time purchase · Instant delivery · No subscription</div>
@@ -1203,7 +1203,7 @@
 
 <div id="plan-name-overlay" onclick="if(event.target===this)savePlanName()"></div>
 <div id="plan-name-modal">
-  <div class="drawer-handle"></div>
+  <div id="plan-name-drag-handle" style="display:flex;justify-content:center;padding:12px 0 4px;cursor:grab"><div class="drawer-handle"></div></div>
   <div style="padding:4px 24px 24px">
     <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:18px;margin-bottom:6px">Name this plan</div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.5">Give it a name so you can find it in history. Leave blank for an auto-name.</div>

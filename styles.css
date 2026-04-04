@@ -1872,7 +1872,7 @@
   #plan-name-overlay {
     position: fixed; inset: 0;
     background: rgba(0,0,0,0.65);
-    z-index: 600;
+    z-index: 9400;
     opacity: 0; pointer-events: none;
     transition: opacity 0.3s;
     backdrop-filter: blur(4px);
@@ -1886,7 +1886,7 @@
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 24px 24px 24px 24px;
-    z-index: 601;
+    z-index: 9401;
     padding-bottom: 8px;
     transform: translateY(calc(100% + 60px + env(safe-area-inset-bottom)));
     transition: transform 0.35s cubic-bezier(.22,1,.36,1);
@@ -3703,7 +3703,7 @@ body.light #week-streak-card { background: var(--bg2); }
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.6);
-  z-index: 5000;
+  z-index: 9400;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.25s;
@@ -3916,13 +3916,13 @@ body.light .goal-mode-tab.active { background: var(--bg); }
 
 /* ── CALENDAR MODAL ── */
 #calendar-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 1100;
+  position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 9400;
   opacity: 0; transition: opacity 0.3s ease;
 }
 #calendar-overlay.active { opacity: 1; }
 
 #calendar-modal {
-  position: fixed; inset: 0; z-index: 1101;
+  position: fixed; inset: 0; z-index: 9401;
   display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
   pointer-events: none; transform: translateY(100%);
   transition: transform 0.35s cubic-bezier(0.34,1.1,0.64,1);
@@ -3954,7 +3954,7 @@ body.light .goal-mode-tab.active { background: var(--bg); }
   background: var(--card); border: 1.5px solid var(--border); border-radius: 50%;
   color: var(--text); width: 36px; height: 36px;
   display: flex; align-items: center; justify-content: center; cursor: pointer;
-  z-index: 1102; opacity: 0; transition: opacity 0.3s ease 0.1s; pointer-events: none;
+  z-index: 9402; opacity: 0; transition: opacity 0.3s ease 0.1s; pointer-events: none;
 }
 #calendar-modal.active .cal-close-btn { opacity: 1; pointer-events: auto; }
 
