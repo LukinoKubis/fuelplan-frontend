@@ -395,11 +395,8 @@ function restoreProfile() {
     var gdEl = document.getElementById('c-goal-date');
     if (gwEl && p.goalWeight) gwEl.value = p.goalWeight;
     if (gdEl && p.goalDate) gdEl.value = p.goalDate;
-    // Sync pace buttons
-    document.querySelectorAll('.pace-btn').forEach(function(b) {
-      b.classList.toggle('active', parseFloat(b.dataset.rate) === _goalWeeklyRate);
-    });
     setGoalMode('target');
+    setTimeout(function() { initPaceDrum(_goalWeeklyRate); }, 50);
   } else if (p.mode === 'calc') {
     calcMacros();
   }
@@ -606,12 +603,56 @@ function getGoalOffset() {
 var _goalMode = 'preset';
 var _goalWeeklyRate = 0.5; // kg/week (positive = loss)
 
+var _PACE_DESCS = [
+  'Gentle cut · Barely noticeable — very sustainable',
+  'Moderate cut · Steady fat loss, muscle preserved',
+  'Aggressive cut · Significant deficit — keep protein high',
+  'Very aggressive · Intense cut — short term only',
+  'Extreme cut · ⚠️ Only with medical supervision'
+];
+
 function setPace(rate) {
   _goalWeeklyRate = rate;
-  document.querySelectorAll('.pace-btn').forEach(function(b) {
-    b.classList.toggle('active', parseFloat(b.dataset.rate) === rate);
-  });
+  // Sync drum highlight
+  var drum = document.getElementById('pace-drum');
+  if (drum) {
+    drum.querySelectorAll('.pace-drum-item').forEach(function(item) {
+      var active = parseFloat(item.dataset.rate) === rate;
+      item.classList.toggle('active', active);
+      if (active) {
+        var desc = document.getElementById('pace-drum-desc');
+        if (desc) desc.textContent = _PACE_DESCS[parseInt(item.dataset.idx)] || '';
+      }
+    });
+  }
   calcGoalWeight();
+}
+
+var _paceDrumTimer = null;
+function onPaceDrumScroll(el) {
+  clearTimeout(_paceDrumTimer);
+  _paceDrumTimer = setTimeout(function() {
+    var items = el.querySelectorAll('.pace-drum-item');
+    var centerX = el.scrollLeft + el.clientWidth / 2;
+    var closest = null, closestDist = Infinity;
+    items.forEach(function(item) {
+      var d = Math.abs((item.offsetLeft + item.offsetWidth / 2) - centerX);
+      if (d < closestDist) { closestDist = d; closest = item; }
+    });
+    if (closest) setPace(parseFloat(closest.dataset.rate));
+  }, 80);
+}
+
+function initPaceDrum(rate) {
+  var drum = document.getElementById('pace-drum');
+  if (!drum) return;
+  var target = drum.querySelector('[data-rate="' + rate + '"]') || drum.querySelector('.pace-drum-item');
+  if (!target) return;
+  // Scroll so target is centered
+  var drumW = drum.clientWidth;
+  var scrollTo = target.offsetLeft - drumW / 2 + target.offsetWidth / 2;
+  drum.scrollLeft = scrollTo;
+  setPace(parseFloat(target.dataset.rate));
 }
 
 function setGoalMode(mode) {
@@ -628,7 +669,7 @@ function setGoalMode(mode) {
   if (targetInputs) targetInputs.style.display = mode === 'target' ? '' : 'none';
   if (cutWarn) cutWarn.style.display = 'none';
   if (bulkWarn) bulkWarn.style.display = 'none';
-  if (mode === 'target') calcGoalWeight();
+  if (mode === 'target') { setTimeout(function() { initPaceDrum(_goalWeeklyRate); }, 30); calcGoalWeight(); }
   else calcMacros();
 }
 
@@ -1564,6 +1605,26 @@ function openMealActionSheet(dayId, mealIdx) {
   sheet.innerHTML = html;
   overlay.appendChild(sheet);
   document.body.appendChild(overlay);
+
+  // Drag-to-close on the handle
+  var dragHandle = sheet.querySelector('.sheet-drag-handle');
+  if (dragHandle) {
+    var startY = 0, startTime = 0, dragging = false;
+    function onStart(e) { startY = e.touches ? e.touches[0].clientY : e.clientY; startTime = Date.now(); dragging = true; sheet.style.transition = 'none'; }
+    function onMove(e) { if (!dragging) return; var y = e.touches ? e.touches[0].clientY : e.clientY; var d = y - startY; if (d > 0) sheet.style.transform = 'translateY(' + d + 'px)'; else sheet.style.transform = ''; }
+    function onEnd(e) {
+      if (!dragging) return; dragging = false; sheet.style.transition = ''; sheet.style.transform = '';
+      var y = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+      var delta = y - startY, vel = Math.abs(delta) / (Date.now() - startTime);
+      if (delta > 80 || (delta > 30 && vel > 0.6)) closeMealActionSheet();
+    }
+    dragHandle.addEventListener('touchstart', onStart, { passive: true });
+    dragHandle.addEventListener('touchmove', onMove, { passive: true });
+    dragHandle.addEventListener('touchend', onEnd);
+    dragHandle.addEventListener('mousedown', onStart);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onEnd);
+  }
 
   requestAnimationFrame(function() {
     requestAnimationFrame(function() {
@@ -2835,6 +2896,7 @@ function openWeightLog() {
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
   renderWeightLog();
+  initWeightLogDrag();
   setTimeout(function() {
     var inp = document.getElementById('wl-input');
     if (inp) inp.focus();
@@ -2845,6 +2907,28 @@ function closeWeightLog() {
   var overlay = document.getElementById('weight-log-overlay');
   if (overlay) overlay.classList.remove('open');
   document.body.style.overflow = '';
+}
+
+function initWeightLogDrag() {
+  var handle = document.getElementById('wl-drag-handle');
+  var modal = document.getElementById('weight-log-modal');
+  if (!handle || !modal || handle._dragInit) return;
+  handle._dragInit = true;
+  var startY = 0, startTime = 0, dragging = false;
+  function onStart(e) { startY = e.touches ? e.touches[0].clientY : e.clientY; startTime = Date.now(); dragging = true; modal.style.transition = 'none'; }
+  function onMove(e) { if (!dragging) return; var y = e.touches ? e.touches[0].clientY : e.clientY; var d = y - startY; if (d > 0) modal.style.transform = 'translateY(' + d + 'px)'; else modal.style.transform = ''; }
+  function onEnd(e) {
+    if (!dragging) return; dragging = false; modal.style.transition = ''; modal.style.transform = '';
+    var y = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+    var delta = y - startY, vel = Math.abs(delta) / (Date.now() - startTime);
+    if (delta > 120 || (delta > 40 && vel > 0.6)) closeWeightLog();
+  }
+  handle.addEventListener('touchstart', onStart, { passive: true });
+  handle.addEventListener('touchmove', onMove, { passive: true });
+  handle.addEventListener('touchend', onEnd);
+  handle.addEventListener('mousedown', onStart);
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onEnd);
 }
 
 function addWeighIn() {
@@ -3110,9 +3194,35 @@ function openTopup() {
   // Reset state
   document.getElementById('topup-plans').style.display = '';
   document.getElementById('topup-loading').style.display = 'none';
+
+  // New user: no activation code yet — generate one and show it
+  var code = (localStorage.getItem('fp_apikey') || '').trim().toUpperCase();
+  var banner = document.getElementById('topup-new-user-banner');
+  var codeDisplay = document.getElementById('topup-new-code');
+  if (!code) {
+    code = 'FUEL' + Math.random().toString(36).substr(2, 6).toUpperCase();
+    localStorage.setItem('fp_apikey', code);
+    var codeInput = document.getElementById('activation-code');
+    if (codeInput) codeInput.value = code;
+    if (banner) banner.style.display = 'block';
+    if (codeDisplay) codeDisplay.textContent = code;
+  } else {
+    if (banner) banner.style.display = 'none';
+  }
+
   overlay.classList.add('open');
   modal.classList.add('open');
   document.body.style.overflow = 'hidden';
+}
+
+function copyNewCode() {
+  var code = localStorage.getItem('fp_apikey') || '';
+  if (!code) return;
+  navigator.clipboard.writeText(code).then(function() {
+    showToast('Code copied: ' + code);
+  }).catch(function() {
+    showToast(code); // fallback — show in toast so user can see it
+  });
 }
 
 function closeTopup() {
@@ -3126,8 +3236,12 @@ function closeTopup() {
 async function startCheckout(planKey) {
   const plan = TOPUP_PLANS[planKey];
   if (!plan) return;
-  const code = (localStorage.getItem('fp_apikey') || '').toUpperCase();
-  if (!code) { showToast('No activation code found'); return; }
+  let code = (localStorage.getItem('fp_apikey') || '').trim().toUpperCase();
+  if (!code) {
+    // Shouldn't happen since openTopup() creates one, but generate as fallback
+    code = 'FUEL' + Math.random().toString(36).substr(2, 6).toUpperCase();
+    localStorage.setItem('fp_apikey', code);
+  }
 
   // Show loading state
   document.getElementById('topup-plans').style.display = 'none';

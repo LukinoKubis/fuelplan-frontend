@@ -3773,35 +3773,64 @@ body.light .topup-plan-btn { background: var(--bg2); }
 }
 .goal-mode-tab.active { background: var(--card); color: var(--text); }
 
-/* ── PACE SELECTOR ── */
-.pace-selector {
-  display: flex;
-  gap: 4px;
+/* ── PACE DRUM ── */
+.pace-drum-wrap {
+  position: relative;
 }
-.pace-btn {
-  flex: 1;
+.pace-drum-track {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  gap: 8px;
+  padding: 4px 0 8px;
+  position: relative;
+}
+.pace-drum-track::-webkit-scrollbar { display: none; }
+.pace-drum-pad { flex-shrink: 0; width: calc(50% - 55px); min-width: 0; }
+.pace-drum-item {
+  scroll-snap-align: center;
+  flex-shrink: 0;
+  width: 110px;
   background: var(--bg2);
   border: 1.5px solid var(--border);
-  border-radius: 10px;
-  color: var(--muted);
+  border-radius: 14px;
+  padding: 12px 6px;
+  text-align: center;
   cursor: pointer;
-  padding: 6px 4px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  user-select: none;
 }
-.pace-btn.active {
-  background: rgba(200,245,66,0.12);
+.pace-drum-item.active {
+  background: rgba(200,245,66,0.1);
   border-color: var(--lime);
   color: var(--lime);
 }
-.pace-rate { font-size: 10px; font-weight: 700; font-family: 'Syne', sans-serif; }
-.pace-label { font-size: 9px; color: inherit; opacity: 0.7; }
-.pace-btn.active .pace-label { opacity: 1; }
-body.light .pace-btn { background: var(--card); }
-body.light .pace-btn.active { background: rgba(200,245,66,0.15); }
+.pace-drum-kg { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 13px; margin-bottom: 3px; }
+.pace-drum-lbl { font-size: 10px; color: var(--muted); }
+.pace-drum-item.active .pace-drum-lbl { color: var(--lime); opacity: 0.8; }
+.pace-drum-selector {
+  position: absolute;
+  left: 50%;
+  top: 4px;
+  bottom: 8px;
+  transform: translateX(-50%);
+  width: 110px;
+  border: 2px solid rgba(200,245,66,0.25);
+  border-radius: 14px;
+  pointer-events: none;
+}
+.pace-drum-desc {
+  text-align: center;
+  font-size: 11px;
+  color: var(--lime);
+  margin-top: 2px;
+  min-height: 14px;
+  opacity: 0.85;
+}
+body.light .pace-drum-item { background: var(--card); }
+body.light .pace-drum-item.active { background: rgba(200,245,66,0.15); }
 
 /* ── GOAL WEIGHT FEEDBACK ── */
 .gw-warning {
