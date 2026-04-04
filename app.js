@@ -1342,6 +1342,12 @@ function renderDayPanel(day, summary, isActive) {
   const mealAnnotations = MEM.load('fp_mealAnnotations') || {};
   const favorites = MEM.load('fp_favorites') || [];
   const favKeys = favorites.map(f => f.name + '|' + f.kcal);
+
+  // Per-day target overrides
+  const _dayTargets = MEM.load('fp_dayTargets') || {};
+  const _dayOverride = _dayTargets[dayId] || {};
+  if (_dayOverride.kcal) summary = Object.assign({}, summary, { kcal: _dayOverride.kcal });
+  if (_dayOverride.protein) summary = Object.assign({}, summary, { protein: _dayOverride.protein });
   const eaten = MEM.load('fp_eaten') || {};
   const mealCount = (day.meals || []).length;
   const eatenCount = (day.meals || []).filter((_, i) => eaten[dayId + '-' + i]).length;
@@ -1374,12 +1380,13 @@ function renderDayPanel(day, summary, isActive) {
     <div class="tab-panel${isActive ? ' active' : ''}" id="panel-${dayId}">
       <div class="day-macro-header">
         <div class="day-kcal-display">${day.kcal}</div>
-        <div class="day-kcal-label">kcal</div>
+        <div class="day-kcal-label">kcal${_dayOverride.kcal ? ' <span style="color:var(--lime);font-size:10px">✦</span>' : ''}</div>
         <div class="day-macro-rings">
           ${ringHtml(day.protein, summary.protein, 'var(--blue)', 'Protein')}
           ${ringHtml(day.carbs, summary.carbs, 'var(--orange)', 'Carbs')}
           ${ringHtml(day.fat, summary.fat, 'var(--red)', 'Fat')}
         </div>
+        <button onclick="openDayTargets('${dayId}')" style="position:absolute;right:12px;top:8px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:10px;color:var(--muted);padding:3px 8px;cursor:pointer;letter-spacing:0.04em" title="Set day targets">${_dayOverride.kcal || _dayOverride.protein ? '✦ Targets' : 'Targets'}</button>
       </div>
       ${isTrainingDay ? '<div class="training-day-callout"><span class="training-day-callout-dot"></span>Training Day — fuel up well!</div>' : ''}
       ${renderWaterTracker(dayId)}
@@ -1655,6 +1662,93 @@ function toggleIngredients(dayId, mealIdx) {
   if (!ingr) return;
   var expanded = ingr.classList.toggle('expanded');
   if (btn) btn.textContent = expanded ? 'Show less ▴' : 'Show more ▾';
+}
+
+/* ── PER-DAY NUTRITION TARGETS ──────────────────────────── */
+function openDayTargets(dayId) {
+  haptic('light');
+  var targets = MEM.load('fp_dayTargets') || {};
+  var cur = targets[dayId] || {};
+  var summary = (planData && planData.summary) || {};
+  var defKcal = cur.kcal || summary.kcal || '';
+  var defProt = cur.protein || summary.protein || '';
+  var dayLabel = dayId.charAt(0).toUpperCase() + dayId.slice(1);
+
+  var existing = document.getElementById('day-targets-modal-wrap');
+  if (existing) existing.remove();
+
+  var wrap = document.createElement('div');
+  wrap.id = 'day-targets-modal-wrap';
+  wrap.style.cssText = 'position:fixed;inset:0;z-index:9000;display:flex;align-items:flex-end;background:rgba(0,0,0,0.5)';
+  wrap.onclick = function(e) { if (e.target === wrap) wrap.remove(); };
+  wrap.innerHTML = '<div style="background:var(--card);border-radius:20px 20px 0 0;padding:20px 20px 40px;width:100%;box-sizing:border-box;max-width:480px;margin:0 auto">'
+    + '<div style="font-family:\'Syne\',sans-serif;font-weight:800;font-size:16px;margin-bottom:4px">' + dayLabel + ' Targets</div>'
+    + '<div style="font-size:12px;color:var(--muted);margin-bottom:16px">Override targets for this day only. Leave blank to use plan defaults.</div>'
+    + '<div style="display:flex;gap:12px;margin-bottom:16px">'
+      + '<div style="flex:1"><label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">Calories (kcal)</label>'
+        + '<input id="dt-kcal" type="number" inputmode="numeric" value="' + defKcal + '" placeholder="e.g. ' + (summary.kcal||2000) + '" style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:15px;color:var(--fg);box-sizing:border-box"></div>'
+      + '<div style="flex:1"><label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">Protein (g)</label>'
+        + '<input id="dt-protein" type="number" inputmode="numeric" value="' + defProt + '" placeholder="e.g. ' + (summary.protein||150) + '" style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:15px;color:var(--fg);box-sizing:border-box"></div>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px">'
+      + '<button onclick="saveDayTargets(\'' + dayId + '\')" style="flex:1;background:var(--lime);color:#0e0f11;border:none;border-radius:12px;font-family:\'Syne\',sans-serif;font-weight:800;font-size:14px;padding:12px;cursor:pointer">Save</button>'
+      + (cur.kcal || cur.protein ? '<button onclick="clearDayTargets(\'' + dayId + '\')" style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;font-size:13px;color:var(--muted);padding:12px 16px;cursor:pointer">Clear</button>' : '')
+    + '</div>'
+  + '</div>';
+  document.body.appendChild(wrap);
+  setTimeout(function() { document.getElementById('dt-kcal').focus(); }, 100);
+}
+
+function saveDayTargets(dayId) {
+  var kcal = parseInt(document.getElementById('dt-kcal').value) || 0;
+  var protein = parseInt(document.getElementById('dt-protein').value) || 0;
+  var targets = MEM.load('fp_dayTargets') || {};
+  targets[dayId] = {};
+  if (kcal > 0) targets[dayId].kcal = kcal;
+  if (protein > 0) targets[dayId].protein = protein;
+  MEM.save('fp_dayTargets', targets);
+  var wrap = document.getElementById('day-targets-modal-wrap');
+  if (wrap) wrap.remove();
+  // Re-render the day panel
+  if (planData) {
+    var dayObj = planData.days.find(function(d) { return d.day.toLowerCase() === dayId; });
+    if (dayObj) {
+      var oldPanel = document.getElementById('panel-' + dayId);
+      if (oldPanel) {
+        var tmp = document.createElement('div');
+        tmp.innerHTML = renderDayPanel(dayObj, planData.summary, true);
+        oldPanel.parentNode.replaceChild(tmp.firstElementChild, oldPanel);
+        setTimeout(function() { initIngredientToggles(dayId); }, 80);
+      }
+    }
+    renderWeekStats();
+    renderTodaySnapshot();
+  }
+  haptic('success');
+  showToast(kcal || protein ? dayId.charAt(0).toUpperCase() + dayId.slice(1) + ' targets saved' : 'Targets cleared');
+}
+
+function clearDayTargets(dayId) {
+  var targets = MEM.load('fp_dayTargets') || {};
+  delete targets[dayId];
+  MEM.save('fp_dayTargets', targets);
+  var wrap = document.getElementById('day-targets-modal-wrap');
+  if (wrap) wrap.remove();
+  if (planData) {
+    var dayObj = planData.days.find(function(d) { return d.day.toLowerCase() === dayId; });
+    if (dayObj) {
+      var oldPanel = document.getElementById('panel-' + dayId);
+      if (oldPanel) {
+        var tmp = document.createElement('div');
+        tmp.innerHTML = renderDayPanel(dayObj, planData.summary, false);
+        oldPanel.parentNode.replaceChild(tmp.firstElementChild, oldPanel);
+        setTimeout(function() { initIngredientToggles(dayId); }, 80);
+      }
+    }
+    renderWeekStats();
+    renderTodaySnapshot();
+  }
+  showToast('Targets reset to plan defaults');
 }
 
 function toggleMealMacros(dayId, mealIdx) {
@@ -3894,11 +3988,15 @@ function renderTodaySnapshot() {
   var todayObj = planData.days.find(function(d) { return d.day.toLowerCase() === todayDow; });
   if (!todayObj) return; // plan doesn't include today
 
+  // Per-day target overrides
+  var _snapshotDayTargets = MEM.load('fp_dayTargets') || {};
+  var _snapshotOverride = _snapshotDayTargets[todayDow] || {};
+
   var eaten = MEM.load('fp_eaten') || {};
   var meals = todayObj.meals || [];
   var eatenCount = meals.filter(function(_, i) { return eaten[todayDow + '-' + i]; }).length;
   var eatenKcal = meals.reduce(function(s, m, i) { return s + (eaten[todayDow + '-' + i] ? (parseInt(m.kcal) || 0) : 0); }, 0);
-  var target = planData.summary.kcal || 1;
+  var target = _snapshotOverride.kcal || planData.summary.kcal || 1;
   var remaining = Math.max(0, target - eatenKcal);
   var pct = Math.min(100, Math.round(eatenKcal / target * 100));
 
@@ -3909,7 +4007,7 @@ function renderTodaySnapshot() {
   }
 
   var eatenProtein = meals.reduce(function(s, m, i) { return s + (eaten[todayDow + '-' + i] ? (parseInt(m.protein) || 0) : 0); }, 0);
-  var targetProtein = planData.summary.protein || 1;
+  var targetProtein = _snapshotOverride.protein || planData.summary.protein || 1;
   var remainingProtein = Math.max(0, targetProtein - eatenProtein);
   var proteinPct = Math.min(100, Math.round(eatenProtein / targetProtein * 100));
 

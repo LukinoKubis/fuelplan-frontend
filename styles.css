@@ -2788,6 +2788,7 @@ body.light .scaler-btn.active { border-color: #7ab800; color: #3a6600; backgroun
   border-radius: 16px;
   padding: 4px 24px 16px;
   margin-bottom: 24px;
+  position: relative;
 }
 
 /* ═══════════════════════════════════════════════════
