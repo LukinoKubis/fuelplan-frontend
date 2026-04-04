@@ -3564,10 +3564,16 @@ function taskCardHTML(task, i) {
       ${done
         ? `<button class="pt-undo-btn" onclick="undoTask(${i})">↩ Undo</button>`
         : `<div class="pt-foot-row">
-             ${hasDur ? `<button class="pt-timer-btn" id="ptimer-btn-${i}" onclick="togglePrepTimer(${i},${task.durationMinutes})">
-               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-               <span id="ptimer-label-${i}">Start timer</span>
-             </button>` : ''}
+             ${hasDur
+               ? `<button class="pt-timer-btn" id="ptimer-btn-${i}" onclick="togglePrepTimer(${i},${task.durationMinutes})">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <span id="ptimer-label-${i}">Start timer</span>
+                  </button>`
+               : `<button class="pt-timer-btn pt-stopwatch-btn" id="ptimer-btn-${i}" onclick="toggleStopwatch(${i})">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <span id="ptimer-label-${i}">Stopwatch</span>
+                  </button>`
+             }
              <button class="pt-done-btn" onclick="markTaskDone(${i})" style="--lc:${l.color}">
                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                Done
@@ -3666,9 +3672,11 @@ function checkAllDone() {
 }
 
 function exitPrepSession() {
-  // Clear any running timers
+  // Clear any running timers and stopwatches
   Object.keys(_prepTimers).forEach(function(k) { clearInterval(_prepTimers[k].intervalId); });
   _prepTimers = {};
+  Object.keys(_stopwatches).forEach(function(k) { clearInterval(_stopwatches[k].intervalId); });
+  _stopwatches = {};
   _prepSession = null;
   renderPrepTimeOverview();
 }
@@ -4945,6 +4953,10 @@ function startPrepTimer(i, minutes) {
       lbl.textContent = 'Time\'s up!';
       haptic('success');
       showToastWithAction('Timer done!', 'Mark done', function() { markTaskDone(i); });
+      // Browser notification (if permission granted)
+      if (Notification && Notification.permission === 'granted') {
+        new Notification('Fuelplan — Timer done!', { body: 'Step ' + (i+1) + ' is ready', icon: '/icon-192.png' });
+      }
       return;
     }
 
@@ -4970,6 +4982,38 @@ function cancelPrepTimer(i) {
   var label = document.getElementById('ptimer-label-' + i);
   if (btn) btn.classList.remove('pt-timer-running', 'pt-timer-done');
   if (label) label.textContent = 'Start timer';
+}
+
+var _stopwatches = {}; // { taskIdx: { intervalId, elapsed } }
+
+function toggleStopwatch(i) {
+  if (_stopwatches[i]) {
+    clearInterval(_stopwatches[i].intervalId);
+    var elapsed = _stopwatches[i].elapsed;
+    delete _stopwatches[i];
+    var btn = document.getElementById('ptimer-btn-' + i);
+    var lbl = document.getElementById('ptimer-label-' + i);
+    if (btn) btn.classList.remove('pt-timer-running');
+    if (lbl) lbl.textContent = 'Stopwatch';
+    return;
+  }
+  haptic('light');
+  var btn = document.getElementById('ptimer-btn-' + i);
+  var lbl = document.getElementById('ptimer-label-' + i);
+  if (!btn || !lbl) return;
+  btn.classList.add('pt-timer-running');
+  var start = Date.now();
+  _stopwatches[i] = {
+    elapsed: 0,
+    intervalId: setInterval(function() {
+      var e = _stopwatches[i];
+      if (!e) return;
+      e.elapsed = Math.floor((Date.now() - start) / 1000);
+      var m = Math.floor(e.elapsed / 60), s = e.elapsed % 60;
+      var l2 = document.getElementById('ptimer-label-' + i);
+      if (l2) l2.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+    }, 1000)
+  };
 }
 
 /* ═══════════════════════════════════════════════════
