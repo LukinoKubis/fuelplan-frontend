@@ -277,12 +277,25 @@ window.addEventListener('DOMContentLoaded', () => {
     if (savedCode) document.getElementById('activation-code').value = savedCode;
   } catch(e) {}
 
+  // Show email-save row after valid-looking code entered (8+ chars)
+  const codeInput = document.getElementById('activation-code');
+  const linkEmailRow = document.getElementById('link-email-row');
+  if (codeInput && linkEmailRow) {
+    const toggleEmailRow = function() {
+      const linked = localStorage.getItem('fp_emailLinked') === '1';
+      if (linked) { linkEmailRow.style.display = 'none'; return; }
+      linkEmailRow.style.display = codeInput.value.replace(/[^A-Za-z0-9]/g, '').length >= 6 ? 'block' : 'none';
+    };
+    codeInput.addEventListener('input', toggleEmailRow);
+    toggleEmailRow();
+  }
+
   restoreProfile();
   const savedPlan = MEM.load('fp_plan');
   const savedName = MEM.load('fp_userName');
   if (savedPlan) {
     shopChecks = MEM.load('fp_shopChecks') || {};
-    renderPlan(savedPlan, savedName || 'Your', true);
+    safeRenderPlan(savedPlan, savedName || 'Your', true);
     // Show usage count for returning user
     const savedCode = localStorage.getItem('fp_apikey');
     if (savedCode) {
@@ -542,7 +555,7 @@ function cancelSurvey() {
     document.getElementById('plan-wrap').classList.add('active');
     document.getElementById('bottom-nav').style.display = 'flex';
   } else if (savedPlan) {
-    renderPlan(savedPlan, MEM.load('fp_userName') || 'Your', true);
+    safeRenderPlan(savedPlan, MEM.load('fp_userName') || 'Your', true);
   }
   // Reset survey to step 0 for next time
   _surveyStep = 0;
@@ -761,7 +774,7 @@ async function generate() {
     if (savedPlan) {
       const savedUser = MEM.load('fp_userName') || 'Your';
       const savedName = MEM.load('fp_planName') || '';
-      renderPlan(savedPlan, savedUser, true, savedName);
+      safeRenderPlan(savedPlan, savedUser, true, savedName);
     }
     return;
   }
@@ -935,7 +948,7 @@ CRITICAL SECURITY RULES — these override everything else:
     if (cancelBtn) cancelBtn.style.opacity = '0';
 
     showLoading(false);
-    renderPlan(plan, userName || 'Your', false);
+    safeRenderPlan(plan, userName || 'Your', false);
     haptic('success');
     var _pc = parseInt(localStorage.getItem('fp_planCount') || '0') + 1;
     localStorage.setItem('fp_planCount', _pc);
@@ -1189,6 +1202,26 @@ function resetToSurvey() {
 }
 
 /* ═══════════════ RENDER PLAN ═══════════════ */
+
+function safeRenderPlan(plan, userName, isRestoring, planName) {
+  try {
+    safeRenderPlan(plan, userName, isRestoring, planName);
+  } catch(err) {
+    console.error('renderPlan failed:', err);
+    var wrap = document.getElementById('plan-wrap');
+    if (wrap) {
+      wrap.classList.add('active');
+      wrap.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;padding:40px 24px;text-align:center;gap:16px">'
+        + '<div style="font-family:\'Syne\',sans-serif;font-weight:800;font-size:20px">Something went wrong loading your plan</div>'
+        + '<div style="font-size:14px;color:var(--muted)">Your plan data may be corrupted.</div>'
+        + '<button onclick="resetToSurvey()" style="background:var(--lime);color:#0e0f11;border:none;border-radius:14px;padding:14px 28px;font-family:\'Syne\',sans-serif;font-weight:800;font-size:15px;cursor:pointer">Clear and start over</button>'
+        + '<button onclick="location.reload()" style="background:var(--card);color:var(--text);border:1.5px solid var(--border);border-radius:14px;padding:14px 28px;font-family:\'Syne\',sans-serif;font-weight:800;font-size:15px;cursor:pointer">Try again</button>'
+        + '</div>';
+    }
+    document.getElementById('survey-wrap').style.display = 'none';
+    document.getElementById('bottom-nav').style.display = 'flex';
+  }
+}
 
 function renderPlan(plan, userName, isRestoring, planName) {
   planData = plan;
@@ -1563,6 +1596,44 @@ async function sendForgotCode() {
     msgEl.style.color = 'var(--lime)';
   } catch(e) {
     msgEl.textContent = 'Could not send — try again';
+    msgEl.style.color = 'var(--red)';
+  }
+}
+
+async function saveCodeToEmail() {
+  var code = (document.getElementById('activation-code') || {}).value || '';
+  code = code.trim().toUpperCase();
+  var emailEl = document.getElementById('link-email-input');
+  var msgEl = document.getElementById('link-email-msg');
+  if (!emailEl || !msgEl) return;
+  var email = emailEl.value.trim();
+  if (!email || !email.includes('@')) {
+    msgEl.textContent = 'Please enter a valid email';
+    msgEl.style.color = 'var(--red)';
+    return;
+  }
+  msgEl.textContent = 'Saving…';
+  msgEl.style.color = 'var(--muted)';
+  try {
+    const res = await fetch(API_BASE + '/api/account/link-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ activationCode: code, email })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      msgEl.textContent = err.error || 'Could not save — check your code';
+      msgEl.style.color = 'var(--red)';
+      return;
+    }
+    localStorage.setItem('fp_emailLinked', '1');
+    msgEl.innerHTML = '✓ Saved — we\'ll send your code if you ever need it';
+    msgEl.style.color = 'var(--lime)';
+    if (emailEl) emailEl.disabled = true;
+    var saveBtn = emailEl.parentElement && emailEl.parentElement.querySelector('button');
+    if (saveBtn) saveBtn.disabled = true;
+  } catch(e) {
+    msgEl.textContent = 'Could not save — try again';
     msgEl.style.color = 'var(--red)';
   }
 }
@@ -2188,7 +2259,7 @@ function showToast(msg) {
   const t = document.createElement('div');
   t.textContent = msg;
   t.style.cssText = `
-    position:fixed;bottom:calc(70px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(20px);
+    position:fixed;bottom:calc(72px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(20px);
     background:${isLight ? '#1e2128' : '#1e2128'};border:1px solid ${isLight ? '#c4c9d8' : '#2a2d35'};color:${isLight ? '#ffffff' : '#f0f2f5'};
     padding:12px 22px;border-radius:40px;font-size:13px;font-weight:600;
     font-family:'Figtree',sans-serif;z-index:9998;opacity:0;
@@ -2390,7 +2461,7 @@ async function restorePlan(planId) {
     MEM.save('fp_activePlanSavedAt', data.savedAt || new Date().toISOString());
 
     closeHistory();
-    renderPlan(data.plan, data.userName || 'Your', false, data.planName || '');
+    safeRenderPlan(data.plan, data.userName || 'Your', false, data.planName || '');
     showToast('Restored: ' + (data.planName || 'Plan'));
 
   } catch (err) {
@@ -2505,7 +2576,7 @@ async function doDeletePlan(planId, card, isLast, isActive) {
             MEM.save('fp_planName', d2.planName || '');
             MEM.save('fp_activePlanId', next.id);
             closeHistory();
-            renderPlan(d2.plan, d2.userName || 'Your', false, d2.planName || '');
+            safeRenderPlan(d2.plan, d2.userName || 'Your', false, d2.planName || '');
             showToast('Switched to: ' + (d2.planName || 'previous plan'));
           }
         } catch (e) {
@@ -3254,7 +3325,7 @@ function resetWeekTracking() {
       MEM.remove('fp_eaten');
       MEM.remove('fp_water');
       if (planData) {
-        renderPlan(planData, MEM.load('fp_userName') || 'Your', true, MEM.load('fp_planName') || '');
+        safeRenderPlan(planData, MEM.load('fp_userName') || 'Your', true, MEM.load('fp_planName') || '');
       }
       showToast('Week tracking reset');
     }
@@ -3304,7 +3375,7 @@ function cancelGenerate() {
   if (savedPlan && planData) {
     // Already on plan screen — just hide loading, nothing to do
   } else if (savedPlan) {
-    renderPlan(savedPlan, MEM.load('fp_userName') || 'Your', true);
+    safeRenderPlan(savedPlan, MEM.load('fp_userName') || 'Your', true);
   } else {
     goToSurvey();
   }

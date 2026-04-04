@@ -69,11 +69,33 @@ netlify functions:list
 - All state in localStorage via the MEM helper (see top of app.js)
 - planData is the global in-memory plan object
 - CSS variables defined in :root and body.light — always use var(--x) not hardcoded colours
-- Bottom nav has 3 sections: week, prep, haul — switchSection() controls them
+- Bottom nav has 4 sections: week, stats, prep, haul — switchSection() controls them
 - The plan JSON schema lives in the jsonTemplate string inside generate()
 - escHtml() must be used on all user-facing dynamic strings
 - switchDayTab(dayId) switches the day carousel and panel
-- renderPlan(plan, userName, isRestoring, planName) is the main render function
+- safeRenderPlan(plan, userName, isRestoring, planName) is the main render entry point
+  (wraps renderPlan in try/catch — shows recovery UI on error)
+
+## localStorage keys (fp_ prefix)
+- fp_apikey         — activation code (uppercased)
+- fp_plan           — last generated plan JSON
+- fp_planName       — user-set plan name
+- fp_userName       — user's name
+- fp_profile        — survey profile object
+- fp_shopChecks     — shopping list checkbox states
+- fp_activeSection  — last active bottom nav section
+- fp_activeDay      — last active day tab id
+- fp_emailLinked    — '1' if email recovery has been set up
+- fp_onboarded      — '1' if user has seen onboarding
+- fp_installed      — '1' if user installed as PWA
+
+## Email recovery
+- Endpoint: POST /api/account/link-email — { activationCode, email } → links code to hashed email
+- Endpoint: POST /api/account/recover — { email } → sends activation code to email if linked
+- Emails are never stored plaintext; SHA-256 hashed before storing in Redis
+- Requires RESEND_API_KEY and FROM_EMAIL env vars on Railway
+- Frontend: shows "Save code to email" row in survey step 1 when code ≥ 6 chars
+- fp_emailLinked = '1' collapses the save row after successful link
 
 ## Deploy process
 git add -A
