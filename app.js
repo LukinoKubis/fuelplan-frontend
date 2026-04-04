@@ -4464,7 +4464,7 @@ function renderWeekStats() {
   }
 
   // Remove old stats elements
-  ['week-stats', 'week-macro-row', 'week-complete-banner', 'goal-progress-card', 'plan-insights-card', 'stats-weight-card'].forEach(function(id) {
+  ['week-stats', 'week-macro-row', 'week-complete-banner', 'goal-progress-card', 'plan-insights-card', 'personal-records-card', 'stats-weight-card'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.remove();
   });
@@ -4640,6 +4640,15 @@ function renderWeekStats() {
     lastInserted = insightsEl;
   }
 
+  var recordsHtml = buildPersonalRecordsCard();
+  if (recordsHtml) {
+    var recordsEl = document.createElement('div');
+    recordsEl.id = 'personal-records-card';
+    recordsEl.innerHTML = recordsHtml;
+    lastInserted.insertAdjacentElement('afterend', recordsEl);
+    lastInserted = recordsEl;
+  }
+
   // Weight card in stats
   var oldWeightCard = document.getElementById('stats-weight-card');
   if (oldWeightCard) oldWeightCard.remove();
@@ -4760,6 +4769,75 @@ function buildNutritionalInsightsCard() {
   return '<div style="margin:0 16px 20px;background:var(--card);border:1.5px solid var(--border);border-radius:16px;padding:16px">'
     + '<div style="font-family:\'Syne\',sans-serif;font-weight:800;font-size:14px;margin-bottom:4px">Plan Insights</div>'
     + '<div style="margin-top:4px">' + rows + '</div>'
+  + '</div>';
+}
+
+function buildPersonalRecordsCard() {
+  var calLog = MEM.load('fp_calendarLog') || {};
+  var swapHistory = MEM.load('fp_swapHistory') || [];
+  var dates = Object.keys(calLog).sort();
+  if (!dates.length && !swapHistory.length) return '';
+
+  var records = [];
+
+  // Longest ever streak (from calendar log)
+  if (dates.length) {
+    var maxStreak = 0, curStreak = 0, prevDate = null;
+    dates.forEach(function(d) {
+      var entry = calLog[d];
+      var perfect = entry.mealsEaten > 0 && entry.mealsEaten >= entry.mealsTotal;
+      if (perfect) {
+        if (prevDate) {
+          var prev = new Date(prevDate + 'T12:00:00'), cur = new Date(d + 'T12:00:00');
+          var diff = Math.round((cur - prev) / 86400000);
+          curStreak = diff === 1 ? curStreak + 1 : 1;
+        } else { curStreak = 1; }
+        if (curStreak > maxStreak) maxStreak = curStreak;
+      } else { curStreak = 0; }
+      prevDate = d;
+    });
+    if (maxStreak > 0) records.push({ icon: '🔥', label: 'Best streak', val: maxStreak + ' day' + (maxStreak > 1 ? 's' : '') });
+  }
+
+  // Best single-day adherence
+  if (dates.length) {
+    var bestDay = null, bestPct = 0;
+    dates.forEach(function(d) {
+      var e = calLog[d];
+      if (e.mealsTotal > 0) {
+        var pct = Math.round(e.mealsEaten / e.mealsTotal * 100);
+        if (pct > bestPct) { bestPct = pct; bestDay = d; }
+      }
+    });
+    if (bestDay) {
+      var dateStr = new Date(bestDay + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      records.push({ icon: '🏅', label: 'Best day', val: dateStr + ' · ' + bestPct + '%' });
+    }
+  }
+
+  // Most swapped meal
+  if (swapHistory.length) {
+    var mealCounts = {};
+    swapHistory.forEach(function(h) { var k = h.from.name; mealCounts[k] = (mealCounts[k] || 0) + 1; });
+    var topMeal = Object.entries(mealCounts).sort(function(a,b){return b[1]-a[1];})[0];
+    if (topMeal && topMeal[1] > 1) records.push({ icon: '🔄', label: 'Most swapped', val: topMeal[0] + ' ×' + topMeal[1] });
+  }
+
+  // Total days tracked
+  if (dates.length >= 3) records.push({ icon: '📅', label: 'Days tracked', val: dates.length + ' total' });
+
+  if (!records.length) return '';
+
+  var rows = records.map(function(r, i) {
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0' + (i < records.length-1 ? ';border-bottom:1px solid var(--border)' : '') + '">'
+      + '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:15px">' + r.icon + '</span><span style="font-size:13px;color:var(--muted)">' + r.label + '</span></div>'
+      + '<span style="font-size:13px;font-weight:700;color:var(--fg)">' + escHtml(r.val) + '</span>'
+    + '</div>';
+  }).join('');
+
+  return '<div style="margin:0 16px 20px;background:var(--card);border:1.5px solid var(--border);border-radius:16px;padding:16px">'
+    + '<div style="font-family:\'Syne\',sans-serif;font-weight:800;font-size:14px;margin-bottom:4px">Personal Records</div>'
+    + '<div>' + rows + '</div>'
   + '</div>';
 }
 
