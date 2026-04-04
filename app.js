@@ -1205,7 +1205,7 @@ function resetToSurvey() {
 
 function safeRenderPlan(plan, userName, isRestoring, planName) {
   try {
-    safeRenderPlan(plan, userName, isRestoring, planName);
+    renderPlan(plan, userName, isRestoring, planName);
   } catch(err) {
     console.error('renderPlan failed:', err);
     var wrap = document.getElementById('plan-wrap');
