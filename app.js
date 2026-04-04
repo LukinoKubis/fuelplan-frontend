@@ -3025,6 +3025,31 @@ function editProfile() {
   showToast('Edit your profile then regenerate');
 }
 
+async function exportUserData() {
+  const code = (localStorage.getItem('fp_apikey') || '').trim().toUpperCase();
+  if (!code) { showToast('No activation code found'); return; }
+  showToast('Preparing export…');
+  try {
+    var res = await fetch(API_BASE + '/api/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ activationCode: code })
+    });
+    if (!res.ok) throw new Error('Export failed');
+    var data = await res.json();
+    var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'fuelplan-export-' + new Date().toISOString().slice(0,10) + '.json';
+    a.click();
+    setTimeout(function() { URL.revokeObjectURL(url); }, 5000);
+    showToast('Export downloaded!');
+  } catch (e) {
+    showToast('Export failed — try again');
+  }
+}
+
 function resetShopList() {
   shopChecks = {};
   MEM.save('fp_shopChecks', shopChecks);
