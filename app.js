@@ -5435,6 +5435,9 @@ function toggleMealEaten(dayId, mealIdx) {
     }
   }
 
+  // Show/hide day complete summary banner
+  updateDayCompleteBanner(dayId, dayObj, eaten);
+
   // Snapshot to calendar history
   snapshotTodayToCalendar();
 
@@ -5442,6 +5445,40 @@ function toggleMealEaten(dayId, mealIdx) {
   renderWeekGlance();
   renderWeekStats();
   renderTodaySnapshot();
+}
+
+function updateDayCompleteBanner(dayId, dayObj, eaten) {
+  var existingBanner = document.getElementById('day-complete-banner-' + dayId);
+  var mealCount = (dayObj.meals || []).length;
+  var eatenCount = dayObj.meals.filter(function(_, i) { return eaten[dayId + '-' + i]; }).length;
+  var allDone = eatenCount > 0 && eatenCount === mealCount;
+
+  if (!allDone) {
+    if (existingBanner) existingBanner.remove();
+    return;
+  }
+  if (existingBanner) return; // already showing
+
+  var eatenKcal = dayObj.meals.reduce(function(s, m, i) { return s + (eaten[dayId+'-'+i] ? (parseInt(m.kcal)||0) : 0); }, 0);
+  var eatenProtein = dayObj.meals.reduce(function(s, m, i) { return s + (eaten[dayId+'-'+i] ? (parseInt(m.protein)||0) : 0); }, 0);
+
+  var banner = document.createElement('div');
+  banner.id = 'day-complete-banner-' + dayId;
+  banner.style.cssText = 'margin:0 16px 16px;background:linear-gradient(135deg,rgba(200,245,66,0.12) 0%,rgba(200,245,66,0.04) 100%);border:1.5px solid rgba(200,245,66,0.4);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px';
+  banner.innerHTML = '<div style="font-size:24px;line-height:1">🎉</div>'
+    + '<div style="flex:1">'
+      + '<div style="font-family:\'Syne\',sans-serif;font-weight:800;font-size:14px;color:var(--lime)">Day complete!</div>'
+      + '<div style="font-size:12px;color:var(--muted);margin-top:2px">All ' + mealCount + ' meals · ' + eatenKcal + ' kcal · ' + eatenProtein + 'g protein</div>'
+    + '</div>';
+
+  // Insert after .day-macro-header
+  var header = document.querySelector('#panel-' + dayId + ' .day-macro-header');
+  if (header) {
+    header.insertAdjacentElement('afterend', banner);
+  } else {
+    var panel = document.getElementById('panel-' + dayId);
+    if (panel) panel.prepend(banner);
+  }
 }
 
 function logAllMeals(dayId) {
@@ -5499,6 +5536,11 @@ function logAllMeals(dayId) {
   if (!allEaten) {
     haptic('success');
     showToast('All meals logged for ' + dayObj.day + '! 🎉');
+    var eatenAfter = MEM.load('fp_eaten') || {};
+    updateDayCompleteBanner(dayId, dayObj, eatenAfter);
+  } else {
+    var existBanner = document.getElementById('day-complete-banner-' + dayId);
+    if (existBanner) existBanner.remove();
   }
 
   // Snapshot to calendar history
