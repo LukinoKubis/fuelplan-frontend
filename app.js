@@ -4182,6 +4182,73 @@ function sharePlan() {
   }
 }
 
+/* ── EXPORT PLAN AS IMAGE ─────────────────────────────── */
+async function exportPlanAsImage() {
+  if (!planData) return;
+  if (typeof html2canvas === 'undefined') {
+    showToast('Export not available — try refreshing');
+    return;
+  }
+  haptic('medium');
+  showToast('Generating image…');
+
+  // Build a clean off-screen summary card
+  var isDark = !document.body.classList.contains('light');
+  var bg = isDark ? '#0e0f11' : '#f5f5f7';
+  var card = '#1a1b1e';
+  var fg = isDark ? '#f0f0f0' : '#111';
+  var muted = isDark ? '#888' : '#666';
+  var lime = '#c8f542';
+
+  var days = planData.days || [];
+  var daysHtml = days.map(function(d) {
+    var meals = (d.meals || []).map(function(m) {
+      return '<div style="padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.05)">'
+        + '<div style="font-size:12px;font-weight:700;color:' + fg + '">' + escHtml(m.name) + '</div>'
+        + '<div style="font-size:10px;color:' + muted + ';margin-top:1px">' + escHtml(m.time) + ' &middot; ' + m.kcal + ' kcal &middot; ' + m.protein + 'g P</div>'
+        + '</div>';
+    }).join('');
+    return '<div style="background:' + (isDark ? '#1a1b1e' : '#fff') + ';border-radius:10px;padding:10px 12px;flex:1;min-width:120px">'
+      + '<div style="font-size:11px;font-weight:800;color:' + lime + ';letter-spacing:0.07em;text-transform:uppercase;margin-bottom:6px">' + escHtml(d.day) + '</div>'
+      + meals
+      + '<div style="font-size:10px;color:' + muted + ';margin-top:6px">' + (d.kcal||0) + ' kcal &middot; ' + (d.protein||0) + 'g protein</div>'
+      + '</div>';
+  }).join('');
+
+  var wrapper = document.createElement('div');
+  wrapper.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:900px;padding:24px;background:' + bg + ';font-family:system-ui,sans-serif;box-sizing:border-box';
+  wrapper.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">'
+    + '<div style="font-size:22px;font-weight:900;color:' + lime + ';letter-spacing:-0.5px">FUELPLAN</div>'
+    + '<div style="font-size:12px;color:' + muted + '">' + (planData.summary.kcal||0) + ' kcal &middot; ' + (planData.summary.protein||0) + 'g protein &middot; 7 days</div>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;flex-wrap:nowrap">' + daysHtml + '</div>'
+    + '<div style="margin-top:12px;font-size:10px;color:' + muted + ';text-align:right">fuelplan.fit</div>';
+  document.body.appendChild(wrapper);
+
+  try {
+    var canvas = await html2canvas(wrapper, { backgroundColor: bg, scale: 2, logging: false, useCORS: true });
+    document.body.removeChild(wrapper);
+    var dataUrl = canvas.toDataURL('image/png');
+
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [] })) {
+      // Try native share with file on mobile
+      var blob = await (await fetch(dataUrl)).blob();
+      var file = new File([blob], 'fuelplan.png', { type: 'image/png' });
+      navigator.share({ files: [file], title: 'My FUELPLAN' }).catch(function() {});
+    } else {
+      // Download
+      var a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = 'fuelplan.png';
+      a.click();
+      showToast('Image saved!');
+    }
+  } catch (e) {
+    if (wrapper.parentNode) document.body.removeChild(wrapper);
+    showToast('Export failed — try again');
+  }
+}
+
 /* ═══════════════════════════════════════════════════
    FEATURE 10: MEAL NOTES
 ═══════════════════════════════════════════════════ */
