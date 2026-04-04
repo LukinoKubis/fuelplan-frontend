@@ -1478,6 +1478,10 @@ function renderDayPanel(day, summary, isActive) {
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.36"/></svg>
           Regenerate ${day.day}
         </button>
+        <button class="day-regen-btn" style="background:var(--bg2);color:var(--muted)" onclick="openCopyMealsFrom('${dayId}')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copy from…
+        </button>
       </div>
       ${(function() {
         var dayNotes = MEM.load('fp_dayNotes') || {};
@@ -5076,6 +5080,72 @@ function setWater(dayId, count) {
     el.parentNode.replaceChild(tmp.firstElementChild, el);
   }
   if (count >= WATER_GOAL) showToast('Daily water goal hit!');
+}
+
+/* ── COPY MEALS FROM DAY ────────────────────────────── */
+function openCopyMealsFrom(targetDayId) {
+  if (!planData) return;
+  haptic('light');
+  var otherDays = planData.days.filter(function(d) { return d.day.toLowerCase() !== targetDayId; });
+  if (!otherDays.length) { showToast('No other days to copy from'); return; }
+  var existing = document.getElementById('copy-meals-modal-wrap');
+  if (existing) existing.remove();
+
+  var targetLabel = targetDayId.charAt(0).toUpperCase() + targetDayId.slice(1);
+  var wrap = document.createElement('div');
+  wrap.id = 'copy-meals-modal-wrap';
+  wrap.style.cssText = 'position:fixed;inset:0;z-index:9000;display:flex;align-items:flex-end;background:rgba(0,0,0,0.5)';
+  wrap.onclick = function(e) { if (e.target === wrap) wrap.remove(); };
+
+  var dayOptions = otherDays.map(function(d) {
+    var dId = d.day.toLowerCase();
+    return '<button onclick="executeCopyMeals(\'' + dId + '\',\'' + targetDayId + '\')" style="display:flex;align-items:center;justify-content:space-between;width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;cursor:pointer;text-align:left;box-sizing:border-box">'
+      + '<div>'
+        + '<div style="font-size:13px;font-weight:700;color:var(--fg)">' + escHtml(d.day) + '</div>'
+        + '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + (d.meals||[]).map(function(m){return escHtml(m.name);}).slice(0,2).join(', ') + (d.meals.length>2?'…':'') + '</div>'
+      + '</div>'
+      + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>'
+      + '</button>';
+  }).join('');
+
+  wrap.innerHTML = '<div style="background:var(--card);border-radius:20px 20px 0 0;padding:20px 20px 40px;width:100%;box-sizing:border-box;max-width:480px;margin:0 auto">'
+    + '<div style="font-family:\'Syne\',sans-serif;font-weight:800;font-size:16px;margin-bottom:4px">Copy to ' + targetLabel + '</div>'
+    + '<div style="font-size:12px;color:var(--muted);margin-bottom:14px">Choose a day to copy meals from:</div>'
+    + '<div style="display:flex;flex-direction:column;gap:8px">' + dayOptions + '</div>'
+  + '</div>';
+  document.body.appendChild(wrap);
+}
+
+function executeCopyMeals(sourceDayId, targetDayId) {
+  var wrap = document.getElementById('copy-meals-modal-wrap');
+  if (wrap) wrap.remove();
+  if (!planData) return;
+
+  var sourceDay = planData.days.find(function(d) { return d.day.toLowerCase() === sourceDayId; });
+  var targetIdx = planData.days.findIndex(function(d) { return d.day.toLowerCase() === targetDayId; });
+  if (!sourceDay || targetIdx === -1) return;
+
+  // Deep copy meals with original day preserved in name stays same
+  planData.days[targetIdx].meals = JSON.parse(JSON.stringify(sourceDay.meals));
+  planData.days[targetIdx].kcal = sourceDay.kcal;
+  planData.days[targetIdx].protein = sourceDay.protein;
+  planData.days[targetIdx].carbs = sourceDay.carbs;
+  planData.days[targetIdx].fat = sourceDay.fat;
+
+  MEM.save('fp_plan', planData);
+  haptic('success');
+
+  // Re-render the target day panel
+  var oldPanel = document.getElementById('panel-' + targetDayId);
+  if (oldPanel) {
+    var tmp = document.createElement('div');
+    tmp.innerHTML = renderDayPanel(planData.days[targetIdx], planData.summary, true);
+    oldPanel.parentNode.replaceChild(tmp.firstElementChild, oldPanel);
+    setTimeout(function() { initIngredientToggles(targetDayId); }, 80);
+  }
+  renderWeekGlance();
+  renderWeekStats();
+  showToast(sourceDay.day + ' → ' + targetDayId.charAt(0).toUpperCase() + targetDayId.slice(1) + ' copied!');
 }
 
 /* ═══════════════════════════════════════════════════
