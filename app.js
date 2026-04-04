@@ -1403,7 +1403,7 @@ function renderDayPanel(day, summary, isActive) {
     const p = pct(value, maxVal);
     return `<div class="ring-col">
       <svg viewBox="0 0 64 64" width="64" height="64">
-        <circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5"/>
+        <circle cx="32" cy="32" r="26" fill="none" stroke="var(--border)" stroke-width="5"/>
         <circle cx="32" cy="32" r="26" fill="none" stroke="${color}" stroke-width="5"
           stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${circ.toFixed(1)}"
           stroke-linecap="round" transform="rotate(-90 32 32)"
@@ -4709,7 +4709,7 @@ function renderWeekStats() {
       transform="rotate(-90 ${cx} ${cy})" stroke-linecap="butt"/>`;
   }
   const donutSvg = `<svg viewBox="0 0 64 64" width="64" height="64" style="flex-shrink:0">
-    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--border)" stroke-width="8"/>
     ${donutArc(pPct, 0, 'var(--blue)')}
     ${donutArc(cPct, pPct, 'var(--orange)')}
     ${donutArc(fPct, pPct + cPct, 'var(--red)')}
