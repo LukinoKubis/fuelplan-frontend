@@ -1887,9 +1887,9 @@ function openDayTargets(dayId) {
     + '<div style="font-size:12px;color:var(--muted);margin-bottom:16px">Override targets for this day only. Leave blank to use plan defaults.</div>'
     + '<div style="display:flex;gap:12px;margin-bottom:16px">'
       + '<div style="flex:1"><label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">Calories (kcal)</label>'
-        + '<input id="dt-kcal" type="number" inputmode="numeric" value="' + defKcal + '" placeholder="e.g. ' + (summary.kcal||2000) + '" style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:15px;color:var(--fg);box-sizing:border-box"></div>'
+        + '<input id="dt-kcal" type="number" inputmode="numeric" value="' + defKcal + '" placeholder="e.g. ' + (summary.kcal||2000) + '" style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:15px;color:var(--text);box-sizing:border-box"></div>'
       + '<div style="flex:1"><label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">Protein (g)</label>'
-        + '<input id="dt-protein" type="number" inputmode="numeric" value="' + defProt + '" placeholder="e.g. ' + (summary.protein||150) + '" style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:15px;color:var(--fg);box-sizing:border-box"></div>'
+        + '<input id="dt-protein" type="number" inputmode="numeric" value="' + defProt + '" placeholder="e.g. ' + (summary.protein||150) + '" style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:15px;color:var(--text);box-sizing:border-box"></div>'
     + '</div>'
     + '<div style="display:flex;gap:8px">'
       + '<button onclick="saveDayTargets(\'' + dayId + '\')" style="flex:1;background:var(--lime);color:#0e0f11;border:none;border-radius:12px;font-family:\'Syne\',sans-serif;font-weight:800;font-size:14px;padding:12px;cursor:pointer">Save</button>'
@@ -4074,7 +4074,7 @@ function openMealSwap(dayId, mealIdx) {
       + slotHistory.slice(0, 3).map(function(h) {
           return '<div style="font-size:11px;color:var(--muted);background:var(--bg2);border-radius:8px;padding:6px 10px">'
             + '<span style="color:var(--red);text-decoration:line-through;margin-right:4px">' + escHtml(h.from.name) + '</span>'
-            + '→ <span style="color:var(--fg)">' + escHtml(h.to.name) + '</span>'
+            + '→ <span style="color:var(--text)">' + escHtml(h.to.name) + '</span>'
             + ' <span style="opacity:0.5;float:right">' + h.date + '</span>'
             + '</div>';
         }).join('')
@@ -5166,7 +5166,7 @@ function buildPersonalRecordsCard() {
   var rows = records.map(function(r, i) {
     return '<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0' + (i < records.length-1 ? ';border-bottom:1px solid var(--border)' : '') + '">'
       + '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:15px">' + r.icon + '</span><span style="font-size:13px;color:var(--muted)">' + r.label + '</span></div>'
-      + '<span style="font-size:13px;font-weight:700;color:var(--fg)">' + escHtml(r.val) + '</span>'
+      + '<span style="font-size:13px;font-weight:700;color:var(--text)">' + escHtml(r.val) + '</span>'
     + '</div>';
   }).join('');
 
@@ -5514,7 +5514,7 @@ function openCopyMealsFrom(targetDayId) {
     var dId = d.day.toLowerCase();
     return '<button onclick="executeCopyMeals(\'' + dId + '\',\'' + targetDayId + '\')" style="display:flex;align-items:center;justify-content:space-between;width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;cursor:pointer;text-align:left;box-sizing:border-box">'
       + '<div>'
-        + '<div style="font-size:13px;font-weight:700;color:var(--fg)">' + escHtml(d.day) + '</div>'
+        + '<div style="font-size:13px;font-weight:700;color:var(--text)">' + escHtml(d.day) + '</div>'
         + '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + (d.meals||[]).map(function(m){return escHtml(m.name);}).slice(0,2).join(', ') + (d.meals.length>2?'…':'') + '</div>'
       + '</div>'
       + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>'
