@@ -3230,7 +3230,7 @@ function openTopup() {
   document.getElementById('topup-plans').style.display = '';
   document.getElementById('topup-loading').style.display = 'none';
 
-  // New user: no activation code yet — generate one and show it
+  // New user: no activation code yet — generate one and pre-register it
   var code = (localStorage.getItem('fp_apikey') || '').trim().toUpperCase();
   var banner = document.getElementById('topup-new-user-banner');
   var codeDisplay = document.getElementById('topup-new-code');
@@ -3241,6 +3241,12 @@ function openTopup() {
     if (codeInput) codeInput.value = code;
     if (banner) banner.style.display = 'block';
     if (codeDisplay) codeDisplay.textContent = code;
+    // Pre-register the code so it exists in Redis before payment lands
+    fetch(API_BASE + '/api/register-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ activationCode: code })
+    }).catch(function() {}); // fire-and-forget, not critical
   } else {
     if (banner) banner.style.display = 'none';
   }
@@ -3328,9 +3334,15 @@ function handlePaymentReturn() {
     if (plansEl) plansEl.style.display = 'none';
     if (loadingEl) {
       loadingEl.style.display = 'block';
+      var _paidCode = (localStorage.getItem('fp_apikey') || '').toUpperCase();
+      var _codeHint = _paidCode ? '<div style="margin-bottom:16px;padding:12px 16px;background:rgba(200,245,66,0.08);border:1px solid rgba(200,245,66,0.25);border-radius:12px">'
+        + '<div style="font-size:11px;color:var(--muted);margin-bottom:4px">Your activation code</div>'
+        + '<div style="font-family:\'Syne\',sans-serif;font-weight:800;font-size:18px;letter-spacing:0.1em;color:var(--lime)">' + _paidCode + '</div>'
+        + '</div>' : '';
       loadingEl.innerHTML = '<div style="font-size:40px;margin-bottom:16px">✅</div>'
         + '<div style="font-family:\'Syne\',sans-serif;font-weight:800;font-size:20px;color:var(--lime);margin-bottom:8px">Payment successful!</div>'
-        + '<div style="font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.5">Your plans are being added to your code. It may take a moment.</div>'
+        + _codeHint
+        + '<div style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.5">Your plans are being added. It may take a few seconds.</div>'
         + '<button onclick="closeTopup()" style="background:var(--lime);color:#0e0f11;border:none;border-radius:14px;font-family:\'Syne\',sans-serif;font-weight:800;font-size:15px;padding:15px 32px;cursor:pointer;width:100%">Start generating</button>';
     }
   } else if (status === 'cancelled') {
