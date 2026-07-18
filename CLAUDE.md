@@ -116,6 +116,35 @@ calls for "adjustable duration," not per-weekday variation like workouts.
 both workout and stretch generation (Fuel's survey has its own earlier,
 already-verified implementation — not worth touching to dedupe against).
 
+## Connecting training to nutrition (Phase 5)
+- **Macro adjustment by day type** — `api/trainingDayMacros.ts` exports
+  `applyTrainingDayAdjustment(base, dayType)` (+300kcal/+75g carbs on
+  training days, no-op on rest days) and `getDayType(day, weekPlan)`. When
+  a user has configured a training week (`workoutPlan` exists),
+  `api/generatePrompt.ts` sends **per-weekday targets** to Claude instead of
+  one flat daily target — each day's line in the prompt states its own
+  kcal/protein/carbs/fat, computed via this helper. No adjustment happens
+  if the user never touched Train — `trainProfile.weekPlan` has a default
+  value even then, so gating is on `workoutPlan` truthiness, not on
+  `weekPlan` presence (see `SurveyFlow.tsx`, `FuelSection.tsx` — same gate
+  used in both places).
+- **Today snapshot** (`components/fuel/TodaySnapshot.tsx`) — a card at the
+  top of Fuel showing the next upcoming meal (by parsing meal `time`
+  strings against the current clock) and today's scheduled workout, if
+  any, with a tap-through that switches the bottom nav to Train
+  (`onJumpToTrain` prop threaded from `App.tsx`). Also carries the
+  "Training day — macros adjusted" badge for *today* specifically; Fuel's
+  day-tab view carries the same badge per *selected* day (may not be
+  today), computed the same way.
+- **Stats** (`sections/StatsSection.tsx`) — deliberately lightweight per
+  VISION.md's framing (full weight-log/calendar suite stays deferred):
+  meals eaten this week (from `PlanContext.eaten`), workouts completed
+  this week (a training day counts as done when every exercise in it is
+  marked done in `TrainContext.completedSets`), and a simple streak
+  (consecutive fully-completed training days counting back from today,
+  rest days don't break it). No new persistence was added — this all
+  reads off state that already existed for other features.
+
 ## Hosting & services
 - Frontend: Netlify at https://fuelplan.fit
   - Auto-deploys on push to main branch of this repo
