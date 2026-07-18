@@ -27,11 +27,23 @@ export interface ClaudeMessage {
   content: string
 }
 
+// A system block can carry a cache_control breakpoint — this is a standard
+// (non-beta) Messages API feature. Anything at/before a cached block is
+// reused across requests at ~10% of input-token cost instead of full price,
+// as long as the bytes are byte-identical (prefix match). Our backend is a
+// generic proxy that forwards whatever payload it's given straight to
+// Anthropic, so this requires no backend changes.
+export interface SystemBlock {
+  type: 'text'
+  text: string
+  cache_control?: { type: 'ephemeral'; ttl?: '5m' | '1h' }
+}
+
 export interface GenerateRequest {
   activationCode: string
   model: string
   max_tokens: number
-  system: string
+  system: string | SystemBlock[]
   messages: ClaudeMessage[]
 }
 

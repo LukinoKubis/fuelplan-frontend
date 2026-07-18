@@ -66,17 +66,31 @@ build to Netlify.
   One credit per generation, same pool as meal plans — VISION.md floated
   pricing workout generation cheaper per call; not implemented, flagged as
   a possible fast-follow, not worth a fractional-credit system for v1.
-- **Filtering happens client-side, not server-side** — also a deviation from
-  the VISION.md sketch ("filter by equipment/sport server-side first").
-  The frontend already has the full exercise library bundled; duplicating
-  that data into the backend just to filter it there would mean keeping two
-  copies in sync for no real benefit. `filterEligibleExercises()` in
-  `api/generateWorkoutPrompt.ts` does the same job — trims to
-  equipment-you-have + sport-relevant-or-general exercises — before
-  building the prompt, so the actual Claude call is just as small either way.
+- **The full exercise library goes in the prompt, not a per-user filtered
+  subset** — also a deviation from VISION.md's sketch ("filter by
+  equipment/sport server-side first"), and a revision of this rebuild's own
+  first attempt (which pre-filtered to ~80 exercises client-side). Two
+  problems with pre-filtering: it duplicated no data server-side (still true,
+  see above) but *did* make every request's prompt shape depend on the
+  user's specific equipment/sport combo — a likely contributor to a real
+  "Claude returned an unexpected format" bug hit in production. The fix:
+  send the full ~894-exercise library (compact fields: id/name/category/
+  equipment/sportTags) as a **prompt-cached system block**
+  (`cache_control: {type: "ephemeral", ttl: "1h"}`, no beta header — this is
+  GA), with equipment/sport constraints given as an *instruction* in the
+  user message instead of a pre-filter. This is strictly better: the cached
+  block is now byte-identical across every user and every request (so it
+  can actually be reused across traffic, not just within one user's TTL
+  window), Claude gets full grounding in the real library instead of an
+  arbitrary slice, and repeat generations cost ~10% of input-token price
+  instead of full price every time. The backend needed zero changes — it
+  already forwards whatever payload it's given straight to Anthropic
+  (`server.ts`'s `/api/claude` spreads `payload` as-is), so a `system` array
+  with a `cache_control` block just passes through.
 - Flow: `TrainSetup` (sports/equipment/weekly schedule/goals/limitations,
-  stored in `TrainContext`) → `filterEligibleExercises` → `buildWorkoutRequest`
-  → `postClaude` (same client as Fuel) → parse into `WorkoutPlan` → resolve
+  stored in `TrainContext`) → `buildWorkoutRequest` (full library + cache
+  breakpoint in `system`, profile constraints in the user message) →
+  `postClaude` (same client as Fuel) → parse into `WorkoutPlan` → resolve
   each `exerciseId` against the local library for display (image,
   instructions) in `WorkoutDayView`.
 - Per-set/exercise "mark as done" tracking exists (`TrainContext.completedSets`)
@@ -88,9 +102,13 @@ build to Netlify.
 
 ## Stretch routines (Reset, Phase 4)
 Same pattern and same deviations as the workout builder above (reuses
-`/api/claude`, filters client-side) — `api/generateStretchPrompt.ts`,
-`components/train/StretchSetup.tsx` + `StretchRoutineView.tsx`. Candidates
-are exercises with `category === 'mobility'`. One AM (activation-leaning,
+`/api/claude`, cached full-library system block instead of a per-user
+filter) — `api/generateStretchPrompt.ts`, `components/train/StretchSetup.tsx`
++ `StretchRoutineView.tsx`. The cached block here is pre-narrowed to
+`category === 'mobility'` exercises — that filter is data-driven (same
+result for every user), not per-user, so it's still a single shared cache
+entry, unlike the equipment/sport filtering that was removed from the
+workout builder. One AM (activation-leaning,
 shorter holds) and one PM (relaxation-leaning, longer holds) routine per
 generation, not varied by day of week — VISION.md's stretch section only
 calls for "adjustable duration," not per-weekday variation like workouts.

@@ -8,8 +8,8 @@ import { DayTabs } from '../components/fuel/DayTabs'
 import { LoadingOverlay } from '../components/shared/LoadingOverlay'
 import { ErrorPanel } from '../components/shared/ErrorPanel'
 import { loadExercises } from '../data/exercises'
-import { buildWorkoutRequest, filterEligibleExercises } from '../api/generateWorkoutPrompt'
-import { buildStretchRequest, filterStretchCandidates } from '../api/generateStretchPrompt'
+import { buildWorkoutRequest } from '../api/generateWorkoutPrompt'
+import { buildStretchRequest } from '../api/generateStretchPrompt'
 import { useGeneration } from '../api/useGeneration'
 import { validateStretchPlan, validateWorkoutPlan } from '../api/validateGenerated'
 import type { Exercise } from '../types/exercise'
@@ -40,9 +40,8 @@ export function TrainSection() {
 
   async function handleGenerateWorkout() {
     const all = exercises || (await loadExercises())
-    const candidates = filterEligibleExercises(all, trainProfile)
     workoutGen.run(
-      () => buildWorkoutRequest({ profile: trainProfile, candidates }),
+      () => buildWorkoutRequest({ profile: trainProfile, allExercises: all }),
       (raw) => {
         setWorkoutPlan(validateWorkoutPlan(raw))
         setActiveDay(0)
@@ -52,9 +51,8 @@ export function TrainSection() {
 
   async function handleGenerateStretch() {
     const all = exercises || (await loadExercises())
-    const candidates = filterStretchCandidates(all, trainProfile)
     stretchGen.run(
-      () => buildStretchRequest({ prefs: stretchPrefs, candidates }),
+      () => buildStretchRequest({ prefs: stretchPrefs, allExercises: all }),
       (raw) => setStretchPlan(validateStretchPlan(raw, stretchPrefs.amDurationMin, stretchPrefs.pmDurationMin))
     )
   }
