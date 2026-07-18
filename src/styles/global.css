@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+/* ── Design tokens — ported verbatim from the old styles.css :root / body.light ── */
+:root {
+  --lime: #c8f542;
+  --lime-dim: #9fcc2e;
+  --bg: #0e0f11;
+  --bg2: #13151a;
+  --card: #1e2128;
+  --card2: #252830;
+  --border: #2a2d35;
+  --border2: #363a46;
+  --text: #f0f2f5;
+  --muted: #7a8099;
+  --red: #ff5757;
+  --blue: #57a9ff;
+  --orange: #ff9a42;
+}
+
+.light {
+  --bg: #f0f2f5;
+  --bg2: #e4e7ed;
+  --card: #ffffff;
+  --card2: #f7f8fa;
+  --border: #d8dce6;
+  --border2: #c4c9d8;
+  --text: #0e0f11;
+  --muted: #5a6280;
+}
+
+/* Wire the tokens above into Tailwind utilities (bg-lime, text-muted, border-border, …).
+   Indirection through var() keeps them reactive to the .light class toggle at runtime. */
+@theme {
+  --color-lime: var(--lime);
+  --color-lime-dim: var(--lime-dim);
+  --color-bg: var(--bg);
+  --color-bg2: var(--bg2);
+  --color-card: var(--card);
+  --color-card2: var(--card2);
+  --color-border: var(--border);
+  --color-border2: var(--border2);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-red: var(--red);
+  --color-blue: var(--blue);
+  --color-orange: var(--orange);
+
+  --font-display: 'Syne', sans-serif;
+  --font-body: 'Figtree', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  background: var(--bg);
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+/* Subtle film-grain texture over the whole app, matching the original brand feel */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.5;
+}
