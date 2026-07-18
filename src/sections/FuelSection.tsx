@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { usePlan } from '../state/PlanContext'
 import { useAccount } from '../state/AccountContext'
 import { SurveyFlow } from '../components/survey/SurveyFlow'
@@ -10,18 +10,13 @@ import { PlanNameModal } from '../components/fuel/PlanNameModal'
 import { HistoryDrawer } from '../components/fuel/HistoryDrawer'
 
 export function FuelSection() {
-  const { plan, favorites, eaten, toggleEaten, toggleFavorite, isFullscreenFlow, setIsFullscreenFlow } = usePlan()
+  const { plan, favorites, eaten, toggleEaten, toggleFavorite, surveyMode, setSurveyMode } = usePlan()
   const { remaining, code } = useAccount()
-  const [editing, setEditing] = useState(false)
   const [activeDay, setActiveDay] = useState(0)
   const [showNameModal, setShowNameModal] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
 
-  const showSurvey = !plan || editing
-
-  useEffect(() => {
-    if (isFullscreenFlow !== showSurvey) setIsFullscreenFlow(showSurvey)
-  }, [showSurvey, isFullscreenFlow, setIsFullscreenFlow])
+  const showSurvey = !plan || surveyMode
 
   function handleBuyPlans() {
     window.location.href = 'https://fuelplan.fit/?buy=1'
@@ -31,13 +26,13 @@ export function FuelSection() {
     return (
       <SurveyFlow
         onGenerated={() => {
-          setEditing(false)
+          setSurveyMode(false)
           setActiveDay(0)
           setShowNameModal(true)
         }}
         onBuyPlans={handleBuyPlans}
         canCancel={!!plan}
-        onCancel={() => setEditing(false)}
+        onCancel={() => setSurveyMode(false)}
       />
     )
   }
@@ -52,7 +47,7 @@ export function FuelSection() {
           <button onClick={() => setShowHistory(true)} className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold text-muted">
             My Plans
           </button>
-          <button onClick={() => setEditing(true)} className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold text-muted">
+          <button onClick={() => setSurveyMode(true)} className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold text-muted">
             New Plan
           </button>
         </div>

@@ -5,7 +5,12 @@ import { FuelSection } from './sections/FuelSection'
 import { TrainSection } from './sections/TrainSection'
 import { StatsSection } from './sections/StatsSection'
 import { HaulSection } from './sections/HaulSection'
+import { SettingsDrawer } from './components/shared/SettingsDrawer'
+import { HistoryDrawer } from './components/fuel/HistoryDrawer'
+import { Onboarding } from './components/shared/Onboarding'
 import { usePlan } from './state/PlanContext'
+import { isStandalone } from './api/installPrompt'
+import { loadString } from './api/storage'
 import type { Section } from './types/nav'
 
 const STORAGE_KEY = 'fp_activeSection'
@@ -20,9 +25,20 @@ function getInitialSection(): Section {
   return 'fuel'
 }
 
+function shouldShowOnboarding(): boolean {
+  if (isStandalone()) return false
+  if (loadString('fp_onboarded')) return false
+  if (loadString('fp_apikey')) return false
+  if (loadString('fp_plan')) return false
+  return true
+}
+
 function App() {
   const [section, setSection] = useState<Section>(getInitialSection)
-  const { isFullscreenFlow } = usePlan()
+  const [showSettings, setShowSettings] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(shouldShowOnboarding)
+  const { plan, surveyMode, setSurveyMode } = usePlan()
 
   const handleChange = (next: Section) => {
     setSection(next)
@@ -33,16 +49,48 @@ function App() {
     }
   }
 
+  function dismissOnboarding() {
+    try {
+      localStorage.setItem('fp_onboarded', '1')
+    } catch {
+      /* ignore */
+    }
+    setShowOnboarding(false)
+  }
+
+  function handleBuyPlans() {
+    window.location.href = 'https://fuelplan.fit/?buy=1'
+  }
+
+  if (showOnboarding) {
+    return <Onboarding onDismiss={dismissOnboarding} onBuyPlans={handleBuyPlans} />
+  }
+
+  const chromeHidden = !plan || surveyMode
+
   return (
     <div className="min-h-screen bg-bg text-text">
-      {!isFullscreenFlow && <Header />}
-      <main className={isFullscreenFlow ? '' : 'pt-[60px] pb-[72px]'}>
+      {!chromeHidden && <Header onOpenSettings={() => setShowSettings(true)} />}
+      <main className={chromeHidden ? '' : 'pt-[60px] pb-[72px]'}>
         {section === 'fuel' && <FuelSection />}
         {section === 'train' && <TrainSection />}
         {section === 'stats' && <StatsSection />}
         {section === 'haul' && <HaulSection />}
       </main>
-      {!isFullscreenFlow && <BottomNav active={section} onChange={handleChange} />}
+      {!chromeHidden && <BottomNav active={section} onChange={handleChange} />}
+
+      {showSettings && (
+        <SettingsDrawer
+          onClose={() => setShowSettings(false)}
+          onGenerateNew={() => {
+            setSection('fuel')
+            setSurveyMode(true)
+          }}
+          onOpenHistory={() => setShowHistory(true)}
+          onOpenInstallGuide={() => setShowOnboarding(true)}
+        />
+      )}
+      {showHistory && <HistoryDrawer onClose={() => setShowHistory(false)} />}
     </div>
   )
 }

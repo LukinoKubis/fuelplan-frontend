@@ -98,17 +98,19 @@ interface PlanContextValue extends PlanState {
   toggleShopCheck: (id: string) => void
   toggleEaten: (id: string) => void
   toggleFavorite: (name: string) => void
-  // True while a fullscreen flow (survey/edit-profile) covers the app —
-  // App.tsx hides the header/bottom-nav chrome while this is true.
-  isFullscreenFlow: boolean
-  setIsFullscreenFlow: (value: boolean) => void
+  // True while the survey/edit-profile flow should be shown instead of the
+  // plan view. Single source of truth for both FuelSection (what to render)
+  // and App.tsx (whether to hide the header/bottom-nav chrome) — avoids two
+  // components fighting to control the same flag.
+  surveyMode: boolean
+  setSurveyMode: (value: boolean) => void
 }
 
 const PlanContext = createContext<PlanContextValue | null>(null)
 
 export function PlanProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, initState)
-  const [isFullscreenFlow, setIsFullscreenFlow] = useState(false)
+  const [surveyMode, setSurveyMode] = useState(false)
 
   const setPlan = useCallback((plan: Plan, userName: string, planName?: string) => dispatch({ type: 'SET_PLAN', plan, userName, planName }), [])
   const setPlanName = useCallback((planName: string) => dispatch({ type: 'SET_PLAN_NAME', planName }), [])
@@ -120,7 +122,7 @@ export function PlanProvider({ children }: { children: ReactNode }) {
 
   return (
     <PlanContext.Provider
-      value={{ ...state, setPlan, setPlanName, clearPlan, setProfile, toggleShopCheck, toggleEaten, toggleFavorite, isFullscreenFlow, setIsFullscreenFlow }}
+      value={{ ...state, setPlan, setPlanName, clearPlan, setProfile, toggleShopCheck, toggleEaten, toggleFavorite, surveyMode, setSurveyMode }}
     >
       {children}
     </PlanContext.Provider>
