@@ -8,6 +8,7 @@ import { HaulSection } from './sections/HaulSection'
 import { SettingsDrawer } from './components/shared/SettingsDrawer'
 import { HistoryDrawer } from './components/fuel/HistoryDrawer'
 import { Onboarding } from './components/shared/Onboarding'
+import { ErrorBoundary } from './components/shared/ErrorBoundary'
 import { usePlan } from './state/PlanContext'
 import { isStandalone } from './api/installPrompt'
 import { loadString } from './api/storage'
@@ -78,10 +79,12 @@ function App() {
             : { paddingTop: 'calc(env(safe-area-inset-top) + 60px)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 72px)' }
         }
       >
-        {section === 'fuel' && <FuelSection />}
-        {section === 'train' && <TrainSection />}
-        {section === 'stats' && <StatsSection />}
-        {section === 'haul' && <HaulSection />}
+        <ErrorBoundary key={section}>
+          {section === 'fuel' && <FuelSection />}
+          {section === 'train' && <TrainSection />}
+          {section === 'stats' && <StatsSection />}
+          {section === 'haul' && <HaulSection />}
+        </ErrorBoundary>
       </main>
       {!chromeHidden && <BottomNav active={section} onChange={handleChange} />}
 

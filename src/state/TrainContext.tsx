@@ -4,6 +4,7 @@ import { defaultTrainProfile, type TrainProfile } from '../types/workout'
 import type { StretchPlan, StretchPrefs } from '../types/stretch'
 import { defaultStretchPrefs } from '../types/stretch'
 import { loadJSON, saveJSON, remove } from '../api/storage'
+import { validateStretchPlan, validateWorkoutPlan } from '../api/validateGenerated'
 
 const KEYS = {
   trainProfile: 'fp_trainProfile',
@@ -33,13 +34,41 @@ type Action =
   | { type: 'CLEAR_STRETCH_PLAN' }
   | { type: 'TOGGLE_STRETCH'; id: string }
 
+// Defends against plans already sitting in localStorage from before response
+// validation existed (this shipped as a fix for a real production bug: a
+// malformed workout-plan response crashed the render with no boundary,
+// leaving a blank/grey screen — and that bad data would otherwise keep
+// crashing the app on every load even after the generation-time fix).
+function loadValidatedWorkoutPlan(): WorkoutPlan | null {
+  const raw = loadJSON<unknown>(KEYS.workoutPlan)
+  if (!raw) return null
+  try {
+    return validateWorkoutPlan(raw)
+  } catch {
+    remove(KEYS.workoutPlan)
+    return null
+  }
+}
+
+function loadValidatedStretchPlan(amFallback: number, pmFallback: number): StretchPlan | null {
+  const raw = loadJSON<unknown>(KEYS.stretchPlan)
+  if (!raw) return null
+  try {
+    return validateStretchPlan(raw, amFallback, pmFallback)
+  } catch {
+    remove(KEYS.stretchPlan)
+    return null
+  }
+}
+
 function initState(): TrainState {
+  const stretchPrefs = { ...defaultStretchPrefs(), ...(loadJSON<Partial<StretchPrefs>>(KEYS.stretchPrefs) || {}) }
   return {
     trainProfile: { ...defaultTrainProfile(), ...(loadJSON<Partial<TrainProfile>>(KEYS.trainProfile) || {}) },
-    workoutPlan: loadJSON<WorkoutPlan>(KEYS.workoutPlan),
+    workoutPlan: loadValidatedWorkoutPlan(),
     completedSets: loadJSON<Record<string, boolean>>(KEYS.completedSets) || {},
-    stretchPrefs: { ...defaultStretchPrefs(), ...(loadJSON<Partial<StretchPrefs>>(KEYS.stretchPrefs) || {}) },
-    stretchPlan: loadJSON<StretchPlan>(KEYS.stretchPlan),
+    stretchPrefs,
+    stretchPlan: loadValidatedStretchPlan(stretchPrefs.amDurationMin, stretchPrefs.pmDurationMin),
     completedStretches: loadJSON<Record<string, boolean>>(KEYS.completedStretches) || {},
   }
 }

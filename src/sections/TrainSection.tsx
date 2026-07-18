@@ -11,9 +11,9 @@ import { loadExercises } from '../data/exercises'
 import { buildWorkoutRequest, filterEligibleExercises } from '../api/generateWorkoutPrompt'
 import { buildStretchRequest, filterStretchCandidates } from '../api/generateStretchPrompt'
 import { useGeneration } from '../api/useGeneration'
+import { validateStretchPlan, validateWorkoutPlan } from '../api/validateGenerated'
 import type { Exercise } from '../types/exercise'
 import type { WorkoutPlan } from '../types/workout'
-import type { StretchPlan } from '../types/stretch'
 
 const ExerciseLibrary = lazy(() => import('../components/exercises/ExerciseLibrary').then((m) => ({ default: m.ExerciseLibrary })))
 
@@ -30,8 +30,8 @@ export function TrainSection() {
     useTrain()
   const [subTab, setSubTab] = useState<SubTab>('workouts')
   const [activeDay, setActiveDay] = useState(0)
-  const workoutGen = useGeneration<WorkoutPlan>()
-  const stretchGen = useGeneration<StretchPlan>()
+  const workoutGen = useGeneration<unknown>()
+  const stretchGen = useGeneration<unknown>()
   const exercises = useLibrary()
 
   function handleBuyPlans() {
@@ -43,8 +43,8 @@ export function TrainSection() {
     const candidates = filterEligibleExercises(all, trainProfile)
     workoutGen.run(
       () => buildWorkoutRequest({ profile: trainProfile, candidates }),
-      (plan) => {
-        setWorkoutPlan(plan)
+      (raw) => {
+        setWorkoutPlan(validateWorkoutPlan(raw))
         setActiveDay(0)
       }
     )
@@ -55,7 +55,7 @@ export function TrainSection() {
     const candidates = filterStretchCandidates(all, trainProfile)
     stretchGen.run(
       () => buildStretchRequest({ prefs: stretchPrefs, candidates }),
-      (plan) => setStretchPlan(plan)
+      (raw) => setStretchPlan(validateStretchPlan(raw, stretchPrefs.amDurationMin, stretchPrefs.pmDurationMin))
     )
   }
 
