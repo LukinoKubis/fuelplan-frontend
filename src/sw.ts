@@ -91,6 +91,26 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
+  // Exercise library images/data — cache-first, so once a user has viewed
+  // an exercise it stays available offline without precaching the whole
+  // ~27MB library upfront.
+  if (url.pathname.startsWith('/exercises/')) {
+    event.respondWith(
+      caches.match(event.request).then(
+        (cached) =>
+          cached ||
+          fetch(event.request).then((response) => {
+            if (response.ok) {
+              const clone = response.clone()
+              caches.open('fuelplan-exercises').then((cache) => cache.put(event.request, clone))
+            }
+            return response
+          })
+      )
+    )
+    return
+  }
+
   // Navigation requests offline — fall back to the cached app shell
   if (event.request.mode === 'navigate') {
     event.respondWith(
