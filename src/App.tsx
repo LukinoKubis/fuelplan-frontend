@@ -5,6 +5,7 @@ import { FuelSection } from './sections/FuelSection'
 import { TrainSection } from './sections/TrainSection'
 import { StatsSection } from './sections/StatsSection'
 import { HaulSection } from './sections/HaulSection'
+import { usePlan } from './state/PlanContext'
 import type { Section } from './types/nav'
 
 const STORAGE_KEY = 'fp_activeSection'
@@ -21,6 +22,7 @@ function getInitialSection(): Section {
 
 function App() {
   const [section, setSection] = useState<Section>(getInitialSection)
+  const { isFullscreenFlow } = usePlan()
 
   const handleChange = (next: Section) => {
     setSection(next)
@@ -33,14 +35,14 @@ function App() {
 
   return (
     <div className="min-h-screen bg-bg text-text">
-      <Header />
-      <main className="pt-[60px] pb-[72px]">
+      {!isFullscreenFlow && <Header />}
+      <main className={isFullscreenFlow ? '' : 'pt-[60px] pb-[72px]'}>
         {section === 'fuel' && <FuelSection />}
         {section === 'train' && <TrainSection />}
         {section === 'stats' && <StatsSection />}
         {section === 'haul' && <HaulSection />}
       </main>
-      <BottomNav active={section} onChange={handleChange} />
+      {!isFullscreenFlow && <BottomNav active={section} onChange={handleChange} />}
     </div>
   )
 }

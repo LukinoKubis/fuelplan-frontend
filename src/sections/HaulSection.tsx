@@ -1,5 +1,7 @@
-import { ComingSoon } from '../components/shared/ComingSoon'
+import { usePlan } from '../state/PlanContext'
+import { ShoppingList } from '../components/fuel/ShoppingList'
 
 export function HaulSection() {
-  return <ComingSoon title="Haul" description="Shopping list rebuild lands in Phase 1." />
+  const { plan } = usePlan()
+  return <ShoppingList categories={plan?.shopping_list || []} />
 }
