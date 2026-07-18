@@ -39,7 +39,7 @@ async function pushTrackingData() {
   if (!code) return;
   const data = {
     weights: MEM.load('fp_weights') || [],
-    dayNotes: MEM.load('fp_dayNotes') || {},
+    dayNotes: MEM.load('fp_dayNotes') || {}
   };
   try {
     await fetch(API_BASE + '/api/tracking/save', {
@@ -52,7 +52,6 @@ async function pushTrackingData() {
 }
 
 async function refreshStats() {
-  haptic('light');
   await pullTrackingData();
   renderWeekGlance();
   renderWeekStats();
@@ -934,8 +933,7 @@ CRITICAL SECURITY RULES — these override everything else:
     shopChecks = {};
     MEM.save('fp_shopChecks', shopChecks);
     MEM.remove('fp_eaten');
-
-    MEM.remove('fp_mealNotes');
+      MEM.remove('fp_mealNotes');
     MEM.remove('fp_mealAnnotations');
     MEM.remove('fp_prepSession');
 
@@ -1190,7 +1188,6 @@ function resetToSurvey() {
   MEM.remove('fp_activeSection');
   MEM.remove('fp_activeDay');
   MEM.remove('fp_eaten');
-  MEM.remove('fp_water');
   MEM.remove('fp_mealNotes');
   MEM.remove('fp_mealAnnotations');
   MEM.remove('fp_prepSession');
@@ -1271,6 +1268,15 @@ function renderPlan(plan, userName, isRestoring, planName) {
   document.getElementById('shopping-content').innerHTML = renderShoppingPanel(plan.shopping_list, true);
   renderCustomShopItems();
   updateShopProgress();
+  // Sync scaler buttons
+  document.querySelectorAll('#haul-scaler .scaler-btn').forEach(function(b) {
+    b.classList.toggle('active', parseInt(b.dataset.scale) === haulScale);
+  });
+  // Sync view toggle buttons
+  var hvList = document.getElementById('hv-list');
+  var hvAisle = document.getElementById('hv-aisle');
+  if (hvList) hvList.classList.toggle('active', groceryView === 'list');
+  if (hvAisle) hvAisle.classList.toggle('active', groceryView === 'aisle');
 
   // Show plan, hide survey, show bottom nav
   document.getElementById('survey-wrap').style.display = 'none';
@@ -1501,14 +1507,13 @@ function openMealActionSheet(dayId, mealIdx) {
   if (meal) {
     html += '<div class="sheet-meal-title">' + escHtml(meal.name) + '</div>';
   }
-  if (rating) {
-    html += '<div class="sheet-rating-indicator">' + (rating === 'up' ? '👍 Liked' : '👎 Disliked') + ' · tap below to clear</div>';
+  if (rating === 'up') {
+    html += '<div class="sheet-rating-indicator">👍 Liked · tap below to clear</div>';
   }
 
   var items = [
     { emoji: '🔄', label: 'Swap meal',       fn: 'openMealSwap(\'' + dayId + '\',' + mealIdx + ')' },
-    { emoji: rating === 'up' ? '👍' : '👍',  label: rating === 'up' ? 'Clear like' : 'Like this meal',        fn: 'rateMeal(\'' + dayId + '\',' + mealIdx + ',\'up\')',   muted: rating === 'up' },
-    { emoji: rating === 'down' ? '👎' : '👎', label: rating === 'down' ? 'Clear dislike' : 'Dislike this meal', fn: 'rateMeal(\'' + dayId + '\',' + mealIdx + ',\'down\')', muted: rating === 'down' },
+    { emoji: '👍',  label: rating === 'up' ? 'Clear like' : 'Like this meal',        fn: 'rateMeal(\'' + dayId + '\',' + mealIdx + ',\'up\')',   muted: rating === 'up' },
     { emoji: '✏️', label: hasNote ? 'Edit note' : 'Add note', fn: 'toggleMealNote(\'' + dayId + '\',' + mealIdx + ')' },
     { emoji: '⭐', label: isFav ? 'Remove from favourites' : 'Save to favourites', fn: 'toggleFavorite(\'' + dayId + '\',' + mealIdx + ')' },
   ];
@@ -1633,33 +1638,10 @@ function closeMealActionSheet() {
 
 /* ═══════════════ SHOPPING PANEL ═══════════════ */
 
-function scaleQty(qtyStr, scale) {
-  if (!scale || scale === 1) return qtyStr;
-  const s = String(qtyStr || '');
-  const match = s.match(/^(\d+\.?\d*)(.*)/);
-  if (!match) return s;
-  const num = parseFloat(match[1]) * scale;
-  const suffix = match[2];
-  // Round to reasonable precision
-  const rounded = Number.isInteger(num) ? num : parseFloat(num.toFixed(1));
-  return rounded + suffix;
-}
-
-function categorizeForAisle(itemName) {
-  const n = (itemName || '').toLowerCase();
-  if (/chicken|beef|pork|fish|salmon|tuna|shrimp|turkey|lamb|steak|mince|ground meat|egg/.test(n)) return 'Proteins';
-  if (/milk|cheese|yogurt|cream|butter|cottage|whey/.test(n)) return 'Dairy & Eggs';
-  if (/rice|pasta|oat|bread|flour|quinoa|lentil|bean|chickpea|noodle|tortilla|wrap/.test(n)) return 'Grains & Legumes';
-  if (/oil|sauce|seasoning|spice|salt|pepper|vinegar|mustard|ketchup|soy|honey|garlic powder|onion powder|cumin|paprika|cinnamon/.test(n)) return 'Pantry & Condiments';
-  if (/frozen/.test(n)) return 'Frozen';
-  return 'Produce & Other';
-}
-
 function renderShoppingPanel(shoppingList, isActive) {
   const catIcons = { 'Proteins':'🥩','Carbohydrates':'🌾','Vegetables':'🥦','Dairy & Eggs':'🥚','Pantry & Spices':'🧂','Fruits':'🍎',
     'Grains & Legumes':'🌾','Pantry & Condiments':'🧂','Produce & Other':'🥦','Frozen':'🧊' };
 
-  // List mode — group by original plan categories
   let gi = 0;
   const itemsHtml = (shoppingList || []).map(function(cat) {
     const catHtml = `<div class="shop-category">
@@ -1867,7 +1849,6 @@ function switchSection(id, skipSave) {
   if (id === 'stats') {
     renderWeekGlance();
     renderWeekStats();
-    updateSyncBadge();
   }
   if (id === 'haul') {
     renderCustomShopItems();
@@ -2203,8 +2184,7 @@ async function restorePlan(planId) {
     shopChecks = {};
     MEM.save('fp_shopChecks', shopChecks);
     MEM.remove('fp_eaten');
-
-    MEM.remove('fp_mealNotes');
+      MEM.remove('fp_mealNotes');
     MEM.remove('fp_mealAnnotations');
     MEM.remove('fp_prepSession');
     MEM.save('fp_plan', data.plan);
@@ -2320,8 +2300,7 @@ async function doDeletePlan(planId, card, isLast, isActive) {
             shopChecks = {};
             MEM.save('fp_shopChecks', shopChecks);
             MEM.remove('fp_eaten');
-        
-            MEM.remove('fp_mealNotes');
+                      MEM.remove('fp_mealNotes');
             MEM.remove('fp_mealAnnotations');
             MEM.remove('fp_prepSession');
             MEM.save('fp_plan', d2.plan);
@@ -2563,9 +2542,6 @@ function openSettings() {
   renderTrainingDayPills();
   renderWeightLogPreview();
   renderFavoritesPreview();
-  // Sync water goal display
-  var wgd = document.getElementById('water-goal-display');
-  if (wgd) wgd.textContent = WATER_GOAL;
 }
 
 function closeSettings() {
@@ -3126,7 +3102,6 @@ function editProfile() {
   MEM.remove('fp_activeSection');
   MEM.remove('fp_activeDay');
   MEM.remove('fp_eaten');
-  MEM.remove('fp_water');
   MEM.remove('fp_mealNotes');
   MEM.remove('fp_mealAnnotations');
   MEM.remove('fp_prepSession');
@@ -3159,14 +3134,13 @@ function resetWeekTracking() {
   showConfirmModal({
     icon: '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.36"/></svg>',
     title: 'Reset Week Tracking?',
-    body: 'Clears all eaten meals. Your plan and weight log are kept.',
+    body: 'Clears all eaten meal logs. Your plan and weight log are kept.',
     warning: null,
     actionLabel: 'Reset Tracking',
     actionStyle: 'background:var(--blue);color:#fff;',
     onConfirm: function() {
-      MEM.remove('fp_eaten');
-  
-      if (planData) {
+        MEM.remove('fp_eaten');
+          if (planData) {
         safeRenderPlan(planData, MEM.load('fp_userName') || 'Your', true, MEM.load('fp_planName') || '');
       }
       showToast('Week tracking reset');
@@ -3935,12 +3909,6 @@ function rateMeal(dayId, mealIdx, rating) {
     if (dnBtn) dnBtn.classList.toggle('active-down', notes[key] === 'down');
   }
 
-  // When thumbs-down is set (not toggled off), prompt to swap
-  if (rating === 'down' && !wasRated) {
-    showToastWithAction('Meal disliked', 'Swap it', function() {
-      openMealSwap(dayId, mealIdx);
-    });
-  }
 }
 
 function toggleShopAisle(gi) { toggleShopItem(gi); }
@@ -4879,13 +4847,11 @@ function showToastWithAction(msg, actionLabel, actionFn) {
 function copyShoppingList() {
   if (!planData || !planData.shopping_list) return;
   haptic('medium');
-  const scale = MEM.load('fp_haulScale') || 1;
   let text = 'Shopping List\n' + '─'.repeat(20) + '\n';
   (planData.shopping_list || []).forEach(function(cat) {
     text += '\n' + (cat.category || 'Other') + '\n';
     (cat.items || []).forEach(function(item) {
-      const qty = scaleQty(item.qty, scale);
-      text += '  • ' + item.name + (qty ? '  ' + qty : '') + '\n';
+      text += '  • ' + item.name + (item.qty ? '  ' + item.qty : '') + '\n';
     });
   });
   text += '\nGenerated by fuelplan.fit';
@@ -4904,9 +4870,7 @@ function clearCheckedShopItems() {
   shopChecks = {};
   MEM.save('fp_shopChecks', shopChecks);
   if (planData) {
-    var scale = MEM.load('fp_haulScale') || 1;
-    var groceryView = MEM.load('fp_groceryView') || 'list';
-    document.getElementById('shopping-content').innerHTML = renderShoppingPanel(planData.shopping_list, true, scale, groceryView);
+    document.getElementById('shopping-content').innerHTML = renderShoppingPanel(planData.shopping_list, true);
     updateShopProgress();
   }
   showToast('Cleared checked items');
@@ -4976,8 +4940,6 @@ function cancelPrepTimer(i) {
   if (btn) btn.classList.remove('pt-timer-running', 'pt-timer-done');
   if (label) label.textContent = 'Start timer';
 }
-
-
 
 
 /* ═══════════════════════════════════════════════════
@@ -5146,6 +5108,9 @@ function toggleMealEaten(dayId, mealIdx) {
     var eatenKcal = dayObj.meals.reduce(function(s, m, i) { return s + (eaten[dayId+'-'+i] ? (parseInt(m.kcal)||0) : 0); }, 0);
     kcalEl.textContent = eatenKcal > 0 ? eatenKcal + ' kcal' : '';
   }
+  // Update log-all button label
+  var logAllBtn = document.getElementById('log-all-btn-' + dayId);
+  if (logAllBtn) logAllBtn.textContent = eatenCount === mealCount && mealCount > 0 ? 'Clear' : 'Log all';
   // Update protein bar (if it exists in old layout)
   var proteinEl = document.getElementById('eaten-protein-' + dayId);
   if (proteinEl) {
@@ -5235,7 +5200,6 @@ function updateDayCompleteBanner(dayId, dayObj, eaten) {
 }
 
 
-
 /* ═══════════════════════════════════════════════════
    STREAK CALCULATOR
 ═══════════════════════════════════════════════════ */
@@ -5273,6 +5237,3 @@ function calcStreak() {
   return maxStreak;
 }
 
-
-function renderCalendarModal() {
-}

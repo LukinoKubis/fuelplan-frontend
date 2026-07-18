@@ -80,7 +80,7 @@
         </div>
         <svg class="ob-option-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
-      <button class="ob-option-btn ob-option-btn-secondary" onclick="dismissOnboarding()">
+      <button class="ob-option-btn ob-option-btn-secondary" onclick="showObScreen('ob-credits')">
         <svg class="ob-option-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 8 16 12 12 16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
         <div class="ob-option-text">
           <span class="ob-option-title">Continue in Browser</span>
@@ -139,7 +139,7 @@
       </div>
     </div>
     <div class="ob-guide-footer">
-      <button class="ob-cta-btn" onclick="dismissOnboarding()">Continue →</button>
+      <button class="ob-cta-btn" onclick="showObScreen('ob-credits')">Continue →</button>
     </div>
   </div>
 
@@ -187,10 +187,57 @@
       </div>
     </div>
     <div class="ob-guide-footer">
-      <button class="ob-cta-btn" onclick="dismissOnboarding()">Continue →</button>
+      <button class="ob-cta-btn" onclick="showObScreen('ob-credits')">Continue →</button>
     </div>
   </div>
 
+  <!-- CREDITS SCREEN (Screen 3) -->
+  <div id="ob-credits" class="ob-screen">
+    <div class="ob-guide-header">
+      <button class="ob-back-btn" onclick="showObScreen('ob-landing')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <h2 class="ob-guide-title">How it works</h2>
+    </div>
+    <div class="ob-dots" aria-hidden="true"><span class="ob-dot"></span><span class="ob-dot"></span><span class="ob-dot ob-dot-active"></span></div>
+    <div class="ob-guide-body">
+      <div style="text-align:center;padding:12px 0 20px">
+        <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:22px;margin-bottom:8px">Get your first plan</div>
+        <div style="font-size:14px;color:var(--muted);line-height:1.5">Each generation uses 1 credit.<br>Buy a pack once — no subscription.</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px 16px">
+          <div>
+            <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:15px">5 plans</div>
+            <div style="font-size:12px;color:var(--muted)">€1.00/plan</div>
+          </div>
+          <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:18px">€5</div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg2);border:2px solid var(--lime);border-radius:14px;padding:14px 16px;position:relative">
+          <div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--lime);color:#0e0f11;font-family:'Syne',sans-serif;font-weight:800;font-size:10px;padding:2px 10px;border-radius:20px">MOST POPULAR</div>
+          <div>
+            <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:15px">10 plans</div>
+            <div style="font-size:12px;color:var(--muted)">€0.90/plan</div>
+          </div>
+          <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:18px">€9</div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px 16px">
+          <div>
+            <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:15px">20 plans</div>
+            <div style="font-size:12px;color:var(--muted)">€0.75/plan</div>
+          </div>
+          <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:18px">€15</div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--muted);text-align:center;margin-bottom:4px">🔒 Secure checkout · Instant activation · Money-back guarantee</div>
+    </div>
+    <div class="ob-guide-footer">
+      <button class="ob-cta-btn" onclick="dismissOnboarding();openTopup()">Buy plans →</button>
+      <div style="text-align:center;margin-top:12px">
+        <button onclick="dismissOnboarding()" style="background:none;border:none;color:var(--muted);font-family:'Figtree',sans-serif;font-size:13px;font-weight:600;cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:2px">I already have a code →</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Offline banner -->
@@ -733,7 +780,10 @@
           <svg id="theme-icon-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           <svg id="theme-icon-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
         </button>
-<button class="btn-settings" onclick="exportPlanAsImage()" title="Export as image" style="display:flex;align-items:center;justify-content:center">
+        <button class="btn-settings" onclick="openCalendar()" title="History" style="display:flex;align-items:center;justify-content:center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="8" y2="18"/><line x1="12" y1="18" x2="12" y2="18"/></svg>
+        </button>
+        <button class="btn-settings" onclick="exportPlanAsImage()" title="Export as image" style="display:flex;align-items:center;justify-content:center">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         </button>
         <button class="btn-settings" onclick="sharePlan()" title="Share plan" style="display:flex;align-items:center;justify-content:center">
@@ -761,6 +811,19 @@
       <div id="stats-header" style="padding:14px 16px 0;display:flex;align-items:center;justify-content:space-between;gap:8px">
         <div>
           <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:18px">Progress</div>
+          <div id="sync-badge" style="display:none;font-size:10px;color:var(--muted);font-weight:600;margin-top:1px;align-items:center;gap:4px">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <span></span>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button onclick="refreshStats()" style="background:var(--card);border:1.5px solid var(--border);border-radius:10px;color:var(--muted);padding:6px 8px;cursor:pointer;display:flex;align-items:center" title="Refresh stats">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.36"/></svg>
+          </button>
+          <button onclick="openCalendar()" style="background:var(--card);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-size:12px;font-family:'Syne',sans-serif;font-weight:700;padding:6px 12px;cursor:pointer;display:flex;align-items:center;gap:6px">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Calendar
+          </button>
         </div>
       </div>
     </div>
@@ -771,6 +834,15 @@
     <!-- SECTION: SHOPPING HAUL -->
     <div class="section-panel" id="section-haul">
       <div id="haul-controls">
+        <div id="haul-scaler">
+          <button class="scaler-btn active" data-scale="1" onclick="setHaulScale(1)">×1</button>
+          <button class="scaler-btn" data-scale="2" onclick="setHaulScale(2)">×2</button>
+          <button class="scaler-btn" data-scale="3" onclick="setHaulScale(3)">×3</button>
+        </div>
+        <div id="haul-view-toggle">
+          <button class="scaler-btn active" id="hv-list" onclick="setGroceryView('list')">List</button>
+          <button class="scaler-btn" id="hv-aisle" onclick="setGroceryView('aisle')">By Aisle</button>
+        </div>
         <div id="haul-actions">
           <button class="haul-action-btn" onclick="copyShoppingList()" title="Copy list">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
@@ -894,6 +966,19 @@
         <button onclick="openWeightLog()" style="background:var(--lime);color:#0e0f11;border:none;border-radius:8px;font-family:'Syne',sans-serif;font-weight:800;font-size:11px;padding:6px 14px;cursor:pointer;letter-spacing:0.05em;flex-shrink:0">+ Log</button>
       </div>
 
+      <!-- Water Goal -->
+      <div class="profile-card">
+        <div class="profile-card-label">Daily Water Goal</div>
+        <div class="profile-row" style="align-items:center">
+          <span class="profile-row-label">Target glasses</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button onclick="adjustWaterGoal(-1)" style="width:28px;height:28px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">−</button>
+            <span id="water-goal-display" style="font-weight:700;font-size:16px;min-width:24px;text-align:center">8</span>
+            <button onclick="adjustWaterGoal(1)" style="width:28px;height:28px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">+</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Plan Actions -->
       <div class="settings-section-label">Plans</div>
       <button class="settings-action" onclick="closeSettings(); setTimeout(openSettings_regenerate, 380)">
@@ -936,6 +1021,17 @@
       </div>
 
       <div class="settings-section-label">Data</div>
+      <button class="settings-action" onclick="exportUserData()">
+        <div class="action-icon" style="background:rgba(200,245,66,0.1)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--lime)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </div>
+        <div class="action-text">
+          <div class="action-title">Export My Data</div>
+          <div class="action-desc">Download all your plans, logs, and tracking data as JSON</div>
+        </div>
+        <div class="action-arrow">›</div>
+      </button>
+
       <button class="settings-action" onclick="closeSettings(); resetWeekTracking()">
         <div class="action-icon" style="background:rgba(87,169,255,0.1)">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.36"/></svg>
@@ -1159,6 +1255,49 @@
   </div>
 </div>
 
+<!-- ═══════════════════════ CALENDAR MODAL ═══════════════════════ -->
+<div id="calendar-overlay" onclick="if(event.target===this)closeCalendar()" style="display:none"></div>
+<div id="calendar-modal">
+  <div class="cal-modal-inner">
+    <!-- Header -->
+    <div class="cal-header">
+      <button class="cal-nav-btn" onclick="calNavMonth(-1)" aria-label="Previous month">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div style="text-align:center">
+        <div id="cal-month-title" style="font-family:'Syne',sans-serif;font-weight:800;font-size:17px"></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:1px">Adherence history</div>
+      </div>
+      <button class="cal-nav-btn" onclick="calNavMonth(1)" aria-label="Next month">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+
+    <!-- Legend -->
+    <div class="cal-legend">
+      <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--lime)"></div><span>Complete</span></div>
+      <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--orange)"></div><span>Partial</span></div>
+      <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--red);opacity:0.6"></div><span>Minimal</span></div>
+      <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--border2)"></div><span>No data</span></div>
+    </div>
+
+    <!-- Grid -->
+    <div id="cal-grid"></div>
+
+    <!-- Day detail popup -->
+    <div id="cal-day-popup" style="display:none">
+      <div class="cal-popup-inner">
+        <div id="cal-popup-content"></div>
+        <button class="cal-popup-close" onclick="document.getElementById('cal-day-popup').style.display='none'">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Close button -->
+  <button class="cal-close-btn" onclick="closeCalendar()" aria-label="Close calendar">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
+</div>
 
 <!-- JavaScript -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
