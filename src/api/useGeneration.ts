@@ -32,6 +32,8 @@ export function useGeneration<T>() {
     setError(null)
     abortRef.current = new AbortController()
 
+    let cleanedTextForDebug = ''
+
     try {
       const { system, messages, model, max_tokens } = buildRequest()
       const response = await postClaude({ activationCode: trimmedCode, model, max_tokens, system, messages }, abortRef.current.signal)
@@ -41,6 +43,7 @@ export function useGeneration<T>() {
         .replace(/^```\s*/i, '')
         .replace(/```\s*$/i, '')
         .trim()
+      cleanedTextForDebug = cleaned
 
       let result: T
       try {
@@ -59,6 +62,10 @@ export function useGeneration<T>() {
       if (err instanceof ApiError) {
         setError({ message: err.message, isOutOfPlans: err.status === 402 })
       } else {
+        // Log the actual response so a shape mismatch is diagnosable from
+        // DevTools console instead of a guess — this is exactly what's
+        // needed to debug "Claude returned an unexpected format" reports.
+        console.error('Generation failed:', err, 'raw response:', cleanedTextForDebug)
         setError({ message: (err as Error).message || 'Unknown error occurred.', isOutOfPlans: false })
       }
     }

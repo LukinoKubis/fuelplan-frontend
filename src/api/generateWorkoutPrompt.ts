@@ -1,6 +1,7 @@
 import type { Exercise } from '../types/exercise'
 import type { TrainProfile } from '../types/workout'
 import { sanitizeInput } from './sanitize'
+import { shuffle } from './shuffle'
 import type { ClaudeMessage, GenerateRequest } from './client'
 
 const SYSTEM_PROMPT = `You are a professional strength & conditioning coach. Your only job is to assemble weekly workout plans in JSON format, selecting and sequencing from a provided list of exercise IDs — never invent exercises that aren't in the list.
@@ -33,13 +34,21 @@ export function buildWorkoutRequest(params: {
   const { profile, candidates } = params
 
   const trainingDays = profile.weekPlan.filter((d) => d.type === 'training')
-  const candidateList = candidates.slice(0, 250).map((e) => ({
-    id: e.id,
-    name: e.name,
-    category: e.category,
-    equipment: e.equipment,
-    sportTags: e.sportTags,
-  }))
+  // Cap well below what's actually needed (4-6 exercises × up to 7 days is
+  // at most ~42 picks) — sending the "general"-tagged majority of the whole
+  // library (which filterEligibleExercises often returns 250+ of) bloats
+  // the prompt for no benefit and raises the risk of a truncated/malformed
+  // response. Shuffle first so repeated generations aren't stuck picking
+  // from the same fixed slice of the array every time.
+  const candidateList = shuffle(candidates)
+    .slice(0, 80)
+    .map((e) => ({
+      id: e.id,
+      name: e.name,
+      category: e.category,
+      equipment: e.equipment,
+      sportTags: e.sportTags,
+    }))
 
   const dayLines = trainingDays.map((d) => `${d.day}: ${d.sport || profile.sports[0] || 'general'} training day`).join('\n')
 

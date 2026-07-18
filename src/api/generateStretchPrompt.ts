@@ -2,6 +2,7 @@ import type { Exercise } from '../types/exercise'
 import type { TrainProfile } from '../types/workout'
 import type { StretchPrefs } from '../types/stretch'
 import { sanitizeInput } from './sanitize'
+import { shuffle } from './shuffle'
 import type { ClaudeMessage, GenerateRequest } from './client'
 
 const SYSTEM_PROMPT = `You are a professional mobility & recovery coach. Your only job is to assemble AM and PM stretch routines in JSON format, selecting and sequencing from a provided list of exercise IDs — never invent exercises that aren't in the list.
@@ -27,7 +28,9 @@ export function buildStretchRequest(params: {
 }): Pick<GenerateRequest, 'system' | 'messages' | 'model' | 'max_tokens'> {
   const { prefs, candidates } = params
 
-  const candidateList = candidates.slice(0, 200).map((e) => ({ id: e.id, name: e.name, primaryMuscles: e.primaryMuscles }))
+  const candidateList = shuffle(candidates)
+    .slice(0, 50)
+    .map((e) => ({ id: e.id, name: e.name, primaryMuscles: e.primaryMuscles }))
   const focusLine = prefs.focusAreas ? `Focus areas: ${sanitizeInput(prefs.focusAreas)}.\n` : ''
 
   const jsonTemplate = JSON.stringify({

@@ -20,10 +20,14 @@ function asWorkoutExercise(raw: unknown): WorkoutExercise | null {
 }
 
 export function validateWorkoutPlan(raw: unknown): WorkoutPlan {
-  if (!raw || typeof raw !== 'object' || !Array.isArray((raw as Record<string, unknown>).days)) {
+  // Tolerate the model returning the days array directly instead of
+  // wrapped in { days: [...] } — a plausible enough deviation from the
+  // template that it's cheap to just handle rather than reject.
+  const daysRaw = Array.isArray(raw) ? raw : raw && typeof raw === 'object' ? (raw as Record<string, unknown>).days : undefined
+  if (!Array.isArray(daysRaw)) {
     throw new Error('Claude returned an unexpected workout format. Please try again.')
   }
-  const days: DayWorkout[] = (raw as { days: unknown[] }).days
+  const days: DayWorkout[] = daysRaw
     .map((d): DayWorkout | null => {
       if (!d || typeof d !== 'object') return null
       const dr = d as Record<string, unknown>
