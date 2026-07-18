@@ -6,6 +6,7 @@ import App from './App.tsx'
 import { ThemeProvider } from './state/ThemeContext'
 import { PlanProvider } from './state/PlanContext'
 import { AccountProvider } from './state/AccountContext'
+import { TrainProvider } from './state/TrainContext'
 import { warmUpBackend } from './api/client'
 
 registerSW({ immediate: true })
@@ -16,7 +17,9 @@ createRoot(document.getElementById('root')!).render(
     <ThemeProvider>
       <AccountProvider>
         <PlanProvider>
-          <App />
+          <TrainProvider>
+            <App />
+          </TrainProvider>
         </PlanProvider>
       </AccountProvider>
     </ThemeProvider>

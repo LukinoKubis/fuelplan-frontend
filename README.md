@@ -55,6 +55,7 @@ src/
     fuel/                  — day carousel, meal cards, prep panel, shopping
                               list, plan history, plan-naming modal
     exercises/              — exercise library list/detail/filters
+    train/                  — training-week setup, workout day view
     shared/                — Drawer, Modal, Toast-ish overlays, Settings,
                               Onboarding/install flow
   sections/                — one component per bottom-nav tab

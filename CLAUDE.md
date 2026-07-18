@@ -2,13 +2,14 @@
 
 > **Rebuild in progress (branch `rebuild/v2`)**: this file describes the
 > Vite+React+TS+Tailwind rewrite. See `PLAN.md` in the project root for the
-> phase-by-phase plan. `main` still runs the old vanilla build until the
-> rebuild is reviewed and merged.
+> phase-by-phase plan and current status — Phases 0-3 are merged to `main`
+> and live as of this rebuild.
 
 ## What this is
-AI-powered training + nutrition PWA ("Fuel" pillar: meal plans; "Train" and
-"Reset" pillars: workouts and stretching, added post-Phase-1). Vite + React
-19 + TypeScript + Tailwind CSS v4. Ships as a static build to Netlify.
+AI-powered training + nutrition PWA — Fuel (meal plans), Train (exercise
+library + AI-assembled workouts), Reset (stretching, Phase 4, not built
+yet). Vite + React 19 + TypeScript + Tailwind CSS v4. Ships as a static
+build to Netlify.
 
 ## File structure
 - `index.html` — Vite entry HTML (head meta, font links, icon links)
@@ -17,10 +18,11 @@ AI-powered training + nutrition PWA ("Fuel" pillar: meal plans; "Train" and
 - `src/sw.ts` — service worker source (built by `vite-plugin-pwa`,
   `injectManifest` strategy — precaching is automatic via Workbox, no more
   manual `CACHE_NAME` bump)
-- `src/state/` — React Context providers (Theme, Plan, Account — one per
-  concern, plain `useReducer`/`useState`, no external state library)
+- `src/state/` — React Context providers (Theme, Plan, Account, Train — one
+  per concern, plain `useReducer`/`useState`, no external state library)
 - `src/components/` — `layout/` (nav, header), `survey/`, `fuel/`, `shared/`,
-  `exercises/` (browsable library — list, detail, filters)
+  `exercises/` (browsable library — list, detail, filters), `train/`
+  (training-week setup, workout day view)
 - `src/sections/` — one top-level component per bottom-nav tab (Fuel, Train,
   Stats, Haul)
 - `src/api/` — typed fetch wrappers per backend endpoint + localStorage helper
@@ -54,6 +56,35 @@ AI-powered training + nutrition PWA ("Fuel" pillar: meal plans; "Train" and
   precaching 27MB upfront for every install would be wasteful. Instead
   `src/sw.ts` runtime-caches `/exercises/*` images cache-first as the user
   actually views them, so previously-viewed exercises stay available offline.
+
+## Workout builder (Train section)
+- **No new backend endpoint** — deliberate deviation from VISION.md's sketch
+  of a dedicated "AI assembly endpoint." The existing generic `/api/claude`
+  proxy already accepts any system/user prompt and handles credit
+  deduction, so workout assembly reuses it exactly like meal generation
+  does (`api/generateWorkoutPrompt.ts`, same shape as `api/generatePrompt.ts`).
+  One credit per generation, same pool as meal plans — VISION.md floated
+  pricing workout generation cheaper per call; not implemented, flagged as
+  a possible fast-follow, not worth a fractional-credit system for v1.
+- **Filtering happens client-side, not server-side** — also a deviation from
+  the VISION.md sketch ("filter by equipment/sport server-side first").
+  The frontend already has the full exercise library bundled; duplicating
+  that data into the backend just to filter it there would mean keeping two
+  copies in sync for no real benefit. `filterEligibleExercises()` in
+  `api/generateWorkoutPrompt.ts` does the same job — trims to
+  equipment-you-have + sport-relevant-or-general exercises — before
+  building the prompt, so the actual Claude call is just as small either way.
+- Flow: `TrainSetup` (sports/equipment/weekly schedule/goals/limitations,
+  stored in `TrainContext`) → `filterEligibleExercises` → `buildWorkoutRequest`
+  → `postClaude` (same client as Fuel) → parse into `WorkoutPlan` → resolve
+  each `exerciseId` against the local library for display (image,
+  instructions) in `WorkoutDayView`.
+- Per-set/exercise "mark as done" tracking exists (`TrainContext.completedSets`)
+  but there's no separate guided "workout session" screen with a rest timer —
+  same simplification call as Fuel's Phase 1 (the old app's guided "Prep
+  Time" cook session was deferred too). Fast-follow candidate.
+- Train has two sub-tabs: **Workouts** (the AI-assembled week) and
+  **Library** (Phase 2's browsable exercise list) — `TrainSection.tsx`.
 
 ## Hosting & services
 - Frontend: Netlify at https://fuelplan.fit
