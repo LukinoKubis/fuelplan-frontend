@@ -1,13 +1,33 @@
 # Fuelplan — Frontend
 
+> **Rebuild in progress (branch `rebuild/v2`)**: this file describes the
+> Vite+React+TS+Tailwind rewrite. See `PLAN.md` in the project root for the
+> phase-by-phase plan. `main` still runs the old vanilla build until the
+> rebuild is reviewed and merged.
+
 ## What this is
-AI-powered meal prep PWA. Vanilla HTML/CSS/JS, no framework, no build step.
+AI-powered training + nutrition PWA ("Fuel" pillar: meal plans; "Train" and
+"Reset" pillars: workouts and stretching, added post-Phase-1). Vite + React
+19 + TypeScript + Tailwind CSS v4. Ships as a static build to Netlify.
 
 ## File structure
-- index.html — all HTML structure
-- styles.css  — all CSS (dark/light theme, variables in :root)
-- app.js      — all JS (no modules, single file)
-- sw.js       — service worker (bump CACHE_NAME on every deploy)
+- `index.html` — Vite entry HTML (head meta, font links, icon links)
+- `src/main.tsx` — app bootstrap, SW registration
+- `src/App.tsx` — top-level shell: theme provider + 4-tab section switch
+- `src/sw.ts` — service worker source (built by `vite-plugin-pwa`,
+  `injectManifest` strategy — precaching is automatic via Workbox, no more
+  manual `CACHE_NAME` bump)
+- `src/state/` — React Context providers (Theme, Plan, Account — one per
+  concern, plain `useReducer`/`useState`, no external state library)
+- `src/components/` — `layout/` (nav, header), `survey/`, `fuel/`, `shared/`
+- `src/sections/` — one top-level component per bottom-nav tab (Fuel, Train,
+  Stats, Haul)
+- `src/api/` — typed fetch wrappers per backend endpoint + localStorage helper
+- `src/types/` — shared TS types
+- `src/styles/global.css` — Tailwind import + design tokens (`:root`/`.light`
+  CSS variables, wired into Tailwind via `@theme`) + base resets
+- `public/icons/` — PWA icons (192/512 + maskable variants)
+- `vite.config.ts` — Vite + Tailwind + PWA plugin config
 
 ## Hosting & services
 - Frontend: Netlify at https://fuelplan.fit
@@ -65,16 +85,22 @@ netlify functions:list
 - For Railway logs: cd to backend repo and run: railway logs
 
 ## Key architecture rules
-- NO frameworks, NO build tools, NO npm on the frontend
-- All state in localStorage via the MEM helper (see top of app.js)
-- planData is the global in-memory plan object
-- CSS variables defined in :root and body.light — always use var(--x) not hardcoded colours
-- Bottom nav has 4 sections: week, stats, prep, haul — switchSection() controls them
-- The plan JSON schema lives in the jsonTemplate string inside generate()
-- escHtml() must be used on all user-facing dynamic strings
-- switchDayTab(dayId) switches the day carousel and panel
-- safeRenderPlan(plan, userName, isRestoring, planName) is the main render entry point
-  (wraps renderPlan in try/catch — shows recovery UI on error)
+- React + TypeScript + Tailwind, `npm run build` produces the static `dist/`
+  Netlify deploys — this is no longer a build-free vanilla app
+- Persisted state (profile, plan, activation code, etc.) lives in
+  localStorage under `fp_`-prefixed keys, same naming as before, accessed
+  through a typed helper in `src/api/storage.ts` (spiritual successor to the
+  old `MEM` object)
+- CSS variables defined in `:root` and `.light` (on `<html>`) in
+  `src/styles/global.css` — wired into Tailwind via `@theme` so utilities
+  like `bg-bg`, `text-muted`, `border-border` respond to the theme class.
+  Always use these tokens, never hardcoded colours.
+- Bottom nav has 4 sections: **Fuel, Train, Stats, Haul** — plain React state
+  in `App.tsx` (`section`), no router
+- No global mutable `planData` — plan state lives in `PlanContext`
+- Escaping is not a concern the way it was in the old innerHTML-based
+  renderer — JSX escapes by default. Don't use `dangerouslySetInnerHTML` on
+  user-facing dynamic strings.
 
 ## localStorage keys (fp_ prefix)
 - fp_apikey         — activation code (uppercased)
@@ -98,9 +124,15 @@ netlify functions:list
 - fp_emailLinked = '1' collapses the save row after successful link
 
 ## Deploy process
+npm run build          — catch TS/build errors locally first
 git add -A
 git commit -m "feat: description"
-git push origin main
+git push origin main   — Netlify runs `npm run build`, publishes `dist/`
+
+While on `rebuild/v2`: push to that branch only. Use `netlify deploy`
+(without `--prod`) to get a draft preview URL for verification without
+touching the live site — `main`/production stays on the old build until
+this is reviewed.
 
 ## If a deploy breaks the live site
 git log --oneline    — find the last working commit
