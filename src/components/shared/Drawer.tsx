@@ -19,7 +19,9 @@ export function Drawer({ title, onClose, children }: DrawerProps) {
             ✕
           </button>
         </div>
-        <div className="p-5">{children}</div>
+        <div className="p-5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}>
+          {children}
+        </div>
       </div>
     </div>
   )

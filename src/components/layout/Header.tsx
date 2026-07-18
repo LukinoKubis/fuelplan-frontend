@@ -4,7 +4,10 @@ interface HeaderProps {
 
 export function Header({ onOpenSettings }: HeaderProps) {
   return (
-    <header className="fixed inset-x-0 top-0 z-[9000] flex items-center justify-between border-b border-border bg-card/95 px-4 py-3 backdrop-blur">
+    <header
+      className="fixed inset-x-0 top-0 z-[9000] flex items-center justify-between border-b border-border bg-card/95 px-4 pb-3 backdrop-blur"
+      style={{ paddingTop: 'calc(env(safe-area-inset-top) + 12px)' }}
+    >
       <div className="flex items-center gap-2">
         <svg width="26" height="26" viewBox="0 0 48 48" fill="none">
           <rect width="48" height="48" rx="14" fill="#c8f542" />

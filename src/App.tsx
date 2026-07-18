@@ -71,7 +71,13 @@ function App() {
   return (
     <div className="min-h-screen bg-bg text-text">
       {!chromeHidden && <Header onOpenSettings={() => setShowSettings(true)} />}
-      <main className={chromeHidden ? '' : 'pt-[60px] pb-[72px]'}>
+      <main
+        style={
+          chromeHidden
+            ? undefined
+            : { paddingTop: 'calc(env(safe-area-inset-top) + 60px)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 72px)' }
+        }
+      >
         {section === 'fuel' && <FuelSection />}
         {section === 'train' && <TrainSection />}
         {section === 'stats' && <StatsSection />}
