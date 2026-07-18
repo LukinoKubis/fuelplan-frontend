@@ -83,8 +83,20 @@ build to Netlify.
   but there's no separate guided "workout session" screen with a rest timer —
   same simplification call as Fuel's Phase 1 (the old app's guided "Prep
   Time" cook session was deferred too). Fast-follow candidate.
-- Train has two sub-tabs: **Workouts** (the AI-assembled week) and
-  **Library** (Phase 2's browsable exercise list) — `TrainSection.tsx`.
+- Train has three sub-tabs: **Workouts**, **Stretch**, **Library**
+  (Phase 2's browsable exercise list) — `TrainSection.tsx`.
+
+## Stretch routines (Reset, Phase 4)
+Same pattern and same deviations as the workout builder above (reuses
+`/api/claude`, filters client-side) — `api/generateStretchPrompt.ts`,
+`components/train/StretchSetup.tsx` + `StretchRoutineView.tsx`. Candidates
+are exercises with `category === 'mobility'`. One AM (activation-leaning,
+shorter holds) and one PM (relaxation-leaning, longer holds) routine per
+generation, not varied by day of week — VISION.md's stretch section only
+calls for "adjustable duration," not per-weekday variation like workouts.
+`api/useGeneration.ts` is a shared loading/error/abort/parse hook used by
+both workout and stretch generation (Fuel's survey has its own earlier,
+already-verified implementation — not worth touching to dedupe against).
 
 ## Hosting & services
 - Frontend: Netlify at https://fuelplan.fit

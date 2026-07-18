@@ -1,108 +1,92 @@
-import { Suspense, lazy, useRef, useState } from 'react'
+import { Suspense, lazy, useState } from 'react'
 import { useTrain } from '../state/TrainContext'
-import { useAccount } from '../state/AccountContext'
 import { TrainSetup } from '../components/train/TrainSetup'
 import { WorkoutDayView } from '../components/train/WorkoutDayView'
+import { StretchSetup } from '../components/train/StretchSetup'
+import { StretchRoutineView } from '../components/train/StretchRoutineView'
 import { DayTabs } from '../components/fuel/DayTabs'
 import { LoadingOverlay } from '../components/shared/LoadingOverlay'
 import { ErrorPanel } from '../components/shared/ErrorPanel'
 import { loadExercises } from '../data/exercises'
 import { buildWorkoutRequest, filterEligibleExercises } from '../api/generateWorkoutPrompt'
-import { ApiError, postClaude } from '../api/client'
+import { buildStretchRequest, filterStretchCandidates } from '../api/generateStretchPrompt'
+import { useGeneration } from '../api/useGeneration'
 import type { Exercise } from '../types/exercise'
 import type { WorkoutPlan } from '../types/workout'
+import type { StretchPlan } from '../types/stretch'
 
 const ExerciseLibrary = lazy(() => import('../components/exercises/ExerciseLibrary').then((m) => ({ default: m.ExerciseLibrary })))
 
-type SubTab = 'workouts' | 'library'
+type SubTab = 'workouts' | 'stretch' | 'library'
+
+function useLibrary() {
+  const [exercises, setExercises] = useState<Exercise[] | null>(null)
+  if (exercises === null) loadExercises().then(setExercises)
+  return exercises
+}
 
 export function TrainSection() {
-  const { trainProfile, setTrainProfile, workoutPlan, setWorkoutPlan, clearWorkoutPlan } = useTrain()
-  const { code } = useAccount()
+  const { trainProfile, setTrainProfile, workoutPlan, setWorkoutPlan, clearWorkoutPlan, stretchPrefs, setStretchPrefs, stretchPlan, setStretchPlan, clearStretchPlan } =
+    useTrain()
   const [subTab, setSubTab] = useState<SubTab>('workouts')
   const [activeDay, setActiveDay] = useState(0)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<{ message: string; isOutOfPlans: boolean } | null>(null)
-  const abortRef = useRef<AbortController | null>(null)
+  const workoutGen = useGeneration<WorkoutPlan>()
+  const stretchGen = useGeneration<StretchPlan>()
+  const exercises = useLibrary()
 
-  async function handleGenerate() {
-    if (!navigator.onLine) {
-      setError({ message: "You're offline — connect to generate a workout plan", isOutOfPlans: false })
-      return
-    }
-    const trimmedCode = code.trim().toUpperCase()
-    if (!trimmedCode) {
-      setError({ message: 'Enter your activation code in Fuel first.', isOutOfPlans: false })
-      return
-    }
-
-    setLoading(true)
-    setError(null)
-    abortRef.current = new AbortController()
-
-    try {
-      const all = await loadExercises()
-      const candidates = filterEligibleExercises(all, trainProfile)
-      const { system, messages, model, max_tokens } = buildWorkoutRequest({ profile: trainProfile, candidates })
-      const response = await postClaude({ activationCode: trimmedCode, model, max_tokens, system, messages }, abortRef.current.signal)
-      const rawText = response.content[0]?.text || ''
-      const cleaned = rawText
-        .replace(/^```json\s*/i, '')
-        .replace(/^```\s*/i, '')
-        .replace(/```\s*$/i, '')
-        .trim()
-
-      let plan: WorkoutPlan
-      try {
-        plan = JSON.parse(cleaned)
-      } catch {
-        const match = cleaned.match(/\{[\s\S]*\}/)
-        if (!match) throw new Error('Claude returned invalid JSON. Please try again.')
-        plan = JSON.parse(match[0])
-      }
-
-      setWorkoutPlan(plan)
-      setActiveDay(0)
-      setLoading(false)
-    } catch (err) {
-      setLoading(false)
-      if (err instanceof DOMException && err.name === 'AbortError') return
-      if (err instanceof ApiError) {
-        setError({ message: err.message, isOutOfPlans: err.status === 402 })
-      } else {
-        setError({ message: (err as Error).message || 'Unknown error occurred.', isOutOfPlans: false })
-      }
-    }
+  function handleBuyPlans() {
+    window.location.href = 'https://fuelplan.fit/?buy=1'
   }
 
-  if (loading) return <LoadingOverlay onCancel={() => { abortRef.current?.abort(); setLoading(false) }} />
-  if (error)
+  async function handleGenerateWorkout() {
+    const all = exercises || (await loadExercises())
+    const candidates = filterEligibleExercises(all, trainProfile)
+    workoutGen.run(
+      () => buildWorkoutRequest({ profile: trainProfile, candidates }),
+      (plan) => {
+        setWorkoutPlan(plan)
+        setActiveDay(0)
+      }
+    )
+  }
+
+  async function handleGenerateStretch() {
+    const all = exercises || (await loadExercises())
+    const candidates = filterStretchCandidates(all, trainProfile)
+    stretchGen.run(
+      () => buildStretchRequest({ prefs: stretchPrefs, candidates }),
+      (plan) => setStretchPlan(plan)
+    )
+  }
+
+  const activeGen = subTab === 'workouts' ? workoutGen : subTab === 'stretch' ? stretchGen : null
+
+  if (activeGen?.loading) return <LoadingOverlay onCancel={activeGen.cancel} />
+  if (activeGen?.error)
     return (
       <ErrorPanel
-        message={error.message}
-        isOutOfPlans={error.isOutOfPlans}
+        message={activeGen.error.message}
+        isOutOfPlans={activeGen.error.isOutOfPlans}
         onRetry={() => {
-          setError(null)
-          handleGenerate()
+          activeGen.setError(null)
+          subTab === 'workouts' ? handleGenerateWorkout() : handleGenerateStretch()
         }}
-        onDismiss={() => setError(null)}
-        onTopUp={() => {
-          window.location.href = 'https://fuelplan.fit/?buy=1'
-        }}
+        onDismiss={() => activeGen.setError(null)}
+        onTopUp={handleBuyPlans}
       />
     )
 
   return (
     <div>
       <div className="flex border-b border-border bg-card px-4">
-        {(['workouts', 'library'] as SubTab[]).map((t) => (
+        {(['workouts', 'stretch', 'library'] as SubTab[]).map((t) => (
           <button
             key={t}
             onClick={() => setSubTab(t)}
             className="border-b-2 px-3 py-3 text-sm font-semibold capitalize"
             style={{ borderColor: subTab === t ? 'var(--lime)' : 'transparent', color: subTab === t ? 'var(--lime)' : 'var(--muted)' }}
           >
-            {t === 'workouts' ? 'Workouts' : 'Library'}
+            {t === 'workouts' ? 'Workouts' : t === 'stretch' ? 'Stretch' : 'Library'}
           </button>
         ))}
       </div>
@@ -115,9 +99,20 @@ export function TrainSection() {
 
       {subTab === 'workouts' &&
         (!workoutPlan ? (
-          <TrainSetup profile={trainProfile} onChange={setTrainProfile} onGenerate={handleGenerate} />
+          <TrainSetup profile={trainProfile} onChange={setTrainProfile} onGenerate={handleGenerateWorkout} />
+        ) : !exercises ? (
+          <div className="p-8 text-center text-sm text-muted">Loading…</div>
         ) : (
-          <WorkoutWeekView workoutPlan={workoutPlan} activeDay={activeDay} setActiveDay={setActiveDay} onRegenerate={clearWorkoutPlan} />
+          <WorkoutWeekView workoutPlan={workoutPlan} exercises={exercises} activeDay={activeDay} setActiveDay={setActiveDay} onRegenerate={clearWorkoutPlan} />
+        ))}
+
+      {subTab === 'stretch' &&
+        (!stretchPlan ? (
+          <StretchSetup prefs={stretchPrefs} onChange={setStretchPrefs} onGenerate={handleGenerateStretch} />
+        ) : !exercises ? (
+          <div className="p-8 text-center text-sm text-muted">Loading…</div>
+        ) : (
+          <StretchRoutineView plan={stretchPlan} exerciseMap={new Map(exercises.map((e) => [e.id, e]))} onRegenerate={clearStretchPlan} />
         ))}
     </div>
   )
@@ -125,20 +120,17 @@ export function TrainSection() {
 
 function WorkoutWeekView({
   workoutPlan,
+  exercises,
   activeDay,
   setActiveDay,
   onRegenerate,
 }: {
   workoutPlan: WorkoutPlan
+  exercises: Exercise[]
   activeDay: number
   setActiveDay: (i: number) => void
   onRegenerate: () => void
 }) {
-  const [exercises, setExercises] = useState<Exercise[] | null>(null)
-  if (exercises === null) {
-    loadExercises().then(setExercises)
-    return <div className="p-8 text-center text-sm text-muted">Loading…</div>
-  }
   const exerciseMap = new Map(exercises.map((e) => [e.id, e]))
   const day = workoutPlan.days[Math.min(activeDay, workoutPlan.days.length - 1)]
 
