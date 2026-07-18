@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { usePlan } from '../state/PlanContext'
 import { useAccount } from '../state/AccountContext'
+import { useTrain } from '../state/TrainContext'
+import { applyTrainingDayAdjustment, getDayType } from '../api/trainingDayMacros'
 import { SurveyFlow } from '../components/survey/SurveyFlow'
 import { DayTabs } from '../components/fuel/DayTabs'
 import { DayMacroBar } from '../components/fuel/DayMacroBar'
@@ -8,10 +10,12 @@ import { MealCard } from '../components/fuel/MealCard'
 import { PrepPanel } from '../components/fuel/PrepPanel'
 import { PlanNameModal } from '../components/fuel/PlanNameModal'
 import { HistoryDrawer } from '../components/fuel/HistoryDrawer'
+import { TodaySnapshot } from '../components/fuel/TodaySnapshot'
 
-export function FuelSection() {
+export function FuelSection({ onJumpToTrain }: { onJumpToTrain?: () => void } = {}) {
   const { plan, favorites, eaten, toggleEaten, toggleFavorite, surveyMode, setSurveyMode } = usePlan()
   const { remaining, code } = useAccount()
+  const { trainProfile, workoutPlan } = useTrain()
   const [activeDay, setActiveDay] = useState(0)
   const [showNameModal, setShowNameModal] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
@@ -39,6 +43,8 @@ export function FuelSection() {
 
   const day = plan.days[Math.min(activeDay, plan.days.length - 1)]
   const isFavorite = (name: string) => favorites.some((f) => f.name === name)
+  const activeDayType = workoutPlan ? getDayType(day.day, trainProfile.weekPlan) : null
+  const dayTarget = activeDayType === 'training' ? applyTrainingDayAdjustment(plan.summary, 'training') : plan.summary
 
   return (
     <div>
@@ -58,8 +64,15 @@ export function FuelSection() {
         )}
       </div>
 
+      <TodaySnapshot onJumpToTrain={() => onJumpToTrain?.()} />
+
       <DayTabs days={plan.days.map((d) => d.day)} active={activeDay} onChange={setActiveDay} />
-      <DayMacroBar day={day} target={plan.summary} />
+      {activeDayType === 'training' && (
+        <div className="border-b border-border bg-card px-4 pb-2">
+          <span className="rounded-full bg-lime/15 px-2 py-0.5 text-[10px] font-bold text-lime">Training day — macros adjusted</span>
+        </div>
+      )}
+      <DayMacroBar day={day} target={dayTarget} />
 
       <PrepPanel tasks={plan.prep_tasks} />
 

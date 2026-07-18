@@ -80,7 +80,7 @@ function App() {
         }
       >
         <ErrorBoundary key={section}>
-          {section === 'fuel' && <FuelSection />}
+          {section === 'fuel' && <FuelSection onJumpToTrain={() => handleChange('train')} />}
           {section === 'train' && <TrainSection />}
           {section === 'stats' && <StatsSection />}
           {section === 'haul' && <HaulSection />}
