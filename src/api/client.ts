@@ -1,4 +1,5 @@
 import type { HistoryEntryMeta, Macros, Plan } from '../types/plan'
+import { loadString, saveString, remove, STORAGE_KEYS } from './storage'
 
 export const API_BASE = 'https://fuelplan-backend-production.up.railway.app'
 
@@ -13,13 +14,21 @@ export class ApiError extends Error {
 async function parseErrorResponse(response: Response): Promise<never> {
   const err = await response.json().catch(() => ({}) as { error?: string; message?: string })
   const status = response.status
-  if (status === 402) throw new ApiError(status, err.message || 'You have no plans left on this code.')
-  if (status === 403) throw new ApiError(status, 'Invalid activation code. Please check your code and try again.')
-  if (status === 401) throw new ApiError(status, 'No activation code provided.')
+  if (status === 402) throw new ApiError(status, err.message || 'You have no plans left — top up in Settings.')
+  if (status === 401) throw new ApiError(status, err.error || 'Please log in again.')
   if (status === 503) throw new ApiError(status, 'Claude API is temporarily overloaded. Please wait a moment and try again.')
   if (status === 504) throw new ApiError(status, 'Request timed out. Please try again — it usually works on the second attempt.')
   if (status === 502) throw new ApiError(status, 'Server error — please try again.')
   throw new ApiError(status, err.error || `API error ${status}`)
+}
+
+export function getToken(): string {
+  return loadString(STORAGE_KEYS.token) || ''
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 export interface ClaudeMessage {
@@ -40,7 +49,6 @@ export interface SystemBlock {
 }
 
 export interface GenerateRequest {
-  activationCode: string
   model: string
   max_tokens: number
   system: string | SystemBlock[]
@@ -54,7 +62,7 @@ export interface ClaudeResponse {
 export async function postClaude(body: GenerateRequest, signal?: AbortSignal): Promise<ClaudeResponse> {
   const response = await fetch(`${API_BASE}/api/claude`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     signal,
     body: JSON.stringify(body),
   })
@@ -62,77 +70,94 @@ export async function postClaude(body: GenerateRequest, signal?: AbortSignal): P
   return response.json()
 }
 
-export async function fetchUsage(activationCode: string): Promise<{ remaining: number }> {
+export async function fetchUsage(): Promise<{ remaining: number }> {
   const response = await fetch(`${API_BASE}/api/usage`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ activationCode }),
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({}),
   })
   if (!response.ok) return parseErrorResponse(response)
   return response.json()
 }
 
-export async function saveHistory(params: {
-  activationCode: string
-  plan: Plan
-  userName: string
-  planName: string
-  macros: Macros
-}): Promise<{ ok: boolean; id: number }> {
+export async function saveHistory(params: { plan: Plan; userName: string; planName: string; macros: Macros }): Promise<{ ok: boolean; id: number }> {
   const response = await fetch(`${API_BASE}/api/history/save`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(params),
   })
   if (!response.ok) return parseErrorResponse(response)
   return response.json()
 }
 
-export async function getHistoryList(activationCode: string): Promise<{ history: HistoryEntryMeta[] }> {
+export async function getHistoryList(): Promise<{ history: HistoryEntryMeta[] }> {
   const response = await fetch(`${API_BASE}/api/history/get`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ activationCode }),
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({}),
   })
   if (!response.ok) return parseErrorResponse(response)
   return response.json()
 }
 
-export async function restoreHistory(
-  activationCode: string,
-  planId: number
-): Promise<{ plan: Plan; userName: string; planName: string; savedAt: string }> {
+export async function restoreHistory(planId: number): Promise<{ plan: Plan; userName: string; planName: string; savedAt: string }> {
   const response = await fetch(`${API_BASE}/api/history/restore`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ activationCode, planId }),
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ planId }),
   })
   if (!response.ok) return parseErrorResponse(response)
   return response.json()
 }
 
-export async function deleteHistory(activationCode: string, planId: number): Promise<{ ok: boolean; remaining: number }> {
+export async function deleteHistory(planId: number): Promise<{ ok: boolean; remaining: number }> {
   const response = await fetch(`${API_BASE}/api/history/delete`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ activationCode, planId }),
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ planId }),
   })
   if (!response.ok) return parseErrorResponse(response)
   return response.json()
 }
 
-export async function linkEmail(activationCode: string, email: string): Promise<{ ok: boolean }> {
-  const response = await fetch(`${API_BASE}/api/account/link-email`, {
+export async function createCheckout(plan: '5' | '10' | '20'): Promise<{ url: string }> {
+  const response = await fetch(`${API_BASE}/api/create-checkout`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ plan }),
+  })
+  if (!response.ok) return parseErrorResponse(response)
+  return response.json()
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+export interface AuthResponse {
+  token: string
+  email: string
+}
+
+export async function signup(email: string, password: string): Promise<AuthResponse> {
+  const response = await fetch(`${API_BASE}/api/auth/signup`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ activationCode, email }),
+    body: JSON.stringify({ email, password }),
   })
   if (!response.ok) return parseErrorResponse(response)
   return response.json()
 }
 
-export async function recoverEmail(email: string): Promise<{ ok: boolean }> {
-  const response = await fetch(`${API_BASE}/api/account/recover`, {
+export async function login(email: string, password: string): Promise<AuthResponse> {
+  const response = await fetch(`${API_BASE}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  })
+  if (!response.ok) return parseErrorResponse(response)
+  return response.json()
+}
+
+export async function forgotPassword(email: string): Promise<{ ok: boolean }> {
+  const response = await fetch(`${API_BASE}/api/auth/forgot-password`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
@@ -141,24 +166,22 @@ export async function recoverEmail(email: string): Promise<{ ok: boolean }> {
   return response.json()
 }
 
-export async function registerCode(activationCode: string): Promise<{ ok: boolean; isNew: boolean }> {
-  const response = await fetch(`${API_BASE}/api/register-code`, {
+export async function resetPassword(token: string, newPassword: string): Promise<{ ok: boolean }> {
+  const response = await fetch(`${API_BASE}/api/auth/reset-password`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ activationCode }),
+    body: JSON.stringify({ token, newPassword }),
   })
   if (!response.ok) return parseErrorResponse(response)
   return response.json()
 }
 
-export async function createCheckout(activationCode: string, plan: '5' | '10' | '20'): Promise<{ url: string }> {
-  const response = await fetch(`${API_BASE}/api/create-checkout`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ activationCode, plan }),
-  })
-  if (!response.ok) return parseErrorResponse(response)
-  return response.json()
+export function saveSession(token: string): void {
+  saveString(STORAGE_KEYS.token, token)
+}
+
+export function clearSession(): void {
+  remove(STORAGE_KEYS.token)
 }
 
 export function warmUpBackend(): void {

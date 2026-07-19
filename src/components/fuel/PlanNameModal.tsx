@@ -1,12 +1,10 @@
 import { useState } from 'react'
 import { Modal } from '../shared/Modal'
 import { usePlan } from '../../state/PlanContext'
-import { useAccount } from '../../state/AccountContext'
 import { saveHistory } from '../../api/client'
 
 export function PlanNameModal({ onClose }: { onClose: () => void }) {
   const { plan, userName, setPlanName } = usePlan()
-  const { code } = useAccount()
   const [name, setName] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -15,7 +13,7 @@ export function PlanNameModal({ onClose }: { onClose: () => void }) {
     setSaving(true)
     const finalName = name.trim() || 'My Plan'
     try {
-      await saveHistory({ activationCode: code, plan, userName, planName: finalName, macros: plan.summary })
+      await saveHistory({ plan, userName, planName: finalName, macros: plan.summary })
       setPlanName(finalName)
     } catch {
       /* non-critical — plan already saved locally */

@@ -1,8 +1,9 @@
 // Typed localStorage helper — spiritual successor to the old app.js MEM object.
-// Same fp_-prefixed key naming so a returning user's saved code/profile still works.
+// Same fp_-prefixed key naming so a returning user's saved profile still works.
 
 export const STORAGE_KEYS = {
-  apiKey: 'fp_apikey',
+  token: 'fp_token',
+  userEmail: 'fp_userEmail',
   plan: 'fp_plan',
   planName: 'fp_planName',
   userName: 'fp_userName',
@@ -10,13 +11,11 @@ export const STORAGE_KEYS = {
   shopChecks: 'fp_shopChecks',
   activeSection: 'fp_activeSection',
   activeDay: 'fp_activeDay',
-  emailLinked: 'fp_emailLinked',
   onboarded: 'fp_onboarded',
   installed: 'fp_installed',
   eaten: 'fp_eaten',
   activePlanSavedAt: 'fp_activePlanSavedAt',
   theme: 'fp_theme',
-  lastRemainingPrefix: 'fp_lastRemaining_',
 } as const
 
 export function loadJSON<T>(key: string): T | null {

@@ -17,7 +17,7 @@ interface SettingsDrawerProps {
 export function SettingsDrawer({ onClose, onGenerateNew, onOpenHistory, onOpenInstallGuide }: SettingsDrawerProps) {
   const { theme, toggleTheme } = useTheme()
   const { profile } = usePlan()
-  const { code, remaining } = useAccount()
+  const { email, remaining, logout } = useAccount()
   const [resetConfirm, setResetConfirm] = useState(false)
   const [topupBusy, setTopupBusy] = useState(false)
 
@@ -44,7 +44,7 @@ export function SettingsDrawer({ onClose, onGenerateNew, onOpenHistory, onOpenIn
   async function handleTopUp(plan: '5' | '10' | '20') {
     setTopupBusy(true)
     try {
-      const { url } = await createCheckout(code, plan)
+      const { url } = await createCheckout(plan)
       window.location.href = url
     } catch {
       setTopupBusy(false)
@@ -80,7 +80,7 @@ export function SettingsDrawer({ onClose, onGenerateNew, onOpenHistory, onOpenIn
       <div className="mb-5 rounded-xl border border-border bg-bg2 p-3.5">
         <div className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">Current Profile</div>
         <Row label="Name" value={profile.name || '—'} />
-        <Row label="Code" value={code ? `${code.slice(0, 4)}••••` : '—'} />
+        <Row label="Email" value={email || '—'} />
         <Row label="Plans left" value={remaining === null ? '—' : String(remaining)} last />
       </div>
 
@@ -143,6 +143,15 @@ export function SettingsDrawer({ onClose, onGenerateNew, onOpenHistory, onOpenIn
           <SettingsAction icon={<InstallIcon />} title="Add to Home Screen" desc="Install Fuelplan as an app for the best experience" onClick={handleInstall} />
         )}
         <SettingsAction
+          icon={<LogoutIcon />}
+          title="Log Out"
+          desc="Sign out of this account on this device"
+          onClick={() => {
+            logout()
+            onClose()
+          }}
+        />
+        <SettingsAction
           icon={<TrashIcon />}
           iconColor="var(--red)"
           danger
@@ -153,9 +162,9 @@ export function SettingsDrawer({ onClose, onGenerateNew, onOpenHistory, onOpenIn
       </div>
 
       <p className="mt-2 text-center text-[11px] leading-relaxed text-muted">
-        All data is stored locally on this device only.
+        Your plan and profile are stored locally on this device.
         <br />
-        Your activation code is saved on this device for convenience.
+        Your account (email/credits) lives on the server.
       </p>
     </Drawer>
   )
@@ -225,6 +234,15 @@ function InstallIcon() {
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="7 10 12 15 17 10" />
       <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  )
+}
+function LogoutIcon() {
+  return (
+    <svg {...ICON_PROPS}>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
     </svg>
   )
 }

@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react'
 import { ApiError, postClaude, type GenerateRequest } from './client'
-import { useAccount } from '../state/AccountContext'
 
 export interface GenerationError {
   message: string
@@ -12,7 +11,6 @@ export interface GenerationError {
 // implementation) — used by workout and stretch-routine assembly, which are
 // close enough to each other to justify not duplicating this a third time.
 export function useGeneration<T>() {
-  const { code } = useAccount()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<GenerationError | null>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -20,11 +18,6 @@ export function useGeneration<T>() {
   async function run(buildRequest: () => Pick<GenerateRequest, 'system' | 'messages' | 'model' | 'max_tokens'>, onSuccess: (result: T) => void) {
     if (!navigator.onLine) {
       setError({ message: "You're offline — connect to generate.", isOutOfPlans: false })
-      return
-    }
-    const trimmedCode = code.trim().toUpperCase()
-    if (!trimmedCode) {
-      setError({ message: 'Enter your activation code in Fuel first.', isOutOfPlans: false })
       return
     }
 
@@ -36,7 +29,7 @@ export function useGeneration<T>() {
 
     try {
       const { system, messages, model, max_tokens } = buildRequest()
-      const response = await postClaude({ activationCode: trimmedCode, model, max_tokens, system, messages }, abortRef.current.signal)
+      const response = await postClaude({ model, max_tokens, system, messages }, abortRef.current.signal)
       const rawText = response.content[0]?.text || ''
       const cleaned = rawText
         .replace(/^```json\s*/i, '')

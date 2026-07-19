@@ -3,6 +3,7 @@ import { usePlan } from '../state/PlanContext'
 import { useAccount } from '../state/AccountContext'
 import { useTrain } from '../state/TrainContext'
 import { applyTrainingDayAdjustment, getDayType } from '../api/trainingDayMacros'
+import { createCheckout } from '../api/client'
 import { SurveyFlow } from '../components/survey/SurveyFlow'
 import { DayTabs } from '../components/fuel/DayTabs'
 import { DayMacroBar } from '../components/fuel/DayMacroBar'
@@ -14,7 +15,7 @@ import { TodaySnapshot } from '../components/fuel/TodaySnapshot'
 
 export function FuelSection({ onJumpToTrain }: { onJumpToTrain?: () => void } = {}) {
   const { plan, favorites, eaten, toggleEaten, toggleFavorite, surveyMode, setSurveyMode } = usePlan()
-  const { remaining, code } = useAccount()
+  const { remaining } = useAccount()
   const { trainProfile, workoutPlan } = useTrain()
   const [activeDay, setActiveDay] = useState(0)
   const [showNameModal, setShowNameModal] = useState(false)
@@ -22,8 +23,13 @@ export function FuelSection({ onJumpToTrain }: { onJumpToTrain?: () => void } = 
 
   const showSurvey = !plan || surveyMode
 
-  function handleBuyPlans() {
-    window.location.href = 'https://fuelplan.fit/?buy=1'
+  async function handleBuyPlans() {
+    try {
+      const { url } = await createCheckout('10')
+      window.location.href = url
+    } catch {
+      /* non-critical — user can retry from Settings' Top Up Plans */
+    }
   }
 
   if (showSurvey) {
@@ -57,11 +63,9 @@ export function FuelSection({ onJumpToTrain }: { onJumpToTrain?: () => void } = 
             New Plan
           </button>
         </div>
-        {code && (
-          <div className="text-xs text-muted">
-            {remaining === null ? '' : remaining === 0 ? <span className="text-red">No plans left</span> : `${remaining} plans left`}
-          </div>
-        )}
+        <div className="text-xs text-muted">
+          {remaining === null ? '' : remaining === 0 ? <span className="text-red">No plans left</span> : `${remaining} plans left`}
+        </div>
       </div>
 
       <TodaySnapshot onJumpToTrain={() => onJumpToTrain?.()} />

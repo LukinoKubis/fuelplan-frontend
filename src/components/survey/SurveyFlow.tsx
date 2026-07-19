@@ -24,7 +24,7 @@ interface SurveyFlowProps {
 
 export function SurveyFlow({ onGenerated, onBuyPlans, canCancel, onCancel }: SurveyFlowProps) {
   const { profile, setProfile, setPlan, favorites } = usePlan()
-  const { code, setCode, emailLinked, setEmailLinked, refreshRemaining } = useAccount()
+  const { refreshRemaining } = useAccount()
   // trainProfile.weekPlan always has a value (defaultTrainProfile() seeds an
   // alternating schedule) even for users who've never opened Train — only
   // treat it as real intent once they've actually generated a workout plan,
@@ -49,13 +49,6 @@ export function SurveyFlow({ onGenerated, onBuyPlans, canCancel, onCancel }: Sur
       setError({ message: "You're offline — connect to generate a new plan", isOutOfPlans: false })
       return
     }
-    const trimmedCode = code.trim().toUpperCase()
-    if (!trimmedCode) {
-      setError({ message: 'Please enter your activation code.', isOutOfPlans: false })
-      setStep(0)
-      return
-    }
-    setCode(trimmedCode)
 
     const macros = resolveProfileMacros(profile)
     if (!macros) {
@@ -75,7 +68,7 @@ export function SurveyFlow({ onGenerated, onBuyPlans, canCancel, onCancel }: Sur
         favorites,
         weekPlan: workoutPlan ? trainProfile.weekPlan : undefined,
       })
-      const response = await postClaude({ activationCode: trimmedCode, model, max_tokens, system, messages }, abortRef.current.signal)
+      const response = await postClaude({ model, max_tokens, system, messages }, abortRef.current.signal)
       const rawText = response.content[0]?.text || ''
       const cleaned = rawText
         .replace(/^```json\s*/i, '')
@@ -152,17 +145,7 @@ export function SurveyFlow({ onGenerated, onBuyPlans, canCancel, onCancel }: Sur
         <span className="text-xs font-semibold text-muted">{step + 1}/4</span>
       </div>
 
-      {step === 0 && (
-        <Step0Start
-          activationCode={code}
-          onActivationCodeChange={setCode}
-          name={profile.name}
-          onNameChange={(name) => patch({ name })}
-          emailLinked={emailLinked}
-          onEmailLinked={() => setEmailLinked(true)}
-          onBuyPlans={onBuyPlans}
-        />
-      )}
+      {step === 0 && <Step0Start name={profile.name} onNameChange={(name) => patch({ name })} />}
       {step === 1 && (
         <Step1Training
           trainingDays={profile.trainingDays}

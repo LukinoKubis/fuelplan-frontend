@@ -1,30 +1,24 @@
 import { useEffect, useState } from 'react'
 import { Drawer } from '../shared/Drawer'
 import { deleteHistory, getHistoryList, restoreHistory } from '../../api/client'
-import { useAccount } from '../../state/AccountContext'
 import { usePlan } from '../../state/PlanContext'
 import type { HistoryEntryMeta } from '../../types/plan'
 
 export function HistoryDrawer({ onClose }: { onClose: () => void }) {
-  const { code } = useAccount()
   const { setPlan } = usePlan()
   const [entries, setEntries] = useState<HistoryEntryMeta[] | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
 
   useEffect(() => {
-    if (!code) {
-      setEntries([])
-      return
-    }
-    getHistoryList(code)
+    getHistoryList()
       .then((res) => setEntries(res.history))
       .catch(() => setEntries([]))
-  }, [code])
+  }, [])
 
   async function handleRestore(id: number) {
     setBusyId(id)
     try {
-      const res = await restoreHistory(code, id)
+      const res = await restoreHistory(id)
       setPlan(res.plan, res.userName, res.planName)
       onClose()
     } catch {
@@ -37,7 +31,7 @@ export function HistoryDrawer({ onClose }: { onClose: () => void }) {
   async function handleDelete(id: number) {
     setBusyId(id)
     try {
-      await deleteHistory(code, id)
+      await deleteHistory(id)
       setEntries((prev) => (prev ? prev.filter((e) => e.id !== id) : prev))
     } catch {
       /* non-critical */

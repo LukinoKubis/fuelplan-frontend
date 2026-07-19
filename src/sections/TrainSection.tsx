@@ -12,6 +12,7 @@ import { buildWorkoutRequest } from '../api/generateWorkoutPrompt'
 import { buildStretchRequest } from '../api/generateStretchPrompt'
 import { useGeneration } from '../api/useGeneration'
 import { validateStretchPlan, validateWorkoutPlan } from '../api/validateGenerated'
+import { createCheckout } from '../api/client'
 import type { Exercise } from '../types/exercise'
 import type { WorkoutPlan } from '../types/workout'
 
@@ -34,8 +35,13 @@ export function TrainSection() {
   const stretchGen = useGeneration<unknown>()
   const exercises = useLibrary()
 
-  function handleBuyPlans() {
-    window.location.href = 'https://fuelplan.fit/?buy=1'
+  async function handleBuyPlans() {
+    try {
+      const { url } = await createCheckout('10')
+      window.location.href = url
+    } catch {
+      /* non-critical — user can retry from Settings' Top Up Plans */
+    }
   }
 
   async function handleGenerateWorkout() {
