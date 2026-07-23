@@ -29,13 +29,14 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
-    id: 'stats',
-    label: 'Stats',
+    id: 'prep',
+    label: 'Prep',
     icon: (
       <svg {...ICON_PROPS}>
-        <line x1="18" y1="20" x2="18" y2="10" />
-        <line x1="12" y1="20" x2="12" y2="4" />
-        <line x1="6" y1="20" x2="6" y2="14" />
+        <rect x="6" y="3" width="12" height="18" rx="2" />
+        <line x1="9" y1="8" x2="15" y2="8" />
+        <line x1="9" y1="12" x2="15" y2="12" />
+        <line x1="9" y1="16" x2="13" y2="16" />
       </svg>
     ),
   },

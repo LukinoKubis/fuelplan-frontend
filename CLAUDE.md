@@ -29,7 +29,7 @@ Netlify.
   concern, plain `useReducer`/`useState`, no external state library)
 - `src/components/` — `layout/` (nav, header), `survey/`, `fuel/`, `shared/`
 - `src/sections/` — one top-level component per bottom-nav tab (Fuel,
-  Stats, Haul)
+  Prep, Haul)
 - `src/api/` — typed fetch wrappers per backend endpoint + localStorage helper
 - `src/types/` — shared TS types
 - `src/styles/global.css` — Tailwind import + design tokens (`:root`/`.light`
@@ -116,8 +116,12 @@ netlify functions:list
   `src/styles/global.css` — wired into Tailwind via `@theme` so utilities
   like `bg-bg`, `text-muted`, `border-border` respond to the theme class.
   Always use these tokens, never hardcoded colours.
-- Bottom nav has 3 sections: **Fuel, Stats, Haul** — plain React state
-  in `App.tsx` (`section`), no router
+- Bottom nav has 3 sections: **Fuel, Prep, Haul** — plain React state
+  in `App.tsx` (`section`), no router. Prep (`sections/PrepSection.tsx`)
+  is the Sunday batch-cook checklist (`plan.prep_tasks`) — it used to be a
+  collapsible card inline in Fuel, pulled out into its own tab on
+  2026-07-23 when Stats (workout-streak tracking, tied to the since-removed
+  Train feature) was removed and left the tab slot empty.
 - No global mutable `planData` — plan state lives in `PlanContext`
 - Escaping is not a concern the way it was in the old innerHTML-based
   renderer — JSX escapes by default. Don't use `dangerouslySetInnerHTML` on

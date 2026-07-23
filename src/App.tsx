@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Header } from './components/layout/Header'
 import { BottomNav } from './components/layout/BottomNav'
 import { FuelSection } from './sections/FuelSection'
-import { StatsSection } from './sections/StatsSection'
+import { PrepSection } from './sections/PrepSection'
 import { HaulSection } from './sections/HaulSection'
 import { SettingsDrawer } from './components/shared/SettingsDrawer'
 import { HistoryDrawer } from './components/fuel/HistoryDrawer'
@@ -20,7 +20,7 @@ const STORAGE_KEY = 'fp_activeSection'
 function getInitialSection(): Section {
   try {
     const saved = localStorage.getItem(STORAGE_KEY) as Section | null
-    if (saved === 'fuel' || saved === 'stats' || saved === 'haul') return saved
+    if (saved === 'fuel' || saved === 'prep' || saved === 'haul') return saved
   } catch {
     /* ignore */
   }
@@ -109,7 +109,7 @@ function App() {
       >
         <ErrorBoundary key={section}>
           {section === 'fuel' && <FuelSection />}
-          {section === 'stats' && <StatsSection />}
+          {section === 'prep' && <PrepSection />}
           {section === 'haul' && <HaulSection />}
         </ErrorBoundary>
       </main>

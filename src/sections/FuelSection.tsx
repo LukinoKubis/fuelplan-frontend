@@ -6,7 +6,6 @@ import { SurveyFlow } from '../components/survey/SurveyFlow'
 import { DayTabs } from '../components/fuel/DayTabs'
 import { DayMacroBar } from '../components/fuel/DayMacroBar'
 import { MealCard } from '../components/fuel/MealCard'
-import { PrepPanel } from '../components/fuel/PrepPanel'
 import { PlanNameModal } from '../components/fuel/PlanNameModal'
 import { HistoryDrawer } from '../components/fuel/HistoryDrawer'
 
@@ -68,8 +67,6 @@ export function FuelSection() {
 
       <DayTabs days={plan.days.map((d) => d.day)} active={activeDay} onChange={setActiveDay} />
       <DayMacroBar day={day} target={plan.summary} />
-
-      <PrepPanel tasks={plan.prep_tasks} />
 
       <div className="space-y-3 p-4">
         {day.meals.map((meal, i) => (
