@@ -17,7 +17,11 @@ export function FuelSection({ onJumpToTrain }: { onJumpToTrain?: () => void } = 
   const { plan, favorites, eaten, toggleEaten, toggleFavorite, surveyMode, setSurveyMode } = usePlan()
   const { remaining } = useAccount()
   const { trainProfile, workoutPlan } = useTrain()
-  const [activeDay, setActiveDay] = useState(0)
+  const [activeDay, setActiveDay] = useState(() => {
+    const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' })
+    const todayIndex = plan?.days.findIndex((d) => d.day === todayName) ?? -1
+    return todayIndex >= 0 ? todayIndex : 0
+  })
   const [showNameModal, setShowNameModal] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
 
