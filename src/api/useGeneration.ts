@@ -43,7 +43,7 @@ export function useGeneration<T>() {
         result = JSON.parse(cleaned)
       } catch {
         const match = cleaned.match(/\{[\s\S]*\}/)
-        if (!match) throw new Error('Claude returned invalid JSON. Please try again.')
+        if (!match) throw new Error('Got invalid JSON back. Please try again.')
         result = JSON.parse(match[0])
       }
 

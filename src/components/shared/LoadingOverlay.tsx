@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
 const LOADER_STEPS = [
-  { headline: 'Building your plan', sub: 'Claude is reading your profile…', progress: 8 },
+  { headline: 'Building your plan', sub: 'Reading your profile…', progress: 8 },
   { headline: 'Crunching macros', sub: 'Calculating your daily targets…', progress: 28 },
   { headline: 'Designing your meals', sub: "Crafting 7 days of food you'll love…", progress: 52 },
   { headline: 'Writing prep steps', sub: 'Planning your Sunday batch cook…', progress: 74 },

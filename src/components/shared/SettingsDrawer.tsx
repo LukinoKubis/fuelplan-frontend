@@ -89,7 +89,7 @@ export function SettingsDrawer({ onClose, onGenerateNew, onOpenHistory, onOpenIn
         <SettingsAction
           icon={<BoltIcon />}
           title="Generate New Plan"
-          desc="Keep your profile, get a fresh 7-day plan from Claude"
+          desc="Keep your profile, get a fresh 7-day plan"
           onClick={() => {
             onClose()
             onGenerateNew()

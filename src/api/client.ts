@@ -16,7 +16,7 @@ async function parseErrorResponse(response: Response): Promise<never> {
   const status = response.status
   if (status === 402) throw new ApiError(status, err.message || 'You have no plans left — top up in Settings.')
   if (status === 401) throw new ApiError(status, err.error || 'Please log in again.')
-  if (status === 503) throw new ApiError(status, 'Claude API is temporarily overloaded. Please wait a moment and try again.')
+  if (status === 503) throw new ApiError(status, err.error || 'The AI service is temporarily overloaded. Please wait a moment and try again.')
   if (status === 504) throw new ApiError(status, 'Request timed out. Please try again — it usually works on the second attempt.')
   if (status === 502) throw new ApiError(status, 'Server error — please try again.')
   throw new ApiError(status, err.error || `API error ${status}`)

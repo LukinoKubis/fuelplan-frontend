@@ -25,7 +25,7 @@ export function validateWorkoutPlan(raw: unknown): WorkoutPlan {
   // template that it's cheap to just handle rather than reject.
   const daysRaw = Array.isArray(raw) ? raw : raw && typeof raw === 'object' ? (raw as Record<string, unknown>).days : undefined
   if (!Array.isArray(daysRaw)) {
-    throw new Error('Claude returned an unexpected workout format. Please try again.')
+    throw new Error('Got an unexpected workout format back. Please try again.')
   }
   const days: DayWorkout[] = daysRaw
     .map((d): DayWorkout | null => {
@@ -37,7 +37,7 @@ export function validateWorkoutPlan(raw: unknown): WorkoutPlan {
     })
     .filter((d): d is DayWorkout => !!d)
 
-  if (!days.length) throw new Error('Claude returned an empty workout plan. Please try again.')
+  if (!days.length) throw new Error('Got an empty workout plan back. Please try again.')
   return { days }
 }
 
@@ -58,11 +58,11 @@ function asStretchRoutine(raw: unknown, time: 'am' | 'pm', fallbackDuration: num
 
 export function validateStretchPlan(raw: unknown, fallbackAm: number, fallbackPm: number): StretchPlan {
   if (!raw || typeof raw !== 'object') {
-    throw new Error('Claude returned an unexpected stretch routine format. Please try again.')
+    throw new Error('Got an unexpected stretch routine format back. Please try again.')
   }
   const r = raw as Record<string, unknown>
   const am = asStretchRoutine(r.am, 'am', fallbackAm)
   const pm = asStretchRoutine(r.pm, 'pm', fallbackPm)
-  if (!am && !pm) throw new Error('Claude returned an empty stretch plan. Please try again.')
+  if (!am && !pm) throw new Error('Got an empty stretch plan back. Please try again.')
   return { am, pm }
 }

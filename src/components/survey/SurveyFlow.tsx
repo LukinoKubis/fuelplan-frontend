@@ -81,7 +81,7 @@ export function SurveyFlow({ onGenerated, onBuyPlans, canCancel, onCancel }: Sur
         plan = JSON.parse(cleaned)
       } catch {
         const match = cleaned.match(/\{[\s\S]*\}/)
-        if (!match) throw new Error('Claude returned invalid JSON. Please try again.')
+        if (!match) throw new Error('Got invalid JSON back. Please try again.')
         plan = JSON.parse(match[0])
       }
 
