@@ -1,15 +1,14 @@
 # Fuelplan — Frontend
 
-> **Rebuild in progress (branch `rebuild/v2`)**: this file describes the
-> Vite+React+TS+Tailwind rewrite. See `PLAN.md` in the project root for the
-> phase-by-phase plan and current status — Phases 0-3 are merged to `main`
-> and live as of this rebuild.
+> Vite+React+TS+Tailwind rewrite — all phases (0-6) merged to `main` and
+> live. See `PLAN.md` in the project root for phase history. Auth was
+> migrated from activation codes to real email/password accounts on
+> 2026-07-19 — see "Auth" section below.
 
 ## What this is
 AI-powered training + nutrition PWA — Fuel (meal plans), Train (exercise
-library + AI-assembled workouts), Reset (stretching, Phase 4, not built
-yet). Vite + React 19 + TypeScript + Tailwind CSS v4. Ships as a static
-build to Netlify.
+library + AI-assembled workouts + stretching). Vite + React 19 + TypeScript
++ Tailwind CSS v4. Ships as a static build to Netlify.
 
 ## File structure
 - `index.html` — Vite entry HTML (head meta, font links, icon links)
@@ -150,13 +149,20 @@ already-verified implementation — not worth touching to dedupe against).
   - Auto-deploys on push to main branch of this repo
   - Deploy takes ~20-30 seconds
 - Backend: Railway at https://fuelplan-backend-production.up.railway.app
-  - Auto-deploys on push to main of the backend repo
+  - *Should* auto-deploy on push to main of the backend repo, but the GitHub
+    webhook has failed silently before — after pushing, verify with
+    `railway status --json` (deployed commitHash) and force with
+    `railway up --ci -m "description"` if it's stale. See the backend's
+    `CLAUDE.md` for the full explanation.
   - Deploy takes ~30-60 seconds (has a cold start delay after inactivity)
-  - Backend repo is at: C:\Users\lukas\Desktop\fuelplan\fuelplan-backend
+  - Backend repo is at: C:\Users\lukas\desktop\projects\fuelplan\claude-backend
+    (local folder name `claude-backend`; GitHub repo/package.json name is
+    `fuelplan-backend` — historical mismatch, not a typo)
 - Database: Upstash Redis (REST API)
   - Credentials live in Railway environment variables — never in code
-  - Redis keys: fuelplan:codes (Set), fuelplan:remaining:CODE (String),
-    fuelplan:history:CODE (JSON array)
+  - Redis keys are now user-account-based (fuelplan:user:*, fuelplan:remaining:USERID,
+    fuelplan:history:USERID, etc.) — see the backend's `CLAUDE.md` for the
+    full key structure post-auth-migration
   - Cannot be queried directly — only through backend endpoints
 
 ## Netlify CLI — use this instead of the dashboard
@@ -164,8 +170,9 @@ already-verified implementation — not worth touching to dedupe against).
 # Check deploy status and site info
 netlify status
 
-# View recent deploy log
-netlify deploys
+# View recent deploy log — `netlify deploys` is NOT a real command (verified
+# 2026-07-23, returns "not a netlify command"); use the API method instead:
+netlify api listSiteDeploys --data '{"site_id":"7d52ad38-3f73-486b-974c-a39249839f1a"}'
 
 # Manually trigger a deploy (usually not needed — git push does it)
 netlify deploy --prod
@@ -183,16 +190,21 @@ netlify functions:list
 
 ## How to verify a deploy worked
 1. Wait 30 seconds after git push
-2. Run: netlify deploys — check the top entry shows "Published"
+2. Run the `listSiteDeploys` API command above — check the top entry's
+   `state` is `"ready"` and `commit_ref` matches your latest commit
+   (Netlify's auto-deploy has been reliable so far, unlike Railway's — but
+   worth the same quick confirmation habit)
 3. Open https://fuelplan.fit in the browser (hard refresh: Ctrl+Shift+R)
 4. Open DevTools → Console — check for JS errors
 5. Open DevTools → Network — check API calls return 200 not 4xx/5xx
 6. If old version still shows, service worker is caching it:
    DevTools → Application → Service Workers → Unregister → hard refresh
 
-## How to test features that need an activation code
-- Check active code: in DevTools console type localStorage.getItem('fp_apikey')
-- 403 = invalid code, 402 = no credits, 503 = Claude overloaded, 504 = timeout
+## How to test features that need an authed session
+- Check current session: in DevTools console type `localStorage.getItem('fp_token')`
+- 401 = not authenticated / expired token (log in again), 402 = no credits
+  left, 503 = AI service overloaded (or `JWT_SECRET` unset on the backend —
+  check the error message, don't assume), 504 = timeout
 
 ## How to debug backend issues
 - Test backend is alive: curl https://fuelplan-backend-production.up.railway.app/
@@ -219,25 +231,43 @@ netlify functions:list
   user-facing dynamic strings.
 
 ## localStorage keys (fp_ prefix)
-- fp_apikey         — activation code (uppercased)
-- fp_plan           — last generated plan JSON
-- fp_planName       — user-set plan name
-- fp_userName       — user's name
-- fp_profile        — survey profile object
-- fp_shopChecks     — shopping list checkbox states
-- fp_activeSection  — last active bottom nav section
-- fp_activeDay      — last active day tab id
-- fp_emailLinked    — '1' if email recovery has been set up
-- fp_onboarded      — '1' if user has seen onboarding
-- fp_installed      — '1' if user installed as PWA
+- fp_token              — JWT auth token (90-day expiry), sent as `Authorization: Bearer` on every API call
+- fp_userEmail          — signed-in user's email, shown in Settings
+- fp_plan               — last generated plan JSON
+- fp_planName           — user-set plan name
+- fp_userName           — user's name
+- fp_profile            — survey profile object
+- fp_shopChecks         — shopping list checkbox states
+- fp_activeSection      — last active bottom nav section
+- fp_activeDay          — last active day tab id
+- fp_eaten              — meal-eaten toggle state
+- fp_activePlanSavedAt  — timestamp of the currently loaded plan
+- fp_theme              — dark/light toggle
+- fp_onboarded          — '1' if user has seen onboarding
+- fp_installed          — '1' if user installed as PWA
 
-## Email recovery
-- Endpoint: POST /api/account/link-email — { activationCode, email } → links code to hashed email
-- Endpoint: POST /api/account/recover — { email } → sends activation code to email if linked
-- Emails are never stored plaintext; SHA-256 hashed before storing in Redis
-- Requires RESEND_API_KEY and FROM_EMAIL env vars on Railway
-- Frontend: shows "Save code to email" row in survey step 1 when code ≥ 6 chars
-- fp_emailLinked = '1' collapses the save row after successful link
+## Auth
+Real accounts (email/password), not activation codes — that model was
+retired outright in the 2026-07-19 migration, nothing was auto-converted.
+- `AuthScreen.tsx` (`components/shared/`) gates the entire app in `App.tsx`
+  before any section renders — login/signup/forgot-password/reset-password,
+  replacing the old onboarding-era "enter your code" step entirely.
+- `AccountContext` holds the JWT + email (not a code string).
+  `login()`/`signup()`/`logout()` call the backend auth endpoints and
+  persist the session to `fp_token`/`fp_userEmail`.
+- `api/client.ts`: every endpoint that used to send `activationCode` in the
+  body now relies on the `Authorization: Bearer` header instead
+  (`authHeaders()` reads `fp_token`).
+- `App.tsx` handles `/?payment=success` (refreshes credit balance, shows a
+  dismissible confirmation banner); `AuthScreen` handles `/?reset=TOKEN`
+  (password reset deep link from the forgot-password email).
+- To manually test as a signed-in user: sign up through the UI, or check
+  `localStorage.getItem('fp_token')` is set. A 401 from any endpoint means
+  the token is missing/expired — log in again.
+- Don't reintroduce "Claude" by name in user-facing copy (error toasts,
+  loading messages, settings descriptions) — a branding fix removed it
+  everywhere on 2026-07-23; keep new copy provider-agnostic ("AI",
+  "the server", etc).
 
 ## Deploy process
 npm run build          — catch TS/build errors locally first

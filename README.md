@@ -3,10 +3,10 @@
 AI-powered training + nutrition PWA. Vite + React 19 + TypeScript +
 Tailwind CSS v4, shipped as a static build to Netlify.
 
-> Currently mid-rebuild on branch `rebuild/v2` (see the root project's
-> `PLAN.md` and `VISION.md`). This README describes the new stack — `main`
-> has already been merged to it as of the Phase 0/1/2 rebuild (scaffold +
-> Fuel section + exercise library).
+> Rebuild complete — all phases (0-6) merged to `main` and live at
+> fuelplan.fit. See the root project's `PLAN.md` and `VISION.md` for phase
+> history. Auth is email/password + JWT (migrated from activation codes on
+> 2026-07-19) — see `CLAUDE.md`'s "Auth" section.
 
 ## Setup
 
