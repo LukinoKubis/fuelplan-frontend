@@ -1,1 +1,1 @@
-export type Section = 'fuel' | 'train' | 'stats' | 'haul'
+export type Section = 'fuel' | 'stats' | 'haul'

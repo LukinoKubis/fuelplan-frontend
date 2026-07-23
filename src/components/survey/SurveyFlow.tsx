@@ -7,7 +7,6 @@ import { LoadingOverlay } from '../shared/LoadingOverlay'
 import { ErrorPanel } from '../shared/ErrorPanel'
 import { usePlan } from '../../state/PlanContext'
 import { useAccount } from '../../state/AccountContext'
-import { useTrain } from '../../state/TrainContext'
 import { ApiError, postClaude } from '../../api/client'
 import { buildGenerateRequest } from '../../api/generatePrompt'
 import { resolveProfileMacros } from '../../api/macros'
@@ -25,12 +24,6 @@ interface SurveyFlowProps {
 export function SurveyFlow({ onGenerated, onBuyPlans, canCancel, onCancel }: SurveyFlowProps) {
   const { profile, setProfile, setPlan, favorites } = usePlan()
   const { refreshRemaining } = useAccount()
-  // trainProfile.weekPlan always has a value (defaultTrainProfile() seeds an
-  // alternating schedule) even for users who've never opened Train — only
-  // treat it as real intent once they've actually generated a workout plan,
-  // otherwise every meal plan would silently pick up an arbitrary default
-  // training schedule nobody chose.
-  const { trainProfile, workoutPlan } = useTrain()
 
   const [step, setStep] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -66,7 +59,6 @@ export function SurveyFlow({ onGenerated, onBuyPlans, canCancel, onCancel }: Sur
         profile,
         macros,
         favorites,
-        weekPlan: workoutPlan ? trainProfile.weekPlan : undefined,
       })
       const response = await postClaude({ model, max_tokens, system, messages }, abortRef.current.signal)
       const rawText = response.content[0]?.text || ''

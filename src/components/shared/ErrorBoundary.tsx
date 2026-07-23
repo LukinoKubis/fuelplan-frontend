@@ -12,9 +12,7 @@ interface State {
 // Defense-in-depth: if a render crashes (e.g. an AI-generated response that
 // doesn't quite match the expected shape slips past validation), show a
 // recovery screen instead of an uncaught exception unmounting the whole
-// app and leaving a blank/grey screen — which is exactly what happened in
-// production before this existed (malformed workout-plan JSON crashed
-// WorkoutDayView's render with no boundary to catch it).
+// app and leaving a blank/grey screen.
 export class ErrorBoundary extends Component<Props, State> {
   state: State = { error: null }
 

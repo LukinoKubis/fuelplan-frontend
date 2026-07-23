@@ -29,19 +29,6 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
-    id: 'train',
-    label: 'Train',
-    icon: (
-      <svg {...ICON_PROPS}>
-        <rect x="2" y="9" width="3" height="6" rx="1" />
-        <rect x="19" y="9" width="3" height="6" rx="1" />
-        <rect x="5" y="7" width="3" height="10" rx="1" />
-        <rect x="16" y="7" width="3" height="10" rx="1" />
-        <line x1="8" y1="12" x2="16" y2="12" />
-      </svg>
-    ),
-  },
-  {
     id: 'stats',
     label: 'Stats',
     icon: (

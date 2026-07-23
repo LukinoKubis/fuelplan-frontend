@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Header } from './components/layout/Header'
 import { BottomNav } from './components/layout/BottomNav'
 import { FuelSection } from './sections/FuelSection'
-import { TrainSection } from './sections/TrainSection'
 import { StatsSection } from './sections/StatsSection'
 import { HaulSection } from './sections/HaulSection'
 import { SettingsDrawer } from './components/shared/SettingsDrawer'
@@ -21,7 +20,7 @@ const STORAGE_KEY = 'fp_activeSection'
 function getInitialSection(): Section {
   try {
     const saved = localStorage.getItem(STORAGE_KEY) as Section | null
-    if (saved === 'fuel' || saved === 'train' || saved === 'stats' || saved === 'haul') return saved
+    if (saved === 'fuel' || saved === 'stats' || saved === 'haul') return saved
   } catch {
     /* ignore */
   }
@@ -109,8 +108,7 @@ function App() {
         }
       >
         <ErrorBoundary key={section}>
-          {section === 'fuel' && <FuelSection onJumpToTrain={() => handleChange('train')} />}
-          {section === 'train' && <TrainSection />}
+          {section === 'fuel' && <FuelSection />}
           {section === 'stats' && <StatsSection />}
           {section === 'haul' && <HaulSection />}
         </ErrorBoundary>

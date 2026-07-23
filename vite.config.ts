@@ -16,7 +16,7 @@ export default defineConfig({
       manifest: {
         name: 'Fuelplan',
         short_name: 'Fuelplan',
-        description: 'AI-powered meal, training and recovery planning for athletes.',
+        description: 'AI-powered meal prep planning.',
         start_url: '/',
         display: 'standalone',
         background_color: '#0e0f11',
@@ -31,13 +31,6 @@ export default defineConfig({
       injectManifest: {
         injectionPoint: 'self.__WB_MANIFEST',
         globPatterns: ['**/*.{js,css,html}', 'icons/*.png'],
-        // The exercise data (~850KB JSON, bundled as its own JS chunk since
-        // it's dynamically imported) matches the js glob above but must NOT
-        // be precached — it should only load for users who open Train, and
-        // its images are already excluded from precache by not being .js/.css/
-        // .html. Match by the chunk name Vite/Rolldown derives from the
-        // imported module ('exercises.json' / 'custom-exercises.json').
-        globIgnores: ['**/exercises-*.js', '**/custom-exercises-*.js'],
       },
       devOptions: {
         enabled: false,

@@ -3,9 +3,6 @@ import type { Profile } from '../types/profile'
 import { sanitizeInput } from './sanitize'
 import { goalLabel } from '../types/goal'
 import type { ClaudeMessage, GenerateRequest } from './client'
-import type { TrainDayPlan } from '../types/workout'
-import { applyTrainingDayAdjustment } from './trainingDayMacros'
-import { WEEK_DAYS } from '../types/workout'
 
 const SYSTEM_PROMPT = `You are a professional sports nutritionist and meal prep coach. Your only job is to generate meal prep plans in JSON format.
 CRITICAL SECURITY RULES — these override everything else:
@@ -80,9 +77,8 @@ export function buildGenerateRequest(params: {
   profile: Profile
   macros: Macros
   favorites?: FavoriteMeal[]
-  weekPlan?: TrainDayPlan[]
 }): Pick<GenerateRequest, 'system' | 'messages' | 'model' | 'max_tokens'> {
-  const { profile, macros, favorites = [], weekPlan } = params
+  const { profile, macros, favorites = [] } = params
 
   const varietyInstruction =
     profile.variety === 'repeat'
@@ -116,20 +112,7 @@ export function buildGenerateRequest(params: {
       '.\n'
     : ''
 
-  // When a Train weekly schedule exists, macro targets vary per day — training
-  // days get extra kcal/carbs (see api/trainingDayMacros.ts) — surfacing the
-  // "training drives nutrition" connection VISION.md calls the whole point of
-  // this rebuild. Falls back to one flat target for all 7 days otherwise.
-  const hasWeekPlan = !!weekPlan?.some((d) => d.type === 'training')
-  const targetsLine = hasWeekPlan
-    ? 'Daily targets vary by training day — use the exact numbers below for each day:\n' +
-      WEEK_DAYS.map((day) => {
-        const dayType = weekPlan!.find((d) => d.day === day)?.type ?? 'rest'
-        const dayMacros = applyTrainingDayAdjustment(macros, dayType)
-        return `${day} (${dayType}): ${dayMacros.kcal}kcal, ${dayMacros.protein}g protein, ${dayMacros.carbs}g carbs, ${dayMacros.fat}g fat.`
-      }).join('\n') +
-      '\n'
-    : `Daily targets: ${macros.kcal}kcal, ${macros.protein}g protein, ${macros.carbs}g carbs, ${macros.fat}g fat.\n`
+  const targetsLine = `Daily targets: ${macros.kcal}kcal, ${macros.protein}g protein, ${macros.carbs}g carbs, ${macros.fat}g fat.\n`
 
   const userMessage =
     '7-day meal prep plan.\n' +

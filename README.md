@@ -1,12 +1,14 @@
 # Fuelplan Frontend
 
-AI-powered training + nutrition PWA. Vite + React 19 + TypeScript +
+AI-powered meal prep PWA. Vite + React 19 + TypeScript +
 Tailwind CSS v4, shipped as a static build to Netlify.
 
 > Rebuild complete — all phases (0-6) merged to `main` and live at
 > fuelplan.fit. See the root project's `PLAN.md` and `VISION.md` for phase
 > history. Auth is email/password + JWT (migrated from activation codes on
-> 2026-07-19) — see `CLAUDE.md`'s "Auth" section.
+> 2026-07-19) — see `CLAUDE.md`'s "Auth" section. The Train feature
+> (workout builder, stretch routines, exercise library) was removed on
+> 2026-07-23 — see `CLAUDE.md`'s note at the top.
 
 ## Setup
 
@@ -36,8 +38,8 @@ npm run preview   # serve the production build locally
   Zustand, or similar. Three contexts: Theme, Plan, Account.
 - **PWA**: `vite-plugin-pwa` (`injectManifest` strategy) — precaching via
   Workbox, hand-written service worker logic in `src/sw.ts` (push
-  notifications, network-first API calls, cache-first exercise images).
-- **No router** — the 4-tab bottom nav is plain `useState`, not URL-based.
+  notifications, network-first API calls).
+- **No router** — the 3-tab bottom nav is plain `useState`, not URL-based.
 
 ## Project structure
 
@@ -48,42 +50,21 @@ src/
   state/                   — ThemeContext, PlanContext, AccountContext
   api/                     — typed backend client, localStorage helper,
                               prompt builder, macro math, sanitization
-  types/                   — shared TS types (plan, profile, exercise, goal)
+  types/                   — shared TS types (plan, profile, goal)
   components/
     layout/                — BottomNav, Header
     survey/                — 4-step onboarding survey (+ steps/*)
-    fuel/                  — day carousel, meal cards, prep panel, shopping
+    fuel/                  — day switcher, meal cards, prep panel, shopping
                               list, plan history, plan-naming modal
-    exercises/              — exercise library list/detail/filters
-    train/                  — training-week setup, workout day view
     shared/                — Drawer, Modal, Toast-ish overlays, Settings,
                               Onboarding/install flow
   sections/                — one component per bottom-nav tab
-  data/exercises/           — exercise library data (see below)
 public/
   icons/                    — PWA icons (192/512 + maskable)
-  exercises/                — vendored exercise images (~27MB, WebP)
-scripts/
-  import-exercises.mjs      — one-off exercise data import (not part of the app)
 ```
 
-Full detail (design tokens, exercise library internals, deploy mechanics)
-is in `CLAUDE.md` — written for AI-agent-driven development, but useful for
-a human onboarding too.
-
-## Exercise library
-
-`src/data/exercises/exercises.json` is auto-generated — **never hand-edit
-it**. To refresh from upstream (`yuhonas/free-exercise-db`):
-
-```bash
-git clone https://github.com/yuhonas/free-exercise-db /tmp/free-exercise-db
-node scripts/import-exercises.mjs --source /tmp/free-exercise-db
-```
-
-Hand-authored sport-specific exercises (hockey/golf/football/tennis) live
-in `src/data/exercises/custom-exercises.json` — that file is never touched
-by the import script.
+Full detail (design tokens, deploy mechanics) is in `CLAUDE.md` — written
+for AI-agent-driven development, but useful for a human onboarding too.
 
 ## Deploying
 
